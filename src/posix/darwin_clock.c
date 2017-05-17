@@ -27,7 +27,7 @@ clock_gettime(clockid_t id, struct timespec * ts)
         case CLOCK_MONOTONIC:
             host_get_clock_service(mach_host_self(), id, &cc);
             r = clock_get_time(cc, &mts);
-            mach_port_deallocate(mach_task_self(), &cc);
+            mach_port_deallocate(mach_task_self(), cc);
             ts->tv_sec  = mts.tv_sec;
             ts->tv_nsec = mts.tv_nsec;
             break;

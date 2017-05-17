@@ -5,6 +5,8 @@
  */
 
 #include <math.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 #include "error.h"
 #include "utils/oht.h"
@@ -90,8 +92,8 @@ static void
 print_ht(oht* h)
 {
     printf("stats:\n"
-           "  %lu buckets; %lu nodes, fill %4.2f density %4.2f (exp %4.2f)\n"
-           "  max-nodes-per-bucket %u, splits %u, probe-overflows %lu overflow-srchs %lu\n",
+           "  %" PRIu64 " buckets; %" PRIu64 " nodes, fill %4.2f density %4.2f (exp %4.2f)\n"
+           "  max-nodes-per-bucket %u, splits %u, probe-overflows %" PRIu64 " overflow-srchs %" PRIu64 "\n",
            h->n, h->nodes, fill(h), density(h), exp_density(h),
            h->maxn, h->splits, h->povf, h->fovf);
 }

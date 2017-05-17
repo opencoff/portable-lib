@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "error.h"
 #include "utils/utils.h"
@@ -77,9 +78,11 @@ print_results(const char* prefix, result* rr, Bloom* b)
     const char* suff1 = rr->fn > 0 ? "** ERR FALSE NEG**" : "";
 
     printf("    -- %s %s test results --\n"
-           "    False neg: %lu %s\n"
-           "    False pos: %lu %5.4f %s\n",
-           b->name, prefix, rr->fn, suff1, rr->fp, fprate, suff0);
+           "    False neg: %" PRIu64 " %s\n"
+           "    False pos: %" PRIu64 " %5.4f %s\n",
+           b->name, prefix,
+           rr->fn, suff1,
+           rr->fp, fprate, suff0);
 }
 
 

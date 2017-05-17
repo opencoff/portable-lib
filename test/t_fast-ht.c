@@ -5,6 +5,8 @@
  */
 
 #include <math.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 #include "error.h"
 #include "utils/utils.h"
@@ -94,7 +96,7 @@ static void
 print_ht(ht* h)
 {
     printf("stats:\n"
-           "  %lu buckets; %lu nodes, fill %4.2f density %4.2f (exp %4.2f)\n"
+           "  %" PRIu64 " buckets; %" PRIu64 " nodes, fill %4.2f density %4.2f (exp %4.2f)\n"
            "  max-bags %u, max-nodes-per-bucket %u, splits %u\n",
            h->n, h->nodes, fill(h), density(h), exp_density(h),
            h->bagmax, h->maxn, h->splits);

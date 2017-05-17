@@ -76,6 +76,12 @@
 #include "bloom_internal.h"
 
 
+/* Darwin doesn't have fdatasync() prototype */
+#ifdef __Darwin__
+extern int fdatasync(int);
+#endif // __Darwin__
+
+
 /*
  * 64 bytes of header. See description above.
  */

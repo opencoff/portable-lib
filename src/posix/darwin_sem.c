@@ -39,6 +39,8 @@ sem_init(sem_t* s, int pshared, unsigned int val)
 {
     int r;
 
+    (void)pshared;  // unused
+
     s->s_val = val;
     pthread_mutex_init(&s->s_lock, 0);
     if (0 != (r = pthread_cond_init(&s->s_cond, 0)))

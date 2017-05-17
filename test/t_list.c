@@ -56,7 +56,7 @@ static void
 dump_list(elem_head* head, const char* msg)
 {
     elem* n;
-    printf(msg);
+    printf("%s", msg);
 
     DL_FOREACH(head, n, link)
     {

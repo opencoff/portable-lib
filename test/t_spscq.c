@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
+#include <inttypes.h>
 #include <sys/time.h>
 #include "utils/utils.h"
 #include "fast/spsc_bounded_queue.h"
@@ -161,7 +162,7 @@ mt_test()
 #define dd(x)   ((double)(x))
     uint64_t n  = cx.ploop;
 
-    printf("%lu items; %5.2f cyc/producer %5.2f cyc/consumer\n", n,
+    printf("%" PRIu64 " items; %5.2f cyc/producer %5.2f cyc/consumer\n", n,
             dd(cx.pcyc)/dd(n), dd(cx.ccyc) / dd(n));
 
     memset(&cx, 0x5a, sizeof cx);

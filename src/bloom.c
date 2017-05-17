@@ -121,6 +121,7 @@
 #include <string.h>
 #include <assert.h>
 #include <limits.h>
+#include <inttypes.h>
 
 #include "utils/utils.h"
 #include "utils/bloom.h"
@@ -446,8 +447,8 @@ standard_bloom_desc(bloom* b, char *buf, size_t bsiz)
     char sz[128];
     humanize_size(sz, sizeof sz, bytes);
 
-    snprintf(buf, bsiz, "standard-bloom: FP-prob: %5.4f: %lu partitions x %lu slots/partition = %s; "
-                        "%lu elem (est fill ratio %5.4f)", b->e,
+    snprintf(buf, bsiz, "standard-bloom: FP-prob: %5.4f: %" PRIu64 " partitions x %" PRIu64 " slots/partition = %s; "
+                        "%" PRIu64 " elem (est fill ratio %5.4f)", b->e,
                         b->k, b->m, sz, b->size, bloom_fill_ratio_est(b));
 
     return buf;
@@ -462,8 +463,8 @@ counting_bloom_desc(bloom* b, char *buf, size_t bsiz)
     char sz[128];
     humanize_size(sz, sizeof sz, bytes);
 
-    snprintf(buf, bsiz, "counting-bloom: FP-prob: %5.4f: %lu partitions x %lu slots/partition = %s; "
-                        "%lu elem (est fill ratio %5.4f)", b->e,
+    snprintf(buf, bsiz, "counting-bloom: FP-prob: %5.4f: %" PRIu64 " partitions x %" PRIu64 " slots/partition = %s; "
+                        "%" PRIu64 " elem (est fill ratio %5.4f)", b->e,
                         b->k, b->m, sz, b->size, bloom_fill_ratio_est(b));
 
     return buf;
@@ -580,7 +581,7 @@ scalable_bloom_desc(scalable_bloom* sb, char *buf, size_t bsiz)
         size /= 8;
 
         humanize_size(sz, sizeof sz, size);
-        asprintf(&p, "    [%02u] FP-prob: %5.4f: %lu partitions x %lu slots/partition [%s]: %lu elem (fill %6.3f)\n",
+        asprintf(&p, "    [%02u] FP-prob: %5.4f: %" PRIu64 " partitions x %" PRIu64 " slots/partition [%s]: %" PRIu64 " elem (fill %6.3f)\n",
                 i, f->e, f->k, f->m, sz, f->size, bloom_fill_ratio_est(f));
 
         n = strcopy(buf, bsiz, p); free(p);

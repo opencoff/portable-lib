@@ -22,6 +22,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <inttypes.h>
+
 #include "utils/strutils.h"
 #include "utils/utils.h"
 
@@ -47,7 +49,7 @@ main(int argc, char* argv[])
         uint64_t pow2 = round_up_pow2<uint64_t>(ul);
         bool     isok = is_aligned<uint32_t>(ul, 8192);
 
-        printf("%s: <%saligned> @+8k: %u, @-8k: %u, @pow2: %lu\n",
+        printf("%s: <%saligned> @+8k: %u, @-8k: %u, @pow2: %" PRIu64 "\n",
                 str, isok ? "" : "not ", up, dn, pow2);
     }
     return 0;

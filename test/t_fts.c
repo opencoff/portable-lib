@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <error.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include "fts.h"
 
@@ -23,7 +24,7 @@ main(int argc, char* argv[])
 
     while ((ent = fts_read(fts)))
     {
-        printf("%s %s %s [%#lx] %s\n",
+        printf("%s %s %s [%#" PRIx64 "] %s\n",
                 ent->fts_accpath, ent->fts_path, ent->fts_name,
                 ent->fts_number, ent->fts_info & (FTS_D|FTS_DP) ? "DIR" : "FILE");
     }

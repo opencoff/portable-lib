@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <pthread.h>
+#include <inttypes.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -321,12 +322,12 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
         ctx* cx = pp[i];
         double speed = _d(cx->cycles) / _d(cx->nelem);
         
-        printf("#    P %d on cpu %d, %lu elem %5.2f cy/enq\n", i, cx->cpu, cx->nelem, speed);
+        printf("#    P %d on cpu %d, %zd elem %5.2f cy/enq\n", i, cx->cpu, cx->nelem, speed);
         tot += cx->nelem;
         cyc += cx->cycles;
         delctx(cx);
     }
-    printf("#    P Total %lu elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
+    printf("#    P Total %zd elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
 
     latv    all;
     VECT_INIT(&all, tot);
@@ -337,21 +338,21 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
         ctx* cx = cc[i];
         double speed = _d(cx->cycles) / _d(cx->nelem);
 
-        printf("#    C %d on cpu %d, %lu elem %5.2f cy/deq\n", i, cx->cpu, VECT_SIZE(&cx->lv), speed);
+        printf("#    C %d on cpu %d, %zd elem %5.2f cy/deq\n", i, cx->cpu, VECT_SIZE(&cx->lv), speed);
         VECT_APPEND_VECT(&all, &cx->lv);
         tot += VECT_SIZE(&cx->lv);
         cyc += cx->cycles;
         delctx(cx);
     }
 
-    printf("#    C Total %lu elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
+    printf("#    C Total %zd elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
 
     assert(tot == VECT_SIZE(&all));
     VECT_SORT(&all, ts_cmp);
 
     lat* v;
     VECT_FOR_EACH(&all, v) {
-        printf("%lu\n", v->v);
+        printf("%" PRIu64 "\n", v->v);
     }
 
     VECT_FINI(&all);
@@ -464,7 +465,7 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
     for (i = 0; i < np; ++i) {
         ctx* cx = pp[i];
         
-        printf("#    P %d on cpu %d, %lu elem\n", i, cx->cpu, cx->nelem);
+        printf("#    P %d on cpu %d, %zd elem\n", i, cx->cpu, cx->nelem);
         tot += cx->nelem;
 
         VECT_APPEND_VECT(&allp, &cx->pseq);
@@ -475,7 +476,7 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
     assert(tot > 1);
     assert(tot == VECT_SIZE(&allp));
 
-    printf("#    Total %lu elem\n", tot);
+    printf("#    Total %zd elem\n", tot);
 
     VECT_INIT(&allc, tot);
 
@@ -483,7 +484,7 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
         ctx* cx = cc[i];
         lat* ll;
 
-        printf("#    C %d on cpu %d, %lu elem\n", i, cx->cpu, VECT_SIZE(&cx->lv));
+        printf("#    C %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_SIZE(&cx->lv));
         
         // Only use the seq# we got off the queue
         VECT_FOR_EACH(&cx->lv, ll) {
@@ -505,7 +506,7 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
         uint64_t cs = VECT_ELEM(&allc, j);
 
         if (ps != cs)
-            error(0, 0, "Missing seq# %lu (saw %lu)\n", ps, cs);
+            error(0, 0, "Missing seq# %" PRIu64 " (saw %" PRIu64 ")\n", ps, cs);
     }
 
     VECT_FINI(&allp);

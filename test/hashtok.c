@@ -9,6 +9,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "getopt_long.h"
 #include "error.h"
@@ -143,7 +144,7 @@ finddups(HV* hv)
         H* h1 = &VECT_ELEM(hv, i+1);
 
         if (h0->h == h1->h) {
-            if (h0->x == h1->x) error(1, 0, "** Duplicate keys: %s (%lu)", h0->s, h0->x);
+            if (h0->x == h1->x) error(1, 0, "** Duplicate keys: %s (%" PRIu64 ")", h0->s, h0->x);
             error(0, 0, "# Dup %d [%s, %s]", h0->h, h0->s, h1->s);
             ++dups;
         }
@@ -238,7 +239,7 @@ main(int argc, char* argv[])
 
     H* h;
     VECT_FOR_EACH(&hv, h) {
-        printf("%lu, %lu, %s\n", h->h, h->x, h->s);
+        printf("%" PRIu64 ", %" PRIu64 ", %s\n", h->h, h->x, h->s);
     }
 
     VECT_FINI(&hv);

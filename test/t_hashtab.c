@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <sys/time.h>
 
 #include "getopt_long.h"
@@ -361,7 +362,7 @@ show_timing(const char* prefix, uint64_t n, perf* p)
     double speed = _d(n) / _d(p->t);
 
 
-    fprintf(stderr, "%s %lu records; %7.3f cy/op %6.2f M ops/sec\n",
+    fprintf(stderr, "%s %" PRIu64 " records; %7.3f cy/op %6.2f M ops/sec\n",
             prefix, n, ave, speed);
 }
 

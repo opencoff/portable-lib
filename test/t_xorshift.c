@@ -1,5 +1,5 @@
 /*
- * Xorshift+ PRNG Tests
+ * Xorshift+ PRNG Simple Tests
  *
  * (c) 2015 Sudhi Herle
  * License: GPLv2
@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "error.h"
 #include "utils/xorshift-rand.h"
@@ -40,7 +41,7 @@ main(int argc, char* argv[])
         uint64_t v1 = xs128plus_u64(&xp);
         uint64_t v2 = xs1024star_u64(&xss);
 
-        printf("%lu %lu %lu\n", v0, v1, v2);
+        printf("%" PRIu64 " %" PRIu64 " %" PRIu64 "\n", v0, v1, v2);
     }
 
     return 0;
