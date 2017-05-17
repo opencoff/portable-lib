@@ -1,0 +1,64 @@
+==========================================
+Some notes on sockets and non-blocking I/O
+==========================================
+
+:Author: Sudhi Herle
+:Date: Sept 14, 2005
+:Revision: $Revision: 1.1.1.1 $
+
+Non-blocking mode and Socket API
+================================
+Explain here how each system call behaves in non-blocking mode.
+Try to elaborate on Win32 vs. Linux vs. BSD systems.
+
+Non-blocking ``accept()`` sockets
+=================================
+An ``accept()`` socket in non blocking mode will return "ready-to-read" when polled
+via ``select(2)`` or ``epoll(2)``. The newly accepted socket will be immediately
+ready for write. On Linux, this translates to:
+
+    - A listen-fd that is ready for ``accept(2)`` will return EPOLLIN
+    - A freshly accepted fd will return EPOLLOUT
+
+Race Conditions
+===============
+Socket API and TCP has some race conditions that programmers must be
+aware of. These happen in single threaded or multi-threaded
+programs.
+
+The ``accept()`` race
+---------------------
+A listening TCP socket will accept connections from a client via the
+``accept()`` system call. Whenever the TCP 3 way handshake is complete, the
+OS marks the listening socket as "ready for read". Thus, if a client does
+not wish to block indefinitely on ``accept()`` can do something as follows::
+
+    fd_set rfd;
+
+    FD_ZERO(&rfd);
+    FD_SET(fd, &rfd);
+    int n = select(maxfd+1, &rfd, 0, 0, &tv);
+
+    if (n > 0)
+    {
+        int peer = accept(fd, &sa, &salen);
+
+        return peer;
+    }
+
+This scheme while simple has a subtle race. In the time it takes for the
+application to complete ``select()`` successfully and enter the ``if()``
+statement, the client may have closed the TCP connection. In which case, the
+descriptor ``fd`` no longer has any client to return. Thus, it will block
+indefinitely.
+
+Solution
+~~~~~~~~
+The way around the problem above is to explicitly mark the socket as
+non-blocking.
+
+In the above example, if ``fd`` suddenly does not have a client to accept
+(after succeeding in the ``select()``), the ``accept()`` will return
+``EWOULDBLOCK`` -- thus, avoiding the race.
+
+.. vim: filetype=rst:tw=76:sw=4:ts=4:notextmode:

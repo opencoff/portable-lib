@@ -1,0 +1,157 @@
+# Sample GNUmakefile that uses per-platform obj/exe dirs and shows you how
+# to build multiple targets from a single "rule".
+#
+# Needs the portablelib.mk and tools.mk fragments
+#
+# Author: Sudhi Herle <sw at herle.net>
+#
+# Placed in the public domain
+#
+
+uname   := $(shell uname -s)
+
+# Platform specification
+ifneq ($(OS),)
+	WIN32 	 := 1
+	platform := win32
+	exe		 := .exe
+
+
+	# Cygwin is detestable
+	ifneq ($(findstring CYGWIN,$(uname)),)
+		cyg-cross  := mingw32-
+		cygwin := 1
+	endif
+
+else
+	platform := $(uname)
+endif
+
+
+SRCDIR    = .
+PORTABLE := ../portable-utils
+
+
+# List your target here
+target =
+
+# List your objects here
+# The variable for naming the object must be of the form
+#  TARGETNAME_objs
+#  where TARGETNAME is the name of your target.
+#
+# If you have multiple targets, then you must have a separate
+# definition of the objects for that target.
+#
+# e.g.:
+#
+# CASE 1:  Single targets.
+#    target = foobar
+#    foobar_objs = foo.o bar.o frungulate.o
+#
+# CASE 2:  Multiple targets
+# 	 target = baz gaz
+# 	 baz_objs = baz.o foo.o
+# 	 gaz_objs = gaz.o bar.o
+#---
+
+# TARGETNAME_objs =
+
+
+# PORTABLE must be defined above..
+include $(PORTABLE)/portablelib.mk
+
+
+# 
+ifeq ($(exe),)
+	realtargets = $(target)
+else
+	realtargets = $(addsuffix $(exe),$(target))
+endif
+
+# Template for linking.
+# $(1)         => link target
+# $(1)_objs    => Name of the variable corresponding to this target
+# $($(1)_objs) => Value of the above variable
+#
+# We need to add an extra '$' in the rules since it gets evaluated _twice_
+# -- once at rule definition time and once when it is used.
+#
+# At the same time, we collect _all_ the objects (for all targets).
+# We use $(all-objs) for generating dependencies.
+define link_template
+all-objs += $$($(1)_objs)
+
+$(1)$(exe): $$($(1)_objs) $(libs)
+endef
+
+deps		= $(all-objs:.o=.d) $(libobjs:.o=.d)
+libs		= utils.a
+
+
+
+.PHONY: all clean realclean
+
+
+all: $(realtargets)
+
+# This defines a rule dynamically for linking each target
+# named in $(target). It uses the template 'link_template'
+# to do the dirty work.
+$(foreach prog,$(target),$(eval $(call link_template,$(prog))))
+
+
+
+# Single rule for all linkable targets
+# XXX We implicitly use the C++ linker even if there are no C++ objs.
+#     I don't know how to pick the C++ linker only if there are C++ objs.
+$(realtargets):
+	$(LD) $(LDFLAGS) $^ -o $@ $($(platform)_ldlibs)
+
+
+# Common library used by _all_ objects
+$(libs): $(libobjs)
+	$(AR) $(ARFLAGS) $@ $?
+
+
+phony:
+
+clean:
+	rm -f *.o *.exe $(realtargets) $(libs)
+
+realclean: clean
+	rm -f *.d
+
+depclean: phony
+	rm -f $(deps)
+
+depend dep deps: $(deps)
+
+date    := $(shell date)
+ifneq ($(wildcard version),)
+
+version := $(shell cat version)
+
+version.h: version
+	echo "#define VERSION_STR \"$(version)\"" > $@
+	echo "#define BUILD_DATE  \"$(date)\"" >> $@
+
+else
+version := "*-none-*"
+
+version.h: phony
+	echo "#define VERSION_STR \"$(version)\"" > $@
+	echo "#define BUILD_DATE  \"$(date)\"" >> $@
+endif
+
+echo:
+	@echo "VPATH=$(VPATH)"
+	@echo "CFLAGS=$(CFLAGS)"
+
+
+# compiler rules -- include this last
+include $(PORTABLE)/tools.mk
+
+#  DON'T DELETE BELOW!
+# vim: filetype=make
+# vim: tw=4:sw=4:noexpandtab:smartindent:tw=76:

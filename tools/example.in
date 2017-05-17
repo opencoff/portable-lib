@@ -1,0 +1,32 @@
+
+%description "Example program to show mkgetopt.pl"
+
+%description "This is a hello world program that is too long in the number of words it uses."
+%description "And this sentence has entirely too many words with continuations and such."
+
+%usage_call get_prog_usage
+
+%prefix fulcrum
+
+# format:
+# long-opt short-opt  struct-member-name type default-value description
+
+jobs      j   njobs       int   1          "Use 'J' jobs simultaneously"
+use-proxy -   use_proxy_p bool false       "Use the default proxy server"
+foreground f  fg_p        bool false       "Run in the foreground"
+debug      -  debug       string "syslog"  "Send debug messages to 'D'"
+
+log-level  l  loglevel    int?  0          "Default log level"
+
+little-endian L     little_end_cb   callback    "Use little-endian format"
+big-endian    B     big_end_cb      callback    "Use big-endian format"
+
+# Place holder
+-          -  somevar     int
+-          -  somevar2    bool  true
+-          -  somevar3    string
+-          -  somevar4    float     4.1458132e-3
+
+
+disk-size  d  disksize    size      1M     "Disk size of the emulated rootfs"
+delay      D  delay       double    3.32   "Wait for D millisecs"

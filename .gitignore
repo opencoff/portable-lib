@@ -31,3 +31,8 @@
 # Debug files
 *.dSYM/
 *.su
+*_objs_dbg
+*_objs_dbg/*
+*_objs_rel
+*_objs_rel/*
+.*.sw?

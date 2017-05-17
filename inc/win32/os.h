@@ -1,0 +1,143 @@
+/* vim: expandtab:tw=68:ts=4:sw=4:
+ *
+ * win32/os.h - OS specific stuff for Win32 systems
+ *
+ * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
+ *
+ * Licensing Terms: GPLv2 
+ *
+ * If you need a commercial license for this work, please contact
+ * the author.
+ *
+ * This software does not come with any express or implied
+ * warranty; it is provided "as is". No claim  is made to its
+ * suitability for any purpose.
+ *
+ * Creation date: Mon Sep 12 11:27:00 2005
+ */
+
+#ifndef __WIN32_OS_H_1126542420__
+#define __WIN32_OS_H_1126542420__ 1
+
+    /* Provide C linkage for symbols declared here .. */
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
+#include <winsock2.h>
+#include <errno.h>
+
+/* Error codes */
+enum
+{
+      ERR_INTR = WSAEINTR
+    , ERR_BADF = WSAEBADF
+    , ERR_ACCES = WSAEACCES
+    , ERR_FAULT = WSAEFAULT
+    , ERR_INVAL = WSAEINVAL
+    , ERR_MFILE = WSAEMFILE
+    , ERR_WOULDBLOCK = WSAEWOULDBLOCK
+    , ERR_INPROGRESS = WSAEINPROGRESS
+    , ERR_ALREADY = WSAEALREADY
+    , ERR_NOTSOCK = WSAENOTSOCK
+    , ERR_DESTADDRREQ = WSAEDESTADDRREQ
+    , ERR_MSGSIZE = WSAEMSGSIZE
+    , ERR_PROTOTYPE = WSAEPROTOTYPE
+    , ERR_NOPROTOOPT = WSAENOPROTOOPT
+    , ERR_PROTONOSUPPORT = WSAEPROTONOSUPPORT
+    , ERR_SOCKTNOSUPPORT = WSAESOCKTNOSUPPORT
+    , ERR_OPNOTSUPP = WSAEOPNOTSUPP
+    , ERR_PFNOSUPPORT = WSAEPFNOSUPPORT
+    , ERR_AFNOSUPPORT = WSAEAFNOSUPPORT
+    , ERR_ADDRINUSE = WSAEADDRINUSE
+    , ERR_ADDRNOTAVAIL = WSAEADDRNOTAVAIL
+    , ERR_NETDOWN = WSAENETDOWN
+    , ERR_NETUNREACH = WSAENETUNREACH
+    , ERR_NETRESET = WSAENETRESET
+    , ERR_CONNABORTED = WSAECONNABORTED
+    , ERR_CONNRESET = WSAECONNRESET
+    , ERR_NOBUFS = WSAENOBUFS
+    , ERR_ISCONN = WSAEISCONN
+    , ERR_NOTCONN = WSAENOTCONN
+    , ERR_SHUTDOWN = WSAESHUTDOWN
+    , ERR_TOOMANYREFS = WSAETOOMANYREFS
+    , ERR_TIMEDOUT = WSAETIMEDOUT
+    , ERR_CONNREFUSED = WSAECONNREFUSED
+    , ERR_LOOP = WSAELOOP
+    , ERR_NAMETOOLONG = WSAENAMETOOLONG
+    , ERR_HOSTDOWN = WSAEHOSTDOWN
+    , ERR_HOSTUNREACH = WSAEHOSTUNREACH
+    , ERR_NOTEMPTY = WSAENOTEMPTY
+    , ERR_PROCLIM = WSAEPROCLIM
+    , ERR_USERS = WSAEUSERS
+    , ERR_DQUOT = WSAEDQUOT
+    , ERR_STALE = WSAESTALE
+    , ERR_REMOTE = WSAEREMOTE
+    , ERR_DISCON = WSAEDISCON
+    , ERR_SYSNOTREADY = WSASYSNOTREADY
+    , ERR_VERNOTSUPPORTED = WSAVERNOTSUPPORTED
+    , ERR_NOTINITIALISED = WSANOTINITIALISED
+    , ERR_HOST_NOT_FOUND = WSAHOST_NOT_FOUND
+    , ERR_TRY_AGAIN = WSATRY_AGAIN
+    , ERR_NO_RECOVERY = WSANO_RECOVERY
+    , ERR_NO_DATA = WSANO_DATA
+
+    /* WinSock2 specific error codes */
+    , ERR_NOMORE = WSAENOMORE
+    , ERR_CANCELLED = WSAECANCELLED
+    , ERR_INVALIDPROCTABLE = WSAEINVALIDPROCTABLE
+    , ERR_INVALIDPROVIDER = WSAEINVALIDPROVIDER
+    , ERR_PROVIDERFAILEDINIT = WSAEPROVIDERFAILEDINIT
+    , ERR_SYSCALLFAILURE = WSASYSCALLFAILURE
+    , ERR_SERVICE_NOT_FOUND = WSASERVICE_NOT_FOUND
+    , ERR_TYPE_NOT_FOUND = WSATYPE_NOT_FOUND
+    , ERR_NO_MORE = WSA_E_NO_MORE
+    , ERR_E_CANCELLED = WSA_E_CANCELLED
+    , ERR_REFUSED = WSAEREFUSED
+
+    /* Posix errors */
+    , ERR_PERM = EPERM
+    , ERR_NOENT = ENOENT
+    , ERR_SRCH = ESRCH
+    , ERR_IO = EIO
+    , ERR_NXIO = ENXIO
+    , ERR_2BIG = E2BIG
+    , ERR_NOEXEC = ENOEXEC
+    , ERR_CHILD = ECHILD
+    , ERR_AGAIN = EAGAIN
+    , ERR_NOMEM = ENOMEM
+    , ERR_BUSY = EBUSY
+    , ERR_EXIST = EEXIST
+    , ERR_XDEV = EXDEV
+    , ERR_NODEV = ENODEV
+    , ERR_NOTDIR = ENOTDIR
+    , ERR_ISDIR = EISDIR
+    , ERR_NFILE = ENFILE
+    , ERR_NOTTY = ENOTTY
+    , ERR_FBIG = EFBIG
+    , ERR_NOSPC = ENOSPC
+    , ERR_SPIPE = ESPIPE
+    , ERR_ROFS = EROFS
+    , ERR_MLINK = EMLINK
+    , ERR_PIPE = EPIPE
+    , ERR_DOM = EDOM
+    , ERR_RANGE = ERANGE
+
+    , ERR_DEADLK = EDEADLK
+    , ERR_NOLCK = ENOLCK
+    , ERR_NOSYS = ENOSYS
+};
+
+
+/**
+ * Map a win32 error to a POSIX errno - where applicable.
+ */
+extern int map_win32_error(unsigned long winerr);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif /* ! __WIN32_OS_H_1126542420__ */
+
+/* EOF */

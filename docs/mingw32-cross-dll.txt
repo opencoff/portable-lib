@@ -1,0 +1,39 @@
+===============================================
+Using Mingw32 Cross compiler to make Win32 DLLS
+===============================================
+
+.. $Id: mingw32-cross-dll.txt,v 1.1 2005/11/22 21:42:07 sherle Exp $
+
+From the site `http://ricardo.ecn.wfu.edu/~cottrell/cross-gtk/`, I
+found this recipe for making Win32 DLLs in a cross compiled
+environment.::
+
+    CC = mingw32-gcc -Wall -O2 -mms-bitfields
+    AS = mingw32-as
+    DLLWRAP = mingw32-dllwrap
+
+    CFLAGS = -I.
+
+    PROBSRC = bdtr.c btdtr.c chdtr.c drand.c expx2.c fdtr.c gamma.c gdtr.c \
+        igam.c igami.c incbet.c incbi.c mtherr.c nbdtr.c ndtr.c ndtri.c \
+            pdtr.c stdtr.c unity.c polevl.c const.c
+
+    PROBOBJ = $(PROBSRC:.c=.o)
+
+    %.o: %.c
+        $(CC) -c $(CFLAGS) $<
+
+    DLLWRAP_FLAGS = --as=$(AS) --export-all --driver-name $(CC) -s
+
+    # build libprob.dll, and create a corresponding import library
+    # libprob.a
+
+    libprob.dll: $(PROBOBJ)
+        $(DLLWRAP) $(DLLWRAP_FLAGS) \
+        --output-def libprob.def --implib libprob.a \
+        -o $@ $^
+
+If you have other libraries to be added at the end, just tack it
+after the ``$^``.
+
+.. vim: filetype=rst:sw=4:ts=4:tw=76:noexpandtab:notextmode:

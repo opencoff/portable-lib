@@ -1,0 +1,17 @@
+
+%description "Multithreaded disk eraser"
+
+%usage_call opt_usage
+%noversion
+
+# format:
+# long-opt short-opt  struct-member-name type default-value description
+
+cpu       c   ncpu        int    0         "Run on 'N' CPUs"
+pause     p   iopause     int    0         "Pause for 'P' milliseconds after every I/O"
+iosize    z   iosize      size   256M      "Do I/O in 'Z' sized chunks"
+wipes     w   wipes       int    1         "Wipe each block 'W' times"
+verbose   v   verbose     bool   false     "Show verbose progress messages"
+
+
+# vim: tw=128:columns=128:expandtab:sw=4:ts=4:
