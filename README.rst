@@ -1,2 +1,149 @@
-# portable-utils
-Portable C, C++ code for hash tables, string-search, string utilities, hash functions, arc4random
+====================================
+Portable Library of Useful C/++ code
+====================================
+
+This directory contains code for many common and esoteric use cases.
+Almost all code is written in Portable C (and some C++).  It is
+tested to work on at least Linux 3.x/4.x, Darwin (Sierra, macOS),
+OpenBSD 5.9/6.0/6.1.
+
+What is available in this code base?
+====================================
+
+- Collection of Bloom filters (Simple, Counting, Scalable). The
+  Bloom filters can be serialized to disk and read back in mmmap
+  mode. The serialized code has a strong checksum (SHA256) to
+  maintain the integrity of the data when read back.
+
+- Multiple implementation of hash tables:
+
+    * Scalable hash table with policy based memory management and
+      locking. It resizes dynamically based on load-factor. It has
+      several iterators to safely traverse the hash-table. This uses
+      a doubly linked list for collision resolution.
+
+    * A very fast hash table that uses "linked list of arrays" for
+      collision resolution. Each such array has 8 elements. The idea
+      is to exploit cache-locality when searching for nodes in the
+      same bucket. If the collision chain is more than 8 elements, a
+      new array of 8 elements is allocated.
+
+    * Open addressed hash table that uses a power-of-2 sized bucket
+      list and a smaller power-of-2 sized bucket list for overflow.
+
+- Templates in "C" -- these leverage the CPP to create type-safe
+  containers for several common data structures:
+
+    * list.h: Single and Doubly linked list (BSD inspired)
+    * vect.h: Dynamically growable type-safe "vector" (array)
+    * queue.h: Fast, bounded FIFO that uses separate read/write
+      pointers
+    * stack.h: Fast, bounded LIFO
+    * syncq.h: Type-safe, bounded producer/consumer queue. Uses
+      POSIX semaphores and mutexes.
+    * spsc_bounded_queue.h: A single-producer, single-consumer,
+      lock-free queue. Requires C11 (stdatomic.h).
+    * mpmc_bounded_queue.h: Templatized version of Dmitry Vyukov's
+      excellent lock-free algorithm for bounded multiple-producer,
+      multiple-consumer queue. Requires C11 (stdatomic.h).
+
+- Portable, inline little-endian/big-endian encode and decode functions
+  for fixed-width ordinal types (u16, u32, u64).
+
+- Arbitrary sized bitset (uses largest available wordsize on the
+  platform).
+
+- A collection of hash functions for use in hash-tables and other
+  places:
+
+    * FNV
+    * Jenkins
+    * Murmur3
+    * Siphash24
+    * Metrohash
+    * xxHash
+    * Superfast hash
+    * Hsieh hash
+    * Cityhash
+    
+  These are benchmarked in the test code *test/t_hashbench.c*.
+
+  If you are going to pick a hash function for use in a hash-table,
+  pick one that uses a seed as initializer. This ensures that your
+  hash table doesn't suffer DoS attacks.
+
+- A portable, thread-safe, user-space implementation of OpenBSD's
+  arc4random(3). This uses per-thread random state to ensure that
+  there are no locks when reading random data.
+
+- Implementation of Xorshift+ PRNG: XS64-Star, XS128+, XS1024-Star
+
+- Wrappers for process and thread affinity -- provides
+  implementations for Linux, OpenBSD and Darwin.
+
+- gstring.h: Growable C strings library
+
+- C++ Code:
+
+    * strmatch.h: Templatized implementations of Rabin-Karp,
+      Knuth-Morris-Pratt, Boyer-Moore string match algorithms.
+
+    * mmap.h: Memory mapped file reader and writer; implementations
+      for POSIX and Win32 platforms exist.
+
+
+- Specialized memory management:
+
+    * arena.h: Object lifetime based memory allocator. Allocate
+      frequently in different sizes, free the entire allocator once.
+    
+    * mempool.h: Very fast, fixed size memory allocator; approx 60
+      CPU cycles per alloc and free - as measured on OS X 2.8 GHz
+      Core i7 (Late 2013).
+
+- OSX Darwin specific code:
+
+    * POSIX un-named semaphores
+    * C11 stdatomic.h
+    * Replacement for <time.h> to include POSIX clock_gettime().
+      This is implemented using Mach APIs.
+      
+
+- Portable routines to read password (POSIX and Win32)
+
+- POSIX compatible wrappers for Win32: mmap(2), pthreads(7),
+  opendir(3), inet_pton(3) and inet_ntop(3), sys/time.h
+
+- Portable implementation of getopt_long(3).
+
+What is in the *tools/* subdirectory?
+=====================================
+The *tools* subdirectory has several utility scripts that are useful
+for the productive programmer.
+
+mkgetopt.py
+-----------
+This script generates command line parsing routines from a human readable
+specification file. For more details, see *tools/mkgetopt-manual.rst*.
+A fully usable example specification is in *tools/example.in*.
+
+depweed.py
+----------
+Parse ``gcc -MM -MD`` output and validate each of the dependents. If
+any dependent file doesn't exist, then the owning ``.d`` file is
+deleted. This script is most-useful in a GNUmakefile: instead of
+``include $(depfiles)``, one can now do::
+
+    include $(shell depweed.py $(depfiles))
+
+This makes sure that invalid dependencies never make it into the
+Makefile.
+
+What is ``Sample-GNUmakefile``
+==============================
+
+Guide to Source Code
+====================
+
+
+
