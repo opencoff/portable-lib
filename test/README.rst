@@ -6,6 +6,30 @@ This directory contains test harness to validate many parts of the
 code in the ``src/`` directory. I am documenting the most important
 code in this directory.
 
+Building & Running the test suite
+=================================
+On most POSIX systems (including Darwin)::
+
+    gmake -j5
+
+The object files and exe will be in a OS and build specific directory; the
+directory name will have the following convention::
+
+    ./${UNAME}_obj_${TYPE}/
+
+where ``${TYPE}`` is ``dbg``. This build will have optimizations
+disabled and will be built with full debug symbols (``-g``).
+
+If you wish to build for benchmarking and full optimization, try::
+
+    gmake OPTIMIZE=1 -j5
+
+Now, the output will be in the the directory with the suffix ``rel``
+(``${TYPE}`` is ``rel``).
+
+
+The files should build cleanly on Linux, Darwin and OpenBSD.
+
 Guide to Tests
 ==============
 t_mpmcq.c
@@ -73,15 +97,17 @@ mt-dd-wipe.c
 
 Tools
 =====
-``confparse.py``  Parse a python-ish config file (white-space
-                  indented).
-``createlog.py``  Create multiple "log files" for testing file
-                  rotation logic.
-``genhash.py``    Scan one or more paths provided on the command
-                  line and find all "#define" tokens; write them to
-                  stdout. Good example of using python's
-                  multi-processing module to scan files in
-                  parallel.
-``latplot.py``    Plot the GET/PUT latencies of the MPMC Queue test
-                  harness and show a nice graph. Requires
-                  'matplotlib' and 'numpy'.
+``confparse.py``
+    Parse a python-ish config file (white-space indented).
+
+``createlog.py``
+    Create multiple "log files" for testing file rotation logic.
+
+``genhash.py``
+    Scan one or more paths provided on the command line and find all
+    "#define" tokens; write them to stdout. Good example of using
+    python's multi-processing module to scan files in parallel.
+
+``latplot.py``
+    Plot the GET/PUT latencies of the MPMC Queue test harness and show
+    a nice graph. Requires 'matplotlib' and 'numpy'.
