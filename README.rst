@@ -13,20 +13,39 @@ What is available in this code base?
 - Collection of Bloom filters (Simple, Counting, Scalable). The
   Bloom filters can be serialized to disk and read back in mmmap
   mode. The serialized code has a strong checksum (SHA256) to
-  maintain the integrity of the data when read back.
+  maintain the integrity of the data when read back. Performance on
+  a late 2013 13" MBP (Core i7, 2.8GHz):
+
+    * Standard Bloom filter: 227 cyc/add, 201 cyc/search
+    * Counting Bloom filter: 220 cyc/add, 205 cyc/search
+    * Scalable Bloom filter: 224 cyc/add, 206 cyc/search
+
+  All the tests were done with false-positive rate of 0.005.
 
 - Multiple implementation of hash tables:
 
     * Scalable hash table with policy based memory management and
       locking. It resizes dynamically based on load-factor. It has
       several iterators to safely traverse the hash-table. This uses
-      a doubly linked list for collision resolution.
+      a doubly linked list for collision resolution. Performance on a
+      late 2013 MBP (Core i7, 2.8GHz):
+
+        - Insert: 611 cyc/add,    4.5 M ops/sec
+        - Find:   422 cyc/search, 6.5 M ops/sec
+        - Remove: 591 cyc/del,    4.7 M ops/sec
 
     * A very fast hash table that uses "linked list of arrays" for
       collision resolution. Each such array has 8 elements. The idea
       is to exploit cache-locality when searching for nodes in the
       same bucket. If the collision chain is more than 8 elements, a
-      new array of 8 elements is allocated.
+      new array of 8 elements is allocated. Performance on a late
+      2013 MBP (Core i7, 2.8GHz):
+
+        - Add-empty:      251.5 cy/add      9.47 M/sec
+        - Find-existing:  53.2 cy/find     28.38 M/sec
+        - Find-non-exist: 53.3 cy/find     27.39 M/sec
+        - Del-existing:   53.6 cy/find     28.54 M/sec
+        - Del-non-exist:  30.2 cy/find     29.52 M/sec
 
     * Open addressed hash table that uses a power-of-2 sized bucket
       list and a smaller power-of-2 sized bucket list for overflow.
@@ -42,10 +61,14 @@ What is available in this code base?
     * syncq.h: Type-safe, bounded producer/consumer queue. Uses
       POSIX semaphores and mutexes.
     * spsc_bounded_queue.h: A single-producer, single-consumer,
-      lock-free queue. Requires C11 (stdatomic.h).
+      lock-free queue. Requires C11 (stdatomic.h). Performance on
+      late 2013 13" MBP (Core i7, 2.8GHz): ~55 cyc/producer,
+      ~ 40 cyc/consumer.
     * mpmc_bounded_queue.h: Templatized version of Dmitry Vyukov's
       excellent lock-free algorithm for bounded multiple-producer,
       multiple-consumer queue. Requires C11 (stdatomic.h).
+      Performance on late 2013 13" MBP (Core i7, 2.8GHz) with 4
+      Producers and 4 Consumers: 236 cyc/producer, 727 cyc/consumer.
 
 - Portable, inline little-endian/big-endian encode and decode functions
   for fixed-width ordinal types (u16, u32, u64).
@@ -65,7 +88,7 @@ What is available in this code base?
     * Superfast hash
     * Hsieh hash
     * Cityhash
-    
+
   These are benchmarked in the test code *test/t_hashbench.c*.
 
   If you are going to pick a hash function for use in a hash-table,
@@ -83,6 +106,9 @@ What is available in this code base?
 
 - gstring.h: Growable C strings library
 
+- zbuf.h: Buffered I/O interface to zlib.h; this enables callers to
+  safely call compress/uncompress using user output functions.
+
 - C++ Code:
 
     * strmatch.h: Templatized implementations of Rabin-Karp,
@@ -96,10 +122,12 @@ What is available in this code base?
 
     * arena.h: Object lifetime based memory allocator. Allocate
       frequently in different sizes, free the entire allocator once.
-    
-    * mempool.h: Very fast, fixed size memory allocator; approx 60
-      CPU cycles per alloc and free - as measured on OS X 2.8 GHz
-      Core i7 (Late 2013).
+
+    * mempool.h: Very fast, fixed size memory allocator; Performance
+      on a late 2013 MBP (Core i7, 2.8GHz) is:
+
+        - 55 cyc/alloc, 18M allocs/sec
+        - 55 cyc/free,  18M frees/sec
 
 - OSX Darwin specific code:
 
@@ -107,7 +135,7 @@ What is available in this code base?
     * C11 stdatomic.h
     * Replacement for <time.h> to include POSIX clock_gettime().
       This is implemented using Mach APIs.
-      
+
 
 - Portable routines to read password (POSIX and Win32)
 
@@ -141,9 +169,6 @@ Makefile.
 
 What is ``Sample-GNUmakefile``
 ==============================
-
-Guide to Source Code
-====================
 
 
 
