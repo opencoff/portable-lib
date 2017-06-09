@@ -8,7 +8,7 @@
 
 #include <errno.h>
 #include <assert.h>
-#include "fast/base64.h"
+#include "utils/base64.h"
 
 const int CHARS_PER_LINE = 72;
 

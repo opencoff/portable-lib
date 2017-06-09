@@ -1,7 +1,7 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
  * work.c - simple round robin distribution of work across
- * n-threads.
+ * n-threads. Each worker has its own queue.
  *
  * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
  *
@@ -32,7 +32,6 @@ SYNCQ_TYPEDEF(workq, void*, WORK_MAX);
 
 struct worker_context
 {
-
     workq    q;
     
     workfunc_t    func;

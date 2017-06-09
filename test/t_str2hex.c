@@ -113,7 +113,7 @@ test0()
         if (0 != memcmp(hex, f->h, n)) error(1, 0, "%s: content mismatch", f->s);
     }
 
-    xs128plus_init(&f->xs, 0, 0);
+    xs128plus_init(&f->xs, 0);
     for (i = 0; i < 1000; i++) {
         randstr(f);
         n = str2hex(hex, sizeof hex, f->s);

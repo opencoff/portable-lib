@@ -64,7 +64,7 @@ perf_test()
 
     xs1024star xs;
 
-    xs1024star_init(&xs, 0, 0);
+    xs1024star_init(&xs, 0);
 
     for (i = 0; i < N; i++)
     {

@@ -48,15 +48,28 @@ struct xs1024star
 };
 typedef struct xs1024star xs1024star;
 
-
-
+/*
+ * Xorshift 64* PRNG
+ */
 void     xs64star_init(xs64star*, uint64_t seed);
 uint64_t xs64star_u64(xs64star*);
 
-void     xs128plus_init(xs128plus*, uint64_t *seed, size_t n);
+
+/*
+ * Xorshift 128+ PRNG.
+ *
+ * The state is initialized by calling Xorshift 64* above.
+ */
+void     xs128plus_init(xs128plus*, uint64_t seed);
 uint64_t xs128plus_u64(xs128plus*);
 
-void     xs1024star_init(xs1024star*, uint64_t *seed, size_t sn);
+
+/*
+ * Xorshift 1024* PRNG.
+ *
+ * The state is initialized by calling Xorshift 128+ above.
+ */
+void     xs1024star_init(xs1024star*, uint64_t seed);
 uint64_t xs1024star_u64(xs1024star*);
 
 #ifdef __cplusplus

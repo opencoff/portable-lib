@@ -33,8 +33,8 @@ main(int argc, char* argv[])
     xs1024star xss;
 
     xs64star_init(&xs, 0);
-    xs128plus_init(&xp, 0, 0);
-    xs1024star_init(&xss, 0, 0);
+    xs128plus_init(&xp, 0);
+    xs1024star_init(&xss, 0);
 
     for(i = 0; i < n; ++i) {
         uint64_t v0 = xs64star_u64(&xs);

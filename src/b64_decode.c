@@ -7,7 +7,7 @@
  */
 
 #include <errno.h>
-#include "fast/base64.h"
+#include "utils/base64.h"
 
 static int
 base64_decode_value(int value_in)

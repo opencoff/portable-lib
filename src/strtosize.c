@@ -1,7 +1,21 @@
-/*
- * Convert a string with a size suffix into a number.
+/* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * We only deal with units in multiples of 1024
+ * strtosize.c -- Convert a string with a size suffix into a number.
+ *
+ * Copyright (c) 2013-2015 Sudhi Herle <sw at herle.net>
+ *
+ * Licensing Terms: GPLv2 
+ *
+ * If you need a commercial license for this work, please contact
+ * the author.
+ *
+ * This software does not come with any express or implied
+ * warranty; it is provided "as is". No claim  is made to its
+ * suitability for any purpose.
+ *
+ * Notes
+ * =====
+ * - We only deal with units in multiples of 1024
  */
 
 #include <errno.h>

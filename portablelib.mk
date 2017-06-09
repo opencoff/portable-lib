@@ -74,7 +74,7 @@ OpenBSD_defobjs   = $(all_posix_objs) openbsd_cpu.o
 
 baseobjs = mempool.o \
            escape.o unescape.o mmap.o sysexception.o syserror.o \
-		   getopt_long.o error.o jenkins_hash.o  seahash.o \
+		   getopt_long.o error.o jenkins_hash.o  \
 		   bloom.o bloom_marshal.o str2hex.o frand.o fast-ht.o oht.o\
 		   b64_encode.o b64_decode.o humanize.o strtosize.o \
 		   cmutex.o arena.o memmgr.o hexdump.o \
@@ -82,8 +82,8 @@ baseobjs = mempool.o \
 		   readpass.o cmdline.o  \
 		   hsieh_hash.o fnvhash.o murmur3_hash.o cityhash.o \
 		   fasthash.o siphash24.o yorrike.o xorshift.o xxhash.o \
-		   metrohash64.o metrohash128.o \
-		   pack.o mkdirhier.o parse-ip.o strcopy.o \
+		   metrohash64.o metrohash128.o xoroshiro.o \
+		   mkdirhier.o parse-ip.o strcopy.o \
 		   gstring.o gstring_var.o freadline.o rotatefile.o \
 		   strsplit.o strsplit_csv.o strtrim.o \
 		   $($(platform)_objs)

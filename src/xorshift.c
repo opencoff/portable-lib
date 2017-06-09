@@ -17,11 +17,26 @@
  */
 
 #include <stdint.h>
-#include <string.h>
 #include <stdlib.h>
 
 #include "utils/utils.h"
 #include "utils/xorshift-rand.h"
+
+
+/*
+ * SplitMix64 PRNG
+ */
+static inline uint64_t
+splitmix64(uint64_t x)
+{
+    uint64_t z;
+
+    z = x += 0x9E3779B97F4A7C15;
+    z = (z ^ (z >> 30) * 0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27) * 0x94D049BB133111EB);
+
+    return z ^ (z >> 31);
+}
 
 
 /*
@@ -43,15 +58,14 @@ makeseed()
             z = (c * (j+1)) ^ (z * i);
         }
     }
-    return z;
+    return splitmix64(z);
 }
-
 
 
 void
 xs64star_init(xs64star* s, uint64_t seed)
 {
-    s->v = seed ? seed : makeseed();
+    s->v = seed ? splitmix64(seed) : makeseed();
 }
 
 
@@ -66,31 +80,14 @@ xs64star_u64(xs64star* s)
 
 
 void
-xs128plus_init(xs128plus* s, uint64_t *seed, size_t n)
+xs128plus_init(xs128plus* s, uint64_t seed)
 {
-    if (!seed) n = 0;
+    xs64star z;
 
-    switch (n) {
-        case 0:
-            s->v[0] = makeseed();
-            s->v[1] = makeseed();
-            break;
+    xs64star_init(&z, seed);
 
-        case 1:
-            s->v[0] = seed[0];
-            s->v[1] = makeseed();
-            break;
-
-        default:
-        case 2:
-            s->v[0] = seed[0];
-            s->v[1] = seed[1];
-            if (s->v[0] == 0 && s->v[1] == 0) {
-                s->v[0] = makeseed();
-                s->v[1] = makeseed();
-            }
-            break;
-    }
+    s->v[0] = xs64star_u64(&z);
+    s->v[1] = xs64star_u64(&z);
 }
 
 
@@ -109,25 +106,16 @@ xs128plus_u64(xs128plus* s)
 
 
 void
-xs1024star_init(xs1024star* s, uint64_t *seed, size_t sn)
+xs1024star_init(xs1024star* s, uint64_t seed)
 {
-    size_t i,
-           j = 0;
+    size_t i;
+    xs128plus z;
 
-    s->p = makeseed() & 15;
+    xs128plus_init(&z, seed);
 
-    if (seed) {
-        for (i=0; i < sn; ++i) {
-            s->v[j++] = seed[i] ? seed[i] : makeseed();
-
-            if (j == 16) return;
-        }
+    for (i=0; i < 16; ++i) {
+        s->v[i] = xs128plus_u64(&z);
     }
-    
-    while (j < 16) {
-        s->v[j++] = makeseed();
-    }
-
 }
 
 
@@ -135,12 +123,12 @@ uint64_t
 xs1024star_u64(xs1024star* s)
 {
     uint64_t s0 = s->v[s->p++];
+    uint64_t s1;
 
     s->p &= 15;
 
-    uint64_t s1 = s->v[s->p];
-
-    s1  ^= s1 << 31;
+    s1  = s->v[s->p];
+    s1 ^= s1 << 31;
     s->v[s->p] = s1 ^ s0 ^ (s1 >> 11) ^ (s0 >> 30);
 
     return s->v[s->p] * 1181783497276652981uLL;

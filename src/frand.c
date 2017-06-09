@@ -41,7 +41,7 @@ frand()
     static int init = 0;
 
     if (!init) {
-        xs128plus_init(&rs, 0, 0);
+        xs128plus_init(&rs, 0);
         init = 1;
     }
 

@@ -16,7 +16,6 @@
 #include "utils/siphash.h"
 #include "utils/xxhash.h"
 #include "utils/metrohash.h"
-#include "utils/seahash.h"
 
 static uint32_t
 city_hash32(const void* p, size_t len, uint32_t seed)
@@ -46,14 +45,6 @@ metro32(const void* p, size_t len, uint32_t seed)
     (void)seed;
     metrohash64_1(p, len, 0, u.b);
     return 0xffffffff & (u.v - (u.v >> 32));
-}
-
-static uint32_t
-seahash32(const void* p, size_t len, uint32_t seed)
-{
-    (void)seed;
-    uint64_t v = seahash_buf(p, len, 0);
-    return 0xffffffff & (v - (v >> 32));
 }
 
 struct hashfunc
@@ -88,7 +79,6 @@ static const hashfunc Hashes[] =
     , {"jenkins", jenkins_hash }
     , {"fasthash", fasthash32 }
     , {"siphash",  siphash24_32 }
-    , {"seahash",  seahash32 }
     , {"yorrike", yorrike_hash32 }
 };
 

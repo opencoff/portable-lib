@@ -9,7 +9,7 @@
 #include <errno.h>
 #include "error.h"
 
-#include "fast/base64.h"
+#include "utils/base64.h"
 
 static void
 test_run(uint8_t* inbuf, int inbufsz)

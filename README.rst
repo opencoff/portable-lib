@@ -2,7 +2,25 @@
 Portable Library of Useful C/++ code
 ====================================
 
-This directory contains code for many common and esoteric use cases.
+This directory contains code for many common use cases:
+
+- Bloom filters
+- Hash tables
+- Variety of good, fast Hash functions
+- Typesafe templates in "C"
+- Single-Producer, Single-Consumer lock-free bounded queue
+- Multi-Producer, Multi-Consumer lock-free bounded queue
+- Blocking, bounded, producer-consumer queue
+- Thread pool (job-handlers) with CPU affinity using pthreads and a
+  shared queue across the threads.
+- Round-robin work distribution across N threads using pthreads;
+  each thread has its own queue enabling work to be queued to
+  specific threads.
+- Fixed-size memory allocator ('mempools')
+- Growable, resizable string buffer
+- Collection of random number generators (ARC4Random-chacha20,
+  XORshift, Mersenne-Twister)
+
 Almost all code is written in Portable C (and some C++).  It is
 tested to work on at least Linux 3.x/4.x, Darwin (Sierra, macOS),
 OpenBSD 5.9/6.0/6.1.
@@ -11,7 +29,7 @@ What is available in this code base?
 ====================================
 
 - Collection of Bloom filters (Simple, Counting, Scalable). The
-  Bloom filters can be serialized to disk and read back in mmmap
+  Bloom filters can be serialized to disk and read back in mmap
   mode. The serialized code has a strong checksum (SHA256) to
   maintain the integrity of the data when read back. Performance on
   a late 2013 13" MBP (Core i7, 2.8GHz):
@@ -144,6 +162,66 @@ What is available in this code base?
 
 - Portable implementation of getopt_long(3).
 
+How is porability achieved?
+---------------------------
+The code above tries to be portable without use of ``#ifdef`` or
+other pre-processor constructs. In cases where a particular platform
+does not provide a required symbol or function, a compatibility
+header is provided in ``inc/$PLATFORM/``. e.g., Darwin doesn't have
+a working POSIX un-named semaphore implementation (``sem_init(3)``);
+the file ``inc/Darwin/semaphore.h`` provides a working
+implementation of the API. Thus, any program using un-named
+semaphores can function without any wrappers or ugly ``ifdef``.
+
+While the compatibility functions and symbols are provided via the
+mechanism above, the next question is - "how does one tailor the
+build environment to accommodate these peculiarities?". This is
+where we leverage features of ``make`` to have a conditional build
+environment.
+
+GNUmakefile Tricks and Tips
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This library comes with a set of ``GNUmake`` fragments and an
+example top-level ``GNUmakefile`` to make building programs easy.
+
+These makefiles are written to be cross-platform and incorporates
+many idioms to make building for multiple platforms possible
+**without** needing the bloated ``configure`` infrastructure.
+
+For each platform that is supported, ``portablelib.mk`` defines a
+set of macros for that platform like so::
+
+    Darwin_incdirs += /opt/local/include /usr/local/include
+    Darwin_ldlibs  += /opt/local/lib/libsodium.a
+    Darwin_objs    += darwin_cpu.o darwin_sem.o darwin_clock.o
+
+    Linux_defs   += -D_GNU_SOURCE=1
+    Linux_ldlibs += -lpthread
+    Linux_objs   += linux_cpu.o arc4random.o
+
+    OpenBSD_ldlibs += -L/usr/local/lib -lsodium -lpthread
+    OpenBSD_objs   += openbsd_cpu.o
+
+
+Then, these flags are used to set ``CFLAGS`` and ``objs`` via
+"double variable expansion"  like so::
+
+    platform := $(shell uname -s)
+
+    INCDIRS = $($(platform)_incdirs) $(TOPDIR)/inc/$(platform) $(TOPDIR)/inc 
+
+    INCS = $(addprefix -I, $(INCDIRS))
+    DEFS = -D__$(platform)__=1 $($(platform)_defs)
+
+    CFLAGS = -g -O2 $(INCS) $(DEFS)
+    LDFLAGS = $($(platform)_ldlibs)
+
+
+In similar fashion, the list of object files to be built is expanded
+to include platform specific object files.
+This Makefile feature allows us to separate platform specific
+peculiarities without the mess of ``autoconf`` and ``automake``.
+
 What is in the *tools/* subdirectory?
 =====================================
 The *tools* subdirectory has several utility scripts that are useful
@@ -167,8 +245,4 @@ deleted. This script is most-useful in a GNUmakefile: instead of
 This makes sure that invalid dependencies never make it into the
 Makefile.
 
-What is ``Sample-GNUmakefile``
-==============================
-
-
-
+.. vim: ft=rst:sw=4:ts=4:expandtab:tw=78:
