@@ -162,8 +162,8 @@ What is available in this code base?
 
 - Portable implementation of getopt_long(3).
 
-How is porability achieved?
----------------------------
+How is portability achieved?
+============================
 The code above tries to be portable without use of ``#ifdef`` or
 other pre-processor constructs. In cases where a particular platform
 does not provide a required symbol or function, a compatibility
@@ -180,7 +180,7 @@ where we leverage features of ``make`` to have a conditional build
 environment.
 
 GNUmakefile Tricks and Tips
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 This library comes with a set of ``GNUmake`` fragments and an
 example top-level ``GNUmakefile`` to make building programs easy.
 
