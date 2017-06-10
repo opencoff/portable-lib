@@ -66,8 +66,10 @@ __insert(hb *b, hn *p)
 
 #define FIND(x) do { \
                     if (likely(x->h == p->h)) { return 1; } \
-                    if (x->h == 0 && !pos)    { pos = x; }  \
-                    x++;                                    \
+                    if (!pos) {                 \
+                        if (x->h == 0) pos = x; \
+                    }                           \
+                    x++;                        \
                 } while (0)
 
     SL_FOREACH(g, &b->head, link) {
@@ -153,12 +155,15 @@ resize(ht* h)
 
     for (; o < e; o++) {
         bag *g, *tmp;
+
         SL_FOREACH_SAFE(g, &o->head, link, tmp) {
             for (i = 0; i < HB; i++) {
                 hn *p = &g->a[i];
+
                 if (p->h) {
                     uint64_t j = __hash(p->h, n, salt);
                     hb *x      = b+j;
+
                     __insert(x, p);
                     if (x->bags > maxbags) maxbags = x->bags;
                     if (x->n    > maxn)    maxn    = x->n;
