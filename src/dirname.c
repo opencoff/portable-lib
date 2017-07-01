@@ -1,6 +1,7 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * dirname.c - portable routine to the shell builtin dirname(1)
+ * dirname.c - portable, re-entrant implementation of the shell
+ *             builtin dirname(1)
  *
  * Copyright (c) 2006 Sudhi Herle <sw at herle.net>
  *
@@ -47,50 +48,4 @@ slash:
     return buf;
 }
 
-#ifdef TEST
-#include <stdio.h>
-#include <limits.h>
-#include <assert.h>
-
-
-struct test
-{
-    const char *src;
-    const char *exp;
-};
-
-const struct test T[] = 
-{
-      { "/", "/" }
-    , { "a", "." }
-    , { "/a/b", "/a" }
-    , { "/a/b/c", "/a/b" }
-    , { "a/b/c", "a/b" }
-    , { "a/b",   "a" }
-
-    , { "/a/b////", "/a" }
-    , { "/a////", "/" }
-    , { 0, 0 }
-};
-
-#define die(fmt,...) do { \
-    fprintf(stderr, fmt, #__VA_ARGS__); \
-    exit(1); \
-} while (0)
-
-
-int
-main()
-{
-    const struct test *t = &T[0];
-    char p[PATH_MAX];
-
-    for (; t->src; t++) {
-        const char * r = dirname(p, sizeof p, t->src);
-        if (!r)                     die("%s: exp %s, saw NULL\n", t->src, t->exp);
-        if (0 != strcmp(r, t->exp)) die("%s: exp %s, saw %s\n", t->src, t->exp, r);
-    }
-    return 0;
-}
-
-#endif // TEST
+/* EOF */

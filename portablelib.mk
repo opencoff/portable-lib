@@ -15,7 +15,7 @@ endif
 
 
 all_win32_objs += gettimeofday.o truncate.o ndir.o \
-					ftruncate.o sleep.o basename.o glob.o \
+					ftruncate.o sleep.o basename.o dirname.o glob.o \
 					winmmap.o errno.o fsync.o inetutils.o \
 					socketpair.o
 
@@ -72,7 +72,7 @@ OpenBSD_defobjs   = $(all_posix_objs) openbsd_cpu.o
 #timerobjs = timer.o timer_int.o ctimer.o
 
 
-baseobjs = mempool.o \
+baseobjs = mempool.o dirname.o \
            escape.o unescape.o mmap.o sysexception.o syserror.o \
 		   getopt_long.o error.o jenkins_hash.o  \
 		   bloom.o bloom_marshal.o str2hex.o frand.o fast-ht.o oht.o\
