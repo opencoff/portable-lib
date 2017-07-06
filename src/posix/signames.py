@@ -9,178 +9,90 @@
 
 """
 Simple script to turn signal numbers into names and descriptions.
-The input to the script is a docblock that is cut-n-paste from the
-linux "C" library header file.
-
-XXX In reality, it ought to parse a header file and do this..
 """
 
-import re, os, sys, os.path
-from cStringIO import StringIO
+import os, sys, os.path
+import subprocess, datetime
 
-sigblock = """
-#define	SIGHUP		1	/* Hangup (POSIX).  */
-#define	SIGINT		2	/* Interrupt (ANSI).  */
-#define	SIGQUIT		3	/* Quit (POSIX).  */
-#define	SIGILL		4	/* Illegal instruction (ANSI).  */
-#define	SIGTRAP		5	/* Trace trap (POSIX).  */
-#define	SIGABRT		6	/* Abort (ANSI).  */
-#define	SIGIOT		6	/* IOT trap (4.2 BSD).  */
-#define	SIGBUS		7	/* BUS error (4.2 BSD).  */
-#define	SIGFPE		8	/* Floating-point exception (ANSI).  */
-#define	SIGKILL		9	/* Kill, unblockable (POSIX).  */
-#define	SIGUSR1		10	/* User-defined signal 1 (POSIX).  */
-#define	SIGSEGV		11	/* Segmentation violation (ANSI).  */
-#define	SIGUSR2		12	/* User-defined signal 2 (POSIX).  */
-#define	SIGPIPE		13	/* Broken pipe (POSIX).  */
-#define	SIGALRM		14	/* Alarm clock (POSIX).  */
-#define	SIGTERM		15	/* Termination (ANSI).  */
-#define	SIGSTKFLT	16	/* Stack fault.  */
-#define	SIGCLD		SIGCHLD	/* Same as SIGCHLD (System V).  */
-#define	SIGCHLD		17	/* Child status has changed (POSIX).  */
-#define	SIGCONT		18	/* Continue (POSIX).  */
-#define	SIGSTOP		19	/* Stop, unblockable (POSIX).  */
-#define	SIGTSTP		20	/* Keyboard stop (POSIX).  */
-#define	SIGTTIN		21	/* Background read from tty (POSIX).  */
-#define	SIGTTOU		22	/* Background write to tty (POSIX).  */
-#define	SIGURG		23	/* Urgent condition on socket (4.2 BSD).  */
-#define	SIGXCPU		24	/* CPU limit exceeded (4.2 BSD).  */
-#define	SIGXFSZ		25	/* File size limit exceeded (4.2 BSD).  */
-#define	SIGVTALRM	26	/* Virtual alarm clock (4.2 BSD).  */
-#define	SIGPROF		27	/* Profiling alarm clock (4.2 BSD).  */
-#define	SIGWINCH	28	/* Window size change (4.3 BSD, Sun).  */
-#define	SIGPOLL		SIGIO	/* Pollable event occurred (System V).  */
-#define	SIGIO		29	/* I/O now possible (4.2 BSD).  */
-#define	SIGPWR		30	/* Power failure restart (System V).  */
-#define SIGSYS		31	/* Bad system call.  */
-#define SIGUNUSED	31
-"""
+Z = os.path.basename(sys.argv[0])
 
-digits_re = re.compile(r'^\d+$')
-sig_re    = re.compile(r'^SIG[A-Z]\w+')
+def warn(fmt, *args):
+    """warn(print_fmt, args...)
 
-class bundle:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+    Print a warning message to stderr.
+    """
+
+    global Z
+
+    sfmt = '%s: %s' % (Z, fmt)
+    if args:
+        sfmt = sfmt % args
+
+    if not sfmt.endswith('\n'):
+        sfmt += '\n'
+
+    sys.stdout.flush()
+    sys.stderr.write(sfmt)
+    sys.stderr.flush()
 
 
-sigs = {}
-max_nm_len = 0
-max_comment_len = 0
-
-file = "<INLINE>"
-if len(sys.argv) > 1:
-    file = sys.argv[1]
-    contents = open(file, "r")
-else:
-    contents = StringIO(sigblock)
-
-for l in contents.readlines():
-    l = l.rstrip()
-    if len(l) == 0:
-        continue
-
-    v = l.split()
-    if not v[0].startswith('#define'):
-        continue
-
-    #print "|%s|" % l
-    # Ignore non '#define' lines
-    if sig_re.search(v[1]) is None:
-        continue
-
-    # Ignore aliases for #defines
-    if sig_re.search(v[2]) is not None:
-        continue
-
-    # XXX Ignore non-integer lines?
-    if digits_re.search(v[2]) is None:
-        continue
-
-    nm   = v[1]
-    idx  = int(v[2])
-    rest = ' '.join(v[4:-1])
-
-    b = bundle(name=nm, comment=rest)
-    sigs[idx] = b
-
-    if len(nm) > max_nm_len:
-        max_nm_len = len(nm)
-
-    if len(rest) > max_comment_len:
-        max_comment_len = len(rest)
-
-
-def intcmp(a,b):
-    p = int(a)
-    q = int(b)
-    if p < q:
-        return -1
-    elif p > q:
-        return 1
-    else:
-        return 0
-
-
-
-# Now, construct the array in sorted order
-defn = ""
-max_comment_len += (max_nm_len * 2) + 7 + 5 + 1
-keys = sigs.keys()
-if len(keys) == 0:
-    print >>sys.stderr, "%s: ** Coudln't find any valid SIG definitions in %s\n" % (sys.argv[0], file)
+def die(fmt, *args):
+    warn(fmt, *args)
     sys.exit(1)
 
-keys.sort(intcmp)
 
-i = 1
-for s in map(sigs.get, keys):
-    str  = '#ifdef %s\n' % s.name
-    str +=  '    , {"%s", %s, "%s"}' % (s.name, s.name, s.comment)
-    str  = str.ljust(max_comment_len)
-    str += "/* %3d */\n" % i
-    str += '#endif\n\n'
-    defn += str
-    i += 1
+def readsigs():
+    """Run bash -c 'kill -l' and return list of signals and their
+    numbers"""
+
+    argv   = ["bash", "-c", "kill -l" ]
+    sigstr = subprocess.check_output(argv)
+    sigv   = {}
+    n      = 0
+    for line in sigstr.split('\n'):
+        line = line.strip()
+        line = line.replace(')', ' ')
+        v = line.split()
+        if 0 != (len(v) % 2):
+            die("malformed output from 'kill -l'")
+
+        for s, name in zip(v[::2], v[1::2]):
+            num       = int(s)
+            sigv[num] = name
+            if num > n: n = num
+
+    siga = [ "" ] * (1+n)
+    for k, v in sigv.items(): siga[k] = v
+
+    return sigv, siga
+
+
+
+sigv, siga = readsigs()
+
+defn  = "\n    , ".join([ '"%s"' % x for x in siga[1:] ])
+uname = os.uname()
+os    = uname[0]
+arch  = uname[-1]
+date  = datetime.datetime.now().utcnow()
 
 # Now, print the struct
 print """
+/*
+ * %sZ
+ * Autogenerated by %s on %s-%s
+ */
 
-/* Autogenerated by %s */
-
-
-#include <string>
-#include <stdio.h>
-
-struct sig_desc
-{
-    char * signame;     /* signal name */
-    int    signum;      /* signal number */
-    char * sigdesc;     /* description */
+static const char * Signames[] = {
+      "null-sig"
+    , %s
 };
-
-static const sig_desc Signames[] =
-{
-      {"(NULL-SIG)", 0, "NULL Signal"}
-%s
-};
-
 #define N_SIGNAMES      (sizeof Signames/sizeof Signames[0])
 
-std::string
-signame(int sig)
-{
-    const sig_desc * s = Signames;
+#define signame(n)  ({ int i = (n);                   \\
+        const char * s = "invalid-sig";               \\
+        if (i > 0 && i < N_SIGNAMES) s = Signames[i]; \\
+        s;})
 
-    for (size_t i = 1; i < N_SIGNAMES; ++i, s++)
-    {
-        if (s->signum == sig)
-            return std::string(s->signame);
-    }
-
-    char buf[32];
-    snprintf(buf, sizeof buf, "SIG-%d", sig);
-    return std::string(buf);
-}
 /* EOF */
-""" % (sys.argv[0], defn)
+""" % (str(date), sys.argv[0], os, arch, defn)
