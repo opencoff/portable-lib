@@ -37,8 +37,8 @@ posix_tests += t_cresolve
 
 # What tests to build
 tests = strmatch t_strtoi t_arena t_str2hex \
-		t_strsplit t_gvarexp t_dirname \
-		mmaptest t_mkdirhier t_frand \
+		t_strsplit t_gvarexp t_dirname t_uuid \
+		mmaptest t_mkdirhier t_frand t_ulid \
 		t_fixedsize t_mempool t_opt_test \
 		t_hashtab t_list t_b64_c t_vect \
 		t_hashfunc t_xorshift t_fast-ht t_oht \
