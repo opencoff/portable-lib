@@ -1,5 +1,5 @@
 /*
- * Test for open addressed, robinhood hash table.
+ * Test for cache-friendly, super-fast hash table.
  *
  * (c) 2015 Sudhi Herle <sudhi-at-herle.net>
  */
@@ -249,7 +249,7 @@ main(int argc, char** argv)
 
 #ifdef __MAKE_OPTIMIZE__
 
-#define NITER   20
+#define NITER   10
     perf_test(&v, NITER);
 
 #endif // __OPTIMIZE__

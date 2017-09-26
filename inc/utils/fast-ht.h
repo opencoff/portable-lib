@@ -15,10 +15,11 @@
  *
  * Notes
  * =====
- *
- * o Callers are responsible for using an appropriate hash function
- * o The hash function should provide sufficient "mixing" of the
- *   input bits.
+ * o The hashtable "key" is a "uint64_t"; i.e., an already hashed
+ *   quantity. Callers are responsible for using a good hash function.
+ * o This key (hashed) is always assumed to be NON-ZERO.
+ * o Value is an opaque "void *"; this library does not manage the
+ *   memory or the lifetime of this void ptr.
  */
 
 #ifndef ___UTILS_HT_H_668986_1448848235__
@@ -115,8 +116,9 @@ void ht_del(ht*);
 
 
 /*
- * Add a new node only if it doesn't already exist.
- * This is the main interface to adding new elements.
+ * Add a new entry to the hash-table only if it doesn't already exist.
+ * This is the main interface to adding new elements. The key is
+ * 'hv' - an already hashed quantity.
  *
  * Return True if element exists, False otherwise.
  */

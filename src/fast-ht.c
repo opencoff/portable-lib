@@ -36,10 +36,31 @@
 
 extern void arc4random_buf(void *, size_t);
 
+// Compression function from fasthash
+#define mix(h) ({                   \
+            (h) ^= (h) >> 23;       \
+            (h) *= 0x2127599bf4325c37ULL;   \
+            (h) ^= (h) >> 47; h; })
+
+
+/*
+ * fasthash64() - but tuned for exactly _one_ round and
+ * one 64-bit word.
+ *
+ * Borrowed from Zilong Tan's superfast hash.
+ * Copyright (C) 2012 Zilong Tan (eric.zltan@gmail.com)
+ */
 static inline uint64_t
 __hash(uint64_t hv, uint64_t n, uint64_t salt)
 {
-    return (hv ^ salt) & (n-1);
+    const uint64_t m = 0x880355f21e6d1965ULL;
+    uint64_t h       = (8 * m);
+
+    h ^= mix(hv);
+    h *= m;
+
+    hv = mix(h) ^ salt;
+    return hv & (n-1);
 }
 
 
@@ -57,7 +78,8 @@ free_nodes(hb * b, uint64_t n)
     }
 }
 
-// Insert node 'p' into bucket 'b'
+// Insert node 'p' into bucket 'b' - but only if 'p' doesn't already
+// exist in the bucket.
 static int
 __insert(hb *b, hn *p)
 {
@@ -65,7 +87,7 @@ __insert(hb *b, hn *p)
     hn  *pos = 0;
 
 #define FIND(x) do { \
-                    if (likely(x->h == p->h)) { return 1; } \
+                    if (x->h == p->h) { return 1; } \
                     if (!pos) {                 \
                         if (x->h == 0) pos = x; \
                     }                           \
@@ -79,6 +101,7 @@ __insert(hb *b, hn *p)
         FIND(x);
         FIND(x);
         FIND(x);
+
         FIND(x);
         FIND(x);
         FIND(x);
@@ -97,6 +120,44 @@ __insert(hb *b, hn *p)
     return 0;
 }
 
+
+// Insert 'p' into bucket 'b' quickly.
+static int
+__insert_quick(hb *b, hn *p)
+{
+    bag *g;
+    hn  *pos = 0;
+
+#define PUT(x) do {     \
+                    if (x->h == 0) { pos = x; goto done; } \
+                    x++; \
+               } while(0)
+
+    SL_FOREACH(g, &b->head, link) {
+        hn *x = &g->a[0];
+
+        PUT(x);
+        PUT(x);
+        PUT(x);
+        PUT(x);
+
+        PUT(x);
+        PUT(x);
+        PUT(x);
+        PUT(x);
+    }
+
+    // Make a new bag and put our element there.
+    g   = NEWZ(bag);
+    pos = &g->a[0];
+    SL_INSERT_HEAD(&b->head, g, link);
+    b->bags++;
+
+done:
+    *pos = *p;
+    b->n++;
+    return 0;
+}
 
 // Find hv in 'h'; return the value in p_ret. If zero is true, also
 // clear the node.
@@ -121,6 +182,7 @@ __findx(ht *h, uint64_t hv, void** p_ret, int zero)
         SRCH(x);
         SRCH(x);
         SRCH(x);
+
         SRCH(x);
         SRCH(x);
         SRCH(x);
@@ -164,7 +226,7 @@ resize(ht* h)
                     uint64_t j = __hash(p->h, n, salt);
                     hb *x      = b+j;
 
-                    __insert(x, p);
+                    __insert_quick(x, p);
                     if (x->bags > maxbags) maxbags = x->bags;
                     if (x->n    > maxn)    maxn    = x->n;
                     if (x->n == 1)         fill++;
@@ -261,9 +323,9 @@ ht_probe(ht* h, uint64_t hv, void* v)
         h->fill++;
 
         if ( ((h->fill * 100) / (1 + h->n)) > FILLPCT) {
-            hb *base = resize(h);
             h->splits++;
-            b = &base[__hash(hv, h->n, h->rand)];
+            b = resize(h);
+            b = &b[__hash(hv, h->n, h->rand)];
         }
     }
 

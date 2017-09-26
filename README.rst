@@ -4,10 +4,11 @@ Portable Library of Useful C/++ code
 
 This directory contains code for many common use cases:
 
-- Bloom filters
-- Hash tables
+- Bloom filters: Standard, counting and scalable
+- Hash tables: Policy based, super-fast (cache friendly)
 - Variety of good, fast Hash functions
-- Typesafe templates in "C"
+- Fixed-size memory allocator ('mempools')
+- Typesafe templates in "C": Linked lists, vectors, queues
 - Single-Producer, Single-Consumer lock-free bounded queue
 - Multi-Producer, Multi-Consumer lock-free bounded queue
 - Blocking, bounded, producer-consumer queue
@@ -16,14 +17,14 @@ This directory contains code for many common use cases:
 - Round-robin work distribution across N threads using pthreads;
   each thread has its own queue enabling work to be queued to
   specific threads.
-- Fixed-size memory allocator ('mempools')
 - Growable, resizable string buffer
 - Collection of random number generators (ARC4Random-chacha20,
   XORshift, Mersenne-Twister)
 
 Almost all code is written in Portable C (and some C++).  It is
 tested to work on at least Linux 3.x/4.x, Darwin (Sierra, macOS),
-OpenBSD 5.9/6.0/6.1.
+OpenBSD 5.9/6.0/6.1. Some of the code has been in production use
+for over a decade.
 
 What is available in this code base?
 ====================================
@@ -31,8 +32,12 @@ What is available in this code base?
 - Collection of Bloom filters (Simple, Counting, Scalable). The
   Bloom filters can be serialized to disk and read back in mmap
   mode. The serialized code has a strong checksum (SHA256) to
-  maintain the integrity of the data when read back. Performance on
-  a late 2013 13" MBP (Core i7, 2.8GHz):
+  maintain the integrity of the data when read back.
+
+  The filters share a common interface for add, query and destructor.
+  A filter specific constructor returns an opaque pointer.
+
+  Performance on a late 2013 13" MBP (Core i7, 2.8GHz):
 
     * Standard Bloom filter: 227 cyc/add, 201 cyc/search
     * Counting Bloom filter: 220 cyc/add, 205 cyc/search
@@ -135,7 +140,6 @@ What is available in this code base?
     * mmap.h: Memory mapped file reader and writer; implementations
       for POSIX and Win32 platforms exist.
 
-
 - Specialized memory management:
 
     * arena.h: Object lifetime based memory allocator. Allocate
@@ -208,7 +212,7 @@ Then, these flags are used to set ``CFLAGS`` and ``objs`` via
 
     platform := $(shell uname -s)
 
-    INCDIRS = $($(platform)_incdirs) $(TOPDIR)/inc/$(platform) $(TOPDIR)/inc 
+    INCDIRS = $($(platform)_incdirs) $(TOPDIR)/inc/$(platform) $(TOPDIR)/inc
 
     INCS = $(addprefix -I, $(INCDIRS))
     DEFS = -D__$(platform)__=1 $($(platform)_defs)
