@@ -254,8 +254,40 @@ extern int strsplitargs(char **args, size_t n, char *s);
 
 
 /**
- * Parse a string 'str' containing size information.
+ * Convert a string 's' to a uint64_t and detect overflows.
+ * Set '*endptr' to the last unconverted character. The converted
+ * uint64_t is in 'p_ret'. If 'base' is 0, then auto-detect the
+ * conversion base; else use what is provided.
+ *
+ * Returns:
+ *      0   No error
+ *    < 0   errno
+ *          -ERANGE if string is too long and overflows uint64_t
+ *          -EINVAL if string has invalid characters for the given base 
+ *                  or if the base is invalid (> 36).
+ */
+extern int strtou64(const char *s, const char **endptr, int base, uint64_t *p_ret);
+
+
+/**
+ * Parse a string 'str' containing a size suffix. The suffix has the
+ * following meaning:
+ *      B       bytes
+ *      k, K    Kilobyte (1024)
+ *      M       Megabyte (1024 * K)
+ *      G       Gigabyte (1024 * M)
+ *      T       Terabyte (1024 * G)
+ *      P       Petabyte (1024 * T)
+ *      E       Exabyte  (1024 * E)
+ *
+ * If the size suffix is followed by a lower case 'b', then it is
+ * the suffix multiplier is treated as "bits". e.g., "Kb" is parsed
+ * as "Kilo bit". Similarly, an upper case 'B' is treated as "byte".
+ * This is the default interepretation. e.g., "1000M" is interpreted as
+ * "1000 Mega bytes".
+ *
  * Returns the parsed string in 'p_val'
+ *
  * Returns:
  *      == 0: If parsing is successful
  *      <  0: -Errno on error
