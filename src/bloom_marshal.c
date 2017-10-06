@@ -401,7 +401,8 @@ rdfilter(uint8_t *start, offpair *o, bloom *b, int dommap)
 
 
 /*
- * Read header and filter-offset directory.
+ * Read header and filter-offset directory. Assumes that the file
+ * checksum is valid and verified.
  *
  * Return 0 on success, -errno on failure.
  */
@@ -448,7 +449,7 @@ rdhdr(uint8_t *buf, uint64_t sz, mstate *m)
 
     assert((p-buf) <= HDRSIZ);
 
-    if (m->datasize > sz) return -EBADF;
+    if (m->datasize != sz) return -EBADF;
 
     avail -= HDRSIZ;
     p      = buf + HDRSIZ;
@@ -476,8 +477,8 @@ rdhdr(uint8_t *buf, uint64_t sz, mstate *m)
             o->hdroff  = dec_LE_u64(p);  p += 8;
             o->dataoff = _ALIGN_UP(o->hdroff + FILT_HDRSIZ, 64);
 
-            if (o->hdroff  > sz) return -EBADF;
-            if (o->dataoff > sz) return -EBADF;
+            if (o->hdroff  >= sz) return -EBADF;
+            if (o->dataoff >= sz) return -EBADF;
         }
     } else {
         offpair *o;
@@ -493,8 +494,8 @@ rdhdr(uint8_t *buf, uint64_t sz, mstate *m)
         o = &VECT_GET_NEXT(&m->offs);
         o->hdroff  = dec_LE_u64(p);
         o->dataoff = _ALIGN_UP(o->hdroff + FILT_HDRSIZ, 64);
-        if (o->hdroff  > sz) return -EBADF;
-        if (o->dataoff > sz) return -EBADF;
+        if (o->hdroff  >= sz) return -EBADF;
+        if (o->dataoff >= sz) return -EBADF;
     }
 
     // At this point, we have not setup b->e. We will do that when
@@ -543,8 +544,8 @@ is_valid_cktyp(checksummer *ck, int typ)
 int
 Bloom_marshal(Bloom *b, const char *fname)
 {
-    char file[PATH_MAX];
     mstate m;
+    char file[PATH_MAX];
     int fd, r = 0;
     uint64_t sz;
 
@@ -629,10 +630,10 @@ fail:
 int
 Bloom_unmarshal(Bloom **p_b, const char *fname, uint32_t flags)
 {
+    mstate m;
     uint8_t ckcalc[max_CKSUMSZ];
     const int do_mmap = flags & BLOOM_BITMAP_MMAP;
     int fd, r;
-    mstate m;
 
     memset(&m, 0, sizeof m);
 
@@ -641,12 +642,14 @@ Bloom_unmarshal(Bloom **p_b, const char *fname, uint32_t flags)
 
     struct stat st;
     if (fstat(fd, &st) < 0) goto fail;
+
+    // 16: Filter directory info
     if (st.st_size < (HDRSIZ+16+max_CKSUMSZ)) {
         errno = EILSEQ;
         goto fail;
     }
 
-    void *mptr     = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    void    *mptr  = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     uint8_t *start = mptr;
     if (mptr == ((void *)-1)) goto fail;
 
@@ -659,11 +662,13 @@ Bloom_unmarshal(Bloom **p_b, const char *fname, uint32_t flags)
         goto fail0;
     }
 
-    size_t  cksize = m.ck.size,
-            dsize  = st.st_size - cksize;
+    // This is the size of the data blob (headers + filters)
+    size_t  dsize  = st.st_size - m.ck.size;
 
+    // Calculate checksum before we read any other data.
+    // Checksum is in the last "n" bytes.
     cksum(&m.ck, ckcalc, mptr, dsize);
-    if (0 != sodium_memcmp(ckcalc, start+dsize, cksize)) {
+    if (0 != sodium_memcmp(ckcalc, start+dsize, m.ck.size)) {
         errno = EILSEQ;
         goto fail0;
     }

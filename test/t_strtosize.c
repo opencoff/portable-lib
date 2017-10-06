@@ -59,4 +59,5 @@ main()
         if (end && *end != t->end) die("%s: endptr exp %c, saw %c\n", t->in, t->end, *end);
         if (r == 0 && v != t->out) die("%s: val exp %" PRIu64 ", saw %" PRIu64 "\n", t->in, t->out, v);
     }
+    return 0;
 }
