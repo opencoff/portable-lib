@@ -409,12 +409,14 @@ rdfilter(uint8_t *start, offpair *o, bloom *b, int dommap)
 static int
 rdhdr(uint8_t *buf, uint64_t sz, mstate *m)
 {
-    uint64_t avail = sz;
-    uint8_t *p     = buf;
+    uint64_t avail = sz,
+             bn;
+    uint8_t *p = buf;
+    uint32_t n = 0,
+             scale = 0;
+    double r  = 0.0,
+           be = 0.0;
     int typ;
-    uint32_t n, scale;
-    uint64_t bn;
-    double r, be;
 
 
     if (avail < (HDRSIZ+16))       return -EBADF;
