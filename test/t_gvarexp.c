@@ -105,4 +105,5 @@ main()
 
         gstr_fini(&g);
     }
+    return 0;
 }

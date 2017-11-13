@@ -47,14 +47,8 @@
  *  The 'R' index tracks the next slot from which to read.
  *  The 'W' index tracks the next slot ready to accept a write.
  *
- *  Thus, the conditions for queue full and queue empty are the
- *  same. This simplicification means one queue slot will always go
- *  unused.
- *
- *  In addition, we use an atomic value in each queue slot - this
- *  allows us to detect when our chosen slot is overwritten by
- *  another producer thread (or if we are a consumer, another
- *  consumer thread).
+ *  Both 'R' and 'W' increment without wrapping; the only wrapping
+ *  happens when they reach their boundaries.
  */
 
 #ifndef __MPMC_BOUNDED_QUEUE_31741145_H__
@@ -99,15 +93,15 @@ extern "C" {
 #define __mpmc_padz(n)      ((CACHELINE_SIZE - (n))/sizeof(uint32_t))
 struct __mpmcq
 {
-    atomic_uint_fast32_t rd; /* Next slot from which to read */
-    uint32_t __pad0[__mpmc_padz(4)];
+    atomic_uint_fast64_t rd; /* Next slot from which to read */
+    uint32_t __pad0[__mpmc_padz(8)];
 
-    atomic_uint_fast32_t wr; /* Last successful write */
-    uint32_t __pad1[__mpmc_padz(4)];
+    atomic_uint_fast64_t wr; /* Last successful write */
+    uint32_t __pad1[__mpmc_padz(8)];
 
-    uint32_t sz;    /* Capacity of the queue: Always power of 2 */
-    uint32_t mask;  /* Mask to make future computation faster */
-    uint32_t __pad2[__mpmc_padz(8)];
+    uint64_t sz;    /* Capacity of the queue: Always power of 2 */
+    uint64_t mask;  /* Mask to make future computation faster */
+    uint32_t __pad2[__mpmc_padz(16)];
 };
 typedef struct __mpmcq __mpmcq;
 
@@ -120,7 +114,7 @@ typedef struct __mpmcq __mpmcq;
 #define MPMCQ_NODETY(ty)        ty ## _node
 #define MPMCQ_NODE(typnm, ty)   struct __CACHELINE_ALIGNED MPMCQ_NODETY(typnm) \
                                 { \
-                                    atomic_uint_fast32_t seq; \
+                                    atomic_uint_fast64_t seq; \
                                     ty   d;\
                                 };\
                                 typedef struct __CACHELINE_ALIGNED MPMCQ_NODETY(typnm) MPMCQ_NODETY(typnm)
@@ -178,21 +172,21 @@ __mpmcq_init(__mpmcq* q, size_t n)
 static inline int
 __mpmcq_full_p(__mpmcq * q)
 {
-    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast32_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
+    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
+    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
 
-    if (++wr == q->sz)
-        wr = 0;
-
-    return rd == wr;
+    if (wr > rd) {
+        return (wr - rd) == q->sz;
+    }
+    return 0;
 }
 
 /* Return true if queue is empty */
 static inline int
 __mpmcq_empty_p(__mpmcq * q)
 {
-    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast32_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
+    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
+    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
 
     return rd == wr;
 }
@@ -205,16 +199,10 @@ __mpmcq_empty_p(__mpmcq * q)
 static inline uint32_t
 __mpmcq_size(__mpmcq* q)
 {
-    uint_fast32_t n  = 0;
-    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast32_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
+    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
+    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
 
-    if (rd < wr)
-        n = wr - rd;
-    else if (rd > wr)
-        n = q->sz - rd + wr;
-
-    return n;
+    return wr > rd ? wr - rd : 0;
 }
 
 
@@ -254,7 +242,7 @@ __mpmcq_size(__mpmcq* q)
                     __mpmcqetyp(q_) * _nd; \
                     int _z = 0; \
                     unsigned int _bk = _BACKOFF_MIN;    \
-                    uint_fast32_t _p, _seq;             \
+                    uint_fast64_t _p, _seq;             \
                     for (;;) { \
                         _p   = atomic_load_explicit(&_q->wr, memory_order_relaxed);\
                         _nd  = &(q_)->elem[_p & _q->mask];\
@@ -287,12 +275,12 @@ __mpmcq_size(__mpmcq* q)
                     __mpmcqetyp(q_) * _nd; \
                     int _z = 0; \
                     unsigned int _bk = _BACKOFF_MIN;    \
-                    uint_fast32_t _p, _seq;             \
+                    uint_fast64_t _p, _seq;             \
                     for (;;) { \
                         _p   = atomic_load_explicit(&_q->rd, memory_order_relaxed);\
                         _nd  = &(q_)->elem[_p & _q->mask];\
                         _seq = atomic_load_explicit(&_nd->seq, memory_order_acquire);\
-                        int64_t _diff = (int64_t)_seq - (int64_t)(_p+1); \
+                        int64_t _diff = ((int64_t)_seq) - ((int64_t)(_p+1)); \
                         if (_diff == 0) { \
                             if (XCHG(&_q->rd, &_p, (_p+1))) { \
                                 _z = 1; \
@@ -328,6 +316,7 @@ __mpmcq_size(__mpmcq* q)
 
 /* Number of elements in the queue */
 #define MPMCQ_SIZE(q_)         __mpmcq_size(&(q_)->q)
+
 
 
 /*

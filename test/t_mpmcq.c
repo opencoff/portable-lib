@@ -612,15 +612,28 @@ basic_test()
     s = MPMCQ_ENQ(q, 11);      assert(s == 1);
     s = MPMCQ_ENQ(q, 12);      assert(s == 1);
 
-    s = MPMCQ_ENQ(q, 13);      assert(s == 1);
-    s = MPMCQ_ENQ(q, 14);      assert(s == 0);
+    assert(MPMCQ_SIZE(q) == 3);
 
+    s = MPMCQ_ENQ(q, 13);      assert(s == 1);
+
+    assert(MPMCQ_SIZE(q) == 4);
+    assert(MPMCQ_FULL_P(q));
+    assert(!MPMCQ_EMPTY_P(q));
+
+    s = MPMCQ_ENQ(q, 14);      assert(s == 0);
 
     int j;
     s = MPMCQ_DEQ(q, j);       assert(s == 1); assert(j == 10);
     s = MPMCQ_DEQ(q, j);       assert(s == 1); assert(j == 11);
     s = MPMCQ_DEQ(q, j);       assert(s == 1); assert(j == 12);
+
+    assert(MPMCQ_SIZE(q) == 1);
+
     s = MPMCQ_DEQ(q, j);       assert(s == 1); assert(j == 13);
+
+    assert(MPMCQ_SIZE(q) == 0);
+    assert(MPMCQ_EMPTY_P(q));
+    assert(!MPMCQ_FULL_P(q));
 
     s = MPMCQ_DEQ(q, j);       assert(s == 0);
 
