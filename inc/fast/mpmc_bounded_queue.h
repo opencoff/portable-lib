@@ -6,7 +6,7 @@
  *
  * Copyright (C) 2005-2010, Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -17,8 +17,11 @@
  *
  * Introduction
  * ============
- *   Macros to create and manipulate "type indepedent" fast circular
- *   queues. These are lock-free and require C11 <stdatomic.h>
+ *   Macros to create and manipulate "type indepedent" fast,
+ *   bounded, circular queues.
+ *   - These are lock-free and require C11 <stdatomic.h>
+ *   - The Q is lock-free but NOT wait-free.
+ *   - Enq/Deq operations require one CAS.
  *
  *   Use:
  *     Make a type for your queue to hold objects of your
@@ -36,6 +39,10 @@
  *       o MPMCQ_INIT(my_queue, Q_size)
  *            MUST be called before any use of other macros. Q_size
  *            MUST be the same as the one used for MPMCQ_TYPE().
+ *       o MPMCQ_DYN_INIT(my_queue, q_size)
+ *            Call this function if you don't know the size of the
+ *            queue at compile time. Only _ONE_ of MPMCQ_INIT() or
+ *            MPMCQ_DYN_INIT() must be called.
  *       o MPMCQ_ENQ(my_queue, elem, status)
  *            Enqueue 'elem' into 'my_queue' and obtain result in
  *            'status'. If status != 0 then Queue-full.
@@ -118,7 +125,7 @@ typedef struct __mpmcq __mpmcq;
                                     ty   d;\
                                 };\
                                 typedef struct __CACHELINE_ALIGNED MPMCQ_NODETY(typnm) MPMCQ_NODETY(typnm)
-        
+
 
 
 
@@ -132,7 +139,7 @@ typedef struct __mpmcq __mpmcq;
                                      MPMCQ_NODETY(typnm_) elem[sz_];\
                                  }; \
                                  typedef struct typnm_ typnm_
-    
+
 
 /*
  * Create a "dynamic" fast-queue whose size will be initialized
@@ -168,29 +175,6 @@ __mpmcq_init(__mpmcq* q, size_t n)
 }
 
 
-/* Return true if queue is full */
-static inline int
-__mpmcq_full_p(__mpmcq * q)
-{
-    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
-
-    if (wr > rd) {
-        return (wr - rd) == q->sz;
-    }
-    return 0;
-}
-
-/* Return true if queue is empty */
-static inline int
-__mpmcq_empty_p(__mpmcq * q)
-{
-    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
-
-    return rd == wr;
-}
-
 /*
  * Return best guess for size of queue. This function cannot
  * guarantee accurate results in the presence of multiple concurrent
@@ -202,7 +186,29 @@ __mpmcq_size(__mpmcq* q)
     uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
     uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
 
-    return wr > rd ? wr - rd : 0;
+    uint64_t n = wr - rd;
+
+    // 64-bit seq# wrap around
+    if (rd > wr) n = ~0 - n;
+    return n;
+}
+
+
+/* Return true if queue is full */
+static inline int
+__mpmcq_full_p(__mpmcq * q)
+{
+    return q->sz == __mpmcq_size(q);
+}
+
+/* Return true if queue is empty */
+static inline int
+__mpmcq_empty_p(__mpmcq * q)
+{
+    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
+    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
+
+    return rd == wr;
 }
 
 
@@ -222,14 +228,14 @@ __mpmcq_size(__mpmcq* q)
  * This loop is run when we see contention on a cell.
  * Idea due to: Massimo Torquati (fastflow)
  */
-#define _exp_backoff(bk) do { \
-                            volatile unsigned int _i; \
+#define _exp_backoff(bk) do {                           \
+                            volatile unsigned int _i;   \
                             for(_i = 0; _i < bk; ++_i); \
-                            bk <<= 1;\
-                            bk &= _BACKOFF_MAX;\
+                            bk <<= 1;                   \
+                            bk &= _BACKOFF_MAX;         \
                          } while (0)
-                
-            
+
+
 
 /*
  * Enqueue element 'e_'
@@ -237,64 +243,87 @@ __mpmcq_size(__mpmcq* q)
  *    True  on success
  *    False on Queue full
  */
-#define MPMCQ_ENQ(q_, e_) ({ \
-                    __mpmcq* _q = &(q_)->q;    \
-                    __mpmcqetyp(q_) * _nd; \
-                    int _z = 0; \
+#define MPMCQ_ENQ(q_, e_) ({                            \
+                    __mpmcq* _q = &(q_)->q;             \
+                    __mpmcqetyp(q_) * _nd;              \
+                    int _z = 0;                         \
                     unsigned int _bk = _BACKOFF_MIN;    \
                     uint_fast64_t _p, _seq;             \
-                    for (;;) { \
-                        _p   = atomic_load_explicit(&_q->wr, memory_order_relaxed);\
-                        _nd  = &(q_)->elem[_p & _q->mask];\
-                        _seq = atomic_load_explicit(&_nd->seq, memory_order_acquire);\
-                        if (_p == _seq) {               \
-                            if (XCHG(&_q->wr, &_p, (_p+1))) { \
-                                _z     = 1; \
-                                _nd->d = e_; \
+                    for (;;) {                          \
+                        _p   = atomic_load_explicit(&_q->wr, memory_order_relaxed);     \
+                        _nd  = &(q_)->elem[_p & _q->mask];                              \
+                        _seq = atomic_load_explicit(&_nd->seq, memory_order_acquire);   \
+                        if (_p == _seq) {                       \
+                            if (XCHG(&_q->wr, &_p, (_p+1))) {   \
+                                _z     = 1;                     \
+                                _nd->d = e_;                    \
                                 atomic_store_explicit(&_nd->seq, _seq+1, memory_order_release);\
-                                break;  \
-                            } else _exp_backoff(_bk);\
-                        } else if (_p > _seq) { \
-                            _z = 0; \
-                            break; \
-                        } \
-                    } \
+                                break;                  \
+                            } else _exp_backoff(_bk);   \
+                        } else if (_p > _seq) {         \
+                            _z = 0;                     \
+                            break;                      \
+                        }                               \
+                    }                                   \
                     _z;})
 
 
 
 
 /*
- * Dequeue into 'e_' 
+ * Dequeue into 'e_'
  * Return:
  *    True  on success
- *    False on Queue full
+ *    False on Queue empty
  */
-#define MPMCQ_DEQ(q_, e_)   ({ \
-                    __mpmcq* _q = &(q_)->q;    \
-                    __mpmcqetyp(q_) * _nd; \
-                    int _z = 0; \
+#define MPMCQ_DEQ(q_, e_)   ({                          \
+                    __mpmcq* _q = &(q_)->q;             \
+                    __mpmcqetyp(q_) * _nd;              \
+                    int _z = 0;                         \
                     unsigned int _bk = _BACKOFF_MIN;    \
                     uint_fast64_t _p, _seq;             \
-                    for (;;) { \
-                        _p   = atomic_load_explicit(&_q->rd, memory_order_relaxed);\
-                        _nd  = &(q_)->elem[_p & _q->mask];\
-                        _seq = atomic_load_explicit(&_nd->seq, memory_order_acquire);\
-                        int64_t _diff = ((int64_t)_seq) - ((int64_t)(_p+1)); \
-                        if (_diff == 0) { \
-                            if (XCHG(&_q->rd, &_p, (_p+1))) { \
-                                _z = 1; \
-                                e_ = _nd->d; \
+                    for (;;) {                          \
+                        _p   = atomic_load_explicit(&_q->rd, memory_order_relaxed);     \
+                        _nd  = &(q_)->elem[_p & _q->mask];                              \
+                        _seq = atomic_load_explicit(&_nd->seq, memory_order_acquire);   \
+                        int64_t _diff = ((int64_t)_seq) - ((int64_t)(_p+1));            \
+                        if (_diff == 0) {                       \
+                            if (XCHG(&_q->rd, &_p, (_p+1))) {   \
+                                _z = 1;                         \
+                                e_ = _nd->d;                    \
                                 atomic_store_explicit(&_nd->seq, _p+_q->mask+1, memory_order_release);\
-                                break;  \
-                            } else _exp_backoff(_bk);\
-                        } else if (_diff < 0 ) { \
-                            _z = 0; \
-                            break; \
-                        } \
+                                break;                  \
+                            } else _exp_backoff(_bk);   \
+                        } else if (_diff < 0 ) {        \
+                            _z = 0;                     \
+                            break;                      \
+                        }                               \
                     } \
                     _z; })
 
+
+
+
+/*
+ * Internal function for validating the sequence# of the elements in
+ * the queue.
+ *
+ * Returns: # of errors detected.
+ *
+ * XXX Do NOT call this from a multi-threaded context!
+ */
+#define __MPMCQ_CONSISTENCY_CHECK(q_) ({                \
+                        __mpmcq* q0 = &(q_)->q;         \
+                        uint64_t z = __mpmcq_size(q0);  \
+                        uint64_t seq = (q_)->elem[q0->rd & q0->mask].seq; \
+                        uint64_t ii;                    \
+                        int err = 0;                    \
+                        for (ii = 0; ii < z; ii++) {    \
+                            uint64_t ss = (q_)->elem[(q0->rd+ii) & q0->mask].seq; \
+                            if (ss == seq) seq++;       \
+                            else err++;                 \
+                        }       \
+                        err; })
 
 
 
@@ -324,48 +353,45 @@ __mpmcq_size(__mpmcq* q)
  */
 
 
-#define __mpmcq_node_init(q_, sz_)   do { \
-                size_t x_;\
-                for (x_ = 0; x_ < sz_; x_++) \
+#define __mpmcq_node_init(q_, sz_)   do {                 \
+                size_t x_;                                \
+                for (x_ = 0; x_ < sz_; x_++)              \
                     atomic_init(&(q_)->elem[x_].seq, x_); \
             } while (0)
 
 
 /* Initialize queue 'q_' for size 'sz_' */
-#define MPMCQ_INIT(q_,sz_)                                  \
-                            do {                            \
+#define MPMCQ_INIT(q_,sz_)  do {                             \
                                 size_t zz_ = next_pow2(sz_); \
-                                __mpmcq_init(&(q_)->q, zz_);\
-                                __mpmcq_node_init(q_, zz_); \
+                                __mpmcq_init(&(q_)->q, zz_); \
+                                __mpmcq_node_init(q_, zz_);  \
                             } while (0)
 
 
 
 // Nothing to free.
 // XXX Should we memset the space to something garbage?
-#define MPMCQ_FINI(q)       do { \
+#define MPMCQ_FINI(q)       do {                            \
                                 memset(q, 0xaa, sizeof *q); \
                             } while (0)
 
 
-#define MPMCQ_DYN_INIT(q_, sz_) \
-                            do {                        \
-                                size_t zz_   = next_pow2(sz_);  \
-                                __mpmcq_init(&(q_)->q, zz_); \
+#define MPMCQ_DYN_INIT(q_, sz_) do {                                \
+                                size_t zz_   = next_pow2(sz_);      \
+                                __mpmcq_init(&(q_)->q, zz_);        \
                                 (q_)->elem   = NEWZA(__mpmcqetyp(q_), zz_); \
-                                __mpmcq_node_init(q_, zz_); \
+                                __mpmcq_node_init(q_, zz_);         \
                             } while (0)
 
 
 /*
  * Finalize a dynamic queue.
  */
-#define MPMCQ_DYN_FINI(q_)            \
-                            do {    \
-                                __mpmcq * _q = &(q_)->q;  \
-                                _q->sz = 0;\
-                                DEL((q_)->elem); \
-                                (q_)->elem = 0;\
+#define MPMCQ_DYN_FINI(q_)       do {                    \
+                                __mpmcq * _q = &(q_)->q; \
+                                _q->sz = 0;              \
+                                DEL((q_)->elem);         \
+                                (q_)->elem = 0;          \
                             } while (0)
 
 

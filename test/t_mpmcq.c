@@ -620,8 +620,13 @@ basic_test()
     assert(MPMCQ_FULL_P(q));
     assert(!MPMCQ_EMPTY_P(q));
 
+    // 5th add should fail.
     s = MPMCQ_ENQ(q, 14);      assert(s == 0);
 
+    // consistency check should pass
+    assert(__MPMCQ_CONSISTENCY_CHECK(q) == 0);
+
+    // Until we drain the queue
     int j;
     s = MPMCQ_DEQ(q, j);       assert(s == 1); assert(j == 10);
     s = MPMCQ_DEQ(q, j);       assert(s == 1); assert(j == 11);
@@ -635,6 +640,7 @@ basic_test()
     assert(MPMCQ_EMPTY_P(q));
     assert(!MPMCQ_FULL_P(q));
 
+    // and we shouldn't be able to drain an empty queue
     s = MPMCQ_DEQ(q, j);       assert(s == 0);
 
     MPMCQ_FINI(q);
