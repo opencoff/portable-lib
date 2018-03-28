@@ -32,7 +32,7 @@
  *     o hash func       1  -- one of BLOOM_HASH_xxx values
  *     o checksum algo   1  -- one of BLOOM_CKSUM_xxx values
  *     o total entries   8  -- number of entries in the bloom filter
- *     o error ratio     8  -- the error ration 'e' the filter was created with
+ *     o error ratio     8  -- the error ratio 'e' when the filter was created
  *     o marshalled size 8  -- total number of marshalled bytes
  *     o ZEROES          -  -- padding to 64 bytes
  *

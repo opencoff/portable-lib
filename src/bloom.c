@@ -69,8 +69,8 @@
  *   o s = 2. This gives us exponential growth on the number of
  *     elements we can hold. What this means is that we essentially
  *     double the size of each succeeding filter while tightening
-*      the FP rate by a factor of 'r'.
-*       
+ *     the FP rate by a factor of 'r'.
+ *       
  *
  * Notes:
  * ======
@@ -186,38 +186,6 @@ setbit(uint8_t* bm, uint64_t i)
 
     bm[j] |= m;
 }
-
-#if 0
-/*
- * Compressed representation of counter in 4 bits.
- */
-static inline void
-incr(uint8_t* a, uint64_t i, int v)
-{
-    uint8_t  j    = i & 1;
-    uint64_t b    = i / 2;
-    uint8_t  mask = 0xf       << (j * 4);
-    uint8_t  val  = (0xf & v) << (j * 4);
-    uint8_t  o    = a[b] & mask;
-
-    a[b] |= mask & (o + val);
-}
-
-
-
-static inline void
-decr(uint8_t* a, uint64_t i, int v)
-{
-    uint8_t  j    = i & 1;
-    uint64_t b    = i / 2;
-    uint8_t  mask = 0xf       << (j * 4);
-    uint8_t  val  = (0xf & v) << (j * 4);
-    uint8_t  o    = a[b] & mask;
-    uint8_t  z    = val > o ? 0 : o - val;
-
-    a[b] = z | (a[b] & ~mask);
-}
-#endif
 
 
 
@@ -352,11 +320,6 @@ counting_bloom_init(bloom* b, size_t n, double e)
     uint64_t m = make_m(n, e);
     uint64_t s = m / k + ((m % k) > 0);  // bytes per slice
 
-    /*
-     * We allocate a big  blob of memory:
-     *   - bloom struct
-     *   - array of byte-sized counters
-     */
     uint64_t bytes = (s * k);
     b->bitmap      = NEWZA(uint8_t, bytes);
     if (!b->bitmap)  return 0;
@@ -371,9 +334,6 @@ counting_bloom_init(bloom* b, size_t n, double e)
     // If your OS doesn't have this - try:
     //   http://github.com/opencoff/mt-arc4random
     arc4random_buf(&b->salt, sizeof b->salt);
-
-    //printf("# counting bloom(%p): n=%lu, e=%6.5f, k=%lu, m=%lu (%lu bytes/partition)\n",
-    //      b, n, e, k, m, s);
 
     return b;
 }
@@ -390,11 +350,6 @@ standard_bloom_init(bloom* b, size_t n, double e)
     uint64_t nbits = _ALIGN_UP(msub * k, 64);
     uint64_t units = nbits / UNITBITS;
 
-    /*
-     * We allocate a big  blob of memory:
-     *   - bloom struct
-     *   - array of uint8_t for the bitmap
-     */
     uint64_t bytes = (units * UNITSIZE);
     b->bitmap      = NEWZA(uint8_t, bytes);
     if (!b->bitmap)  return 0;
@@ -495,6 +450,7 @@ maybe_grow_filter(scalable_bloom *sb)
     return &sb->bfa[sb->len++];
 }
 
+// insert a new element 'v' into a scalable filter
 static void
 scalable_probe(scalable_bloom* sb, uint64_t v)
 {
@@ -512,10 +468,10 @@ scalable_probe(scalable_bloom* sb, uint64_t v)
         // Get the next filter to use
         f = maybe_grow_filter(sb);
 
-        sb->init(f, n, e);
+        standard_bloom_init(f, n, e);
     }
 
-    sb->probe(f, v);
+    standard_bloom_probe(f, v);
 }
 
 
@@ -527,7 +483,7 @@ scalable_fini(scalable_bloom *sb)
     for (i = 0; i < sb->len; ++i) {
         bloom* f = &sb->bfa[i];
 
-        sb->fini(f);
+        bloom_fini(f);
     }
 
     DEL(sb->bfa);
@@ -535,6 +491,10 @@ scalable_fini(scalable_bloom *sb)
 }
 
 
+// lookup 'v' in a scalable bloom filter 'sb'
+// We start from the "largest" filter in the set and work
+// down. Note that when we insert, we *always* insert at the largest filter
+// in the list.
 static int
 scalable_find(scalable_bloom* sb, uint64_t v)
 {
@@ -543,7 +503,7 @@ scalable_find(scalable_bloom* sb, uint64_t v)
     int64_t i = sb->len - 1;
     for (; i >= 0; i--) {
         bloom* f = &sb->bfa[i];
-        if (sb->find(f, v)) return 1;
+        if (standard_bloom_find(f, v)) return 1;
     }
     return 0;
 }
@@ -608,12 +568,6 @@ setup_scalable_bloom(Bloom *b, uint32_t nfilt)
         return 0;
     }
 
-    // These are stacked
-    sb->init  = standard_bloom_init;
-    sb->fini  = bloom_fini;
-    sb->find  = standard_bloom_find;
-    sb->probe = standard_bloom_probe;
-    sb->remov = 0;
     sb->b     = b;
     b->find   = (int  (*)(void*, uint64_t))scalable_find;
     b->probe  = (void (*)(void*, uint64_t))scalable_probe;
@@ -796,6 +750,7 @@ Counting_bloom_init(Bloom *b, uint64_t n, double e)
     return 0;
 }
 
+// free memory associated with filter 'b'
 void
 Bloom_fini(Bloom *b)
 {
@@ -805,7 +760,7 @@ Bloom_fini(Bloom *b)
     memset(b, 0x55, sizeof *b);
 }
 
-
+// create a new instance of a counting bloom filter
 Bloom*
 Counting_bloom_new(uint64_t n, double e)
 {
@@ -819,6 +774,7 @@ Counting_bloom_new(uint64_t n, double e)
 }
 
 
+// create a new instance of a (non-counting) bloom filter
 Bloom*
 Standard_bloom_new(uint64_t n, double e, int scalable)
 {
@@ -831,6 +787,7 @@ Standard_bloom_new(uint64_t n, double e, int scalable)
     return 0;
 }
 
+// free all memory associated with filter 'b' and 'b' itself.
 void
 Bloom_delete(Bloom *b)
 {
@@ -840,6 +797,7 @@ Bloom_delete(Bloom *b)
 
 
 
+// Return true if two bloom filters are identical; false otherwise
 int
 Bloom_eq(Bloom *a, Bloom *b)
 {
@@ -850,55 +808,5 @@ Bloom_eq(Bloom *a, Bloom *b)
     return bloom_eq(a->filter, b->filter);
 }
 
-// NO easy wy to delete from a scaling counting filter.
-#if 0
-
-static int
-scalable_counting_remov(scalable_bloom* sb, uint64_t v)
-{
-    assert(sb->len > 0);
-    assert(sb->remov);
-
-    int     r = 0;
-    int64_t i = sb->len - 1;
-    for (; i >= 0; i--) {
-        bloom* f = &sb->bfa[i];
-        //if (sb->remov(f, v) > 0) return 1;
-        r += sb->remov(f, v);
-    }
-    return r;
-}
-
-
-static Bloom*
-scalable_counting_new(Bloom *b, uint64_t n, double e)
-{
-    scalable_bloom* sb = NEWZ(scalable_bloom);
-    if (!sb) return 0;
-
-    if (!sb_common_init(sb, b))                    return 0;
-
-    // Initialize the first filter in the list.
-    if (!counting_bloom_init(&sb->bfa[0], n, e))   return 0;
-
-    // These are stacked
-    sb->init  = counting_bloom_init;
-    sb->fini  = bloom_fini;
-    sb->find  = counting_bloom_find;
-    sb->probe = counting_bloom_probe;
-    sb->remov = counting_bloom_remove;
-
-    b->n      = n;
-    b->e      = e;
-    b->filter = sb;
-    b->find   = (int  (*)(void*, uint64_t))scalable_find;
-    b->probe  = (void (*)(void*, uint64_t))scalable_probe;
-    b->remov  = (int  (*)(void*, uint64_t))scalable_counting_remov;
-    b->fini   = (void (*)(void*))scalable_fini;
-    b->desc   = (char* (*)(void*, char*, size_t))scalable_bloom_desc;
-    b->name   = "scalable-counting-bloom";
-    return b;
-}
-#endif
 
 /* EOF */

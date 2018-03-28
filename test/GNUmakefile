@@ -41,7 +41,7 @@ tests = strmatch t_strtoi t_arena t_str2hex \
 		mmaptest t_mkdirhier t_frand t_ulid \
 		t_fixedsize t_mempool t_opt_test \
 		t_hashtab t_list t_b64_c t_vect \
-		t_hashfunc t_xorshift t_fast-ht t_oht \
+		t_hashfunc t_xorshift t_fast-ht \
 		t_hashspeed t_hashbench t_strtosize \
 		t_bits t_siphash24 hashtok t_readpass \
 		t_spscq t_mpmcq t_ipaddr t_strcopy \

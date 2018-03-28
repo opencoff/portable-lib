@@ -61,7 +61,9 @@
  *   o  0.5 <= r <= 0.9.  We choose 0.9 as the value for our
  *      purposes.
  *   o  s = 2. This gives us exponential growth on the number of
- *      elements we can hold. What this means is that 
+ *      elements we can hold. What this means is that we essentially
+ *      double the size of each succeeding filter while tightening
+ *      the FP rate by a factor of 'r'.
  *
  * Notes:
  * ======
@@ -124,7 +126,7 @@ extern "C" {
  * Interface for bloom filter. This contains pointers to actual
  * functions for specific filter types.
  *
- * One calls one of the constructors below to create an instance of
+ * Call one of the constructors below to create an instance of
  * this interface.
  *
  * The elements are arranged so that the most important ones fit in
@@ -150,7 +152,7 @@ typedef struct Bloom Bloom;
 
 /**
  * Create and initialize a new COUNTING bloom filter to hold 'n' elements
- * with 50% fill rate satisfying an False positive error rate of
+ * with 50% fill rate satisfying a false positive error rate of
  * 'e'.
  */
 extern Bloom* Counting_bloom_new(uint64_t n, double e);
@@ -158,7 +160,7 @@ extern Bloom* Counting_bloom_new(uint64_t n, double e);
 
 /**
  * Create and initialize a new bloom filter to hold 'n' elements
- * with 50% fill rate satisfying an False positive error rate of
+ * with 50% fill rate satisfying a false positive error rate of
  * 'e'.
  *
  * If 'scalable' is true, then make this bloom filter automatically
@@ -169,7 +171,7 @@ extern Bloom* Standard_bloom_new(uint64_t n, double e, int scalable);
 
 /**
  * Initialize a new COUNTING bloom filter to hold 'n' elements
- * with 50% fill rate satisfying an False positive error rate of
+ * with 50% fill rate satisfying a false positive error rate of
  * 'e'. The caller is expected to provide the storage for the filter
  * instance.
  */
@@ -178,7 +180,7 @@ extern Bloom* Counting_bloom_init(Bloom*, uint64_t n, double e);
 
 /**
  * Initialize a new bloom filter to hold 'n' elements
- * with 50% fill rate satisfying an False positive error rate of
+ * with 50% fill rate satisfying a false positive error rate of
  * 'e'. The caller is expected to provide the storage for the filter
  * instance.
  *

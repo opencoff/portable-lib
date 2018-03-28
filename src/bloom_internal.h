@@ -82,10 +82,10 @@ typedef struct bloom bloom;
  *      next successive filter is sized. Default is 2. i.e., sizes
  *      are doubled (exponential growth).
  *
- *   b) Tightening ration:   This controls the FP probability for
+ *   b) Tightening ratio: This controls the FP probability for
  *      the next successive filter. In turn, this dictates the number
  *      of partitions (or hashes) used by the next successive filter.
- *      Default: 0.8
+ *      Default: 0.9
  */
 struct scalable_bloom
 {
@@ -93,17 +93,9 @@ struct scalable_bloom
     uint32_t len;   // number of bloom filters - each with successively larger partitions
     uint32_t cap;   // array capacity
 
-    void   (*probe)(bloom*, uint64_t);
-    int    (*find )(bloom*, uint64_t);
-    int    (*remov)(bloom*, uint64_t);
-
     uint32_t scale; // we increase the size of the underlying filter by this factor
     double   r;     // tighetening ratio for error prob for filter growth
     Bloom   *b;     // back pointer to parent Bloom instance
-
-    // Lesser used functions
-    bloom* (*init )(bloom*, size_t, double);
-    void   (*fini )(bloom*);
 };
 typedef struct scalable_bloom scalable_bloom;
 
