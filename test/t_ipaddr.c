@@ -23,18 +23,15 @@ std_ip4(const char* s, uint32_t *p_ret)
 }
 
 
-struct testcase
-{
+struct iptest {
     const char* s;
     int       ret;
     uint32_t  exp_a, exp_m;
 };
-typedef struct testcase testcase;
+typedef struct iptest iptest;
 
-const testcase T[] = 
-{
+const iptest T[] = {
       { "1.1.1.1",    1, 0x01010101, 0xffffffff }
-#if 1
     , { "0.0.0.0/32", 1, 0x00000000, 0xffffffff }
     , { "0.0.0.0",    1, 0x00000000, 0xffffffff }
     , { "255.255.255.255", 1, 0xffffffff, 0xffffffff }
@@ -47,7 +44,6 @@ const testcase T[] =
     // Negative cases
     , { "1.1.1.1/249",    0, 0x01010101, 0 }
     , { "1.1", 0, 0, 0 }
-#endif
     , { "1.1.2.33.4", 0, 0, 0 }
     , { "1.1.1.1/249.22", 0, 0x01010101, 0 }
     , { "1.1.1.1/355.255.255.0",    0, 0x01010101, 0 }
@@ -57,11 +53,30 @@ const testcase T[] =
     , { 0, 0, 0, 0}
 };
 
+struct masktest {
+    uint32_t  mask;
+    uint32_t  exp;
+    int ret;
+};
+typedef struct masktest masktest;
 
-int
-main()
+const masktest Tm[] = {
+      { 0xffffffff, 32, 1}
+    , { 0, 0,  1}
+    , { 0xffffff00, 24, 1}
+    , { 0xffff0000, 16, 1}
+    , { 0xfffff800, 21, 1}
+
+    // negative tests
+    , { 0xffff8011, 0, 0}
+    , { 0, 0, -1 }
+};
+
+
+static void
+iptests()
 {
-    const testcase* t = T;
+    const iptest* t = T;
     uint32_t a, m;
     uint32_t x;
 
@@ -83,5 +98,30 @@ main()
             }
         }
     }
+}
+
+
+static void
+masktests()
+{
+    const masktest * t = Tm;
+
+    for (; t->ret != -1; t++) {
+        uint32_t p = 0;
+        int r = mask_to_cidr4(t->mask, &p);
+
+        if (r != t->ret)    error(0, 0, "retval fail <%x>; exp %d, saw %d", t->mask, t->ret, r);
+        if (r) {
+            if (p != t->exp) error(0, 0, "mask fail <%x>; exp %d, saw %d", t->mask, t->exp, p);
+        }
+    }
+}
+
+
+int
+main()
+{
+    iptests();
+    masktests();
     return 0;
 }

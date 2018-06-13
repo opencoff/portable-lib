@@ -162,13 +162,14 @@ parse_ipv4_and_mask(uint32_t* p_a, uint32_t* p_m, const char* str)
     if (strchr(ms, '.')) {
         if (!parse_ipv4(p_m, ms)) return 0;
     } else {
-        size_t z = 0;
+        size_t z = 32;
 
-        if (!dtoi(&z, ms))        return 0;
-        if (z > 32)               return 0;
+        if (ms[0] != 0) {
+            if (!dtoi(&z, ms))        return 0;
+            if (z > 32)               return 0;
+        }
 
-        uint32_t v = z;
-        *p_m = ((2 << (v -1)) - 1) << (32 - v);
+        *p_m = 0xffffffff << (32 - (uint32_t)z);
     }
 
     return 1;

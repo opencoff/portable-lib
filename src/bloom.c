@@ -70,7 +70,6 @@
  *     elements we can hold. What this means is that we essentially
  *     double the size of each succeeding filter while tightening
  *     the FP rate by a factor of 'r'.
- *       
  *
  * Notes:
  * ======

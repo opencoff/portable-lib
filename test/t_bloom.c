@@ -367,7 +367,7 @@ quick_tests(strvect* v, int scalable)
     marshal_tests(b, v, desc);
     Bloom_fini(b);
 
-    perf_test(v, NITER, 1, scalable);
+    perf_test(v, NITER, 0, scalable);
 }
 
 
