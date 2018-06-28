@@ -16,8 +16,8 @@
  *  Reference: http://xoroshiro.di.unimi.it
  */
 
-#ifndef ___UTILS_XOROSHIRO_H__LHmNergujy102vzM___
-#define ___UTILS_XOROSHIRO_H__LHmNergujy102vzM___ 1
+#ifndef ___UTILS_SPLITMIX_H__LHmNergujy102vzM___
+#define ___UTILS_SPLITMIX_H__LHmNergujy102vzM___ 1
 
     /* Provide C linkage for symbols declared here .. */
 #ifdef __cplusplus
@@ -45,6 +45,6 @@ splitmix64(uint64_t x)
 }
 #endif /* __cplusplus */
 
-#endif /* ! ___UTILS_XOROSHIRO_H__LHmNergujy102vzM___ */
+#endif /* ! ___UTILS_SPLITMIX_H__LHmNergujy102vzM___ */
 
 /* EOF */

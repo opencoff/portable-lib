@@ -26,6 +26,13 @@
 #include "utils/xoroshiro.h"
 
 
+
+static inline uint64_t
+rotl(const uint64_t x, unsigned int k)
+{
+    return (x << k) | (x >> (64 - k));
+}
+
 /*
  * Generate a data dependent random value from the CPU timestamp
  * counter.
@@ -40,9 +47,10 @@ makeseed()
 
     for (i = 0; i < m; i++) {
         c = sys_cpu_timestamp();
-        n = c % 1024;
+        n = c & 63;
         for (j = 0; j < n; ++j) {
-            z = (c * (j+1)) ^ (z * i);
+            z = rotl(z, n);
+            z ^= c * (j+1);
         }
     }
     return splitmix64(z);
@@ -58,13 +66,6 @@ xoro128plus_init(xoro128plus *s, uint64_t seed)
     s->v1 = splitmix64(seed);
 }
 
-
-
-static inline uint64_t
-rotl(const uint64_t x, unsigned int k)
-{
-    return (x << k) | (x >> (64 - k));
-}
 
 
 

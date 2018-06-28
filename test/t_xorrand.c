@@ -1,5 +1,5 @@
 /*
- * Xorshift+ PRNG Simple Tests
+ * Xorshift+ and Xoroshiro PRNG Simple Tests
  *
  * (c) 2015 Sudhi Herle
  * License: GPLv2
@@ -11,6 +11,7 @@
 
 #include "error.h"
 #include "utils/xorshift-rand.h"
+#include "utils/xoroshiro.h"
 
 
 
@@ -42,6 +43,16 @@ main(int argc, char* argv[])
         uint64_t v2 = xs1024star_u64(&xss);
 
         printf("%#.16" PRIx64 " %#.16" PRIx64 " %#.16" PRIx64 "\n", v0, v1, v2);
+    }
+
+    printf("-- xoroshiro128+ output --\n");
+
+    xoro128plus s;
+    xoro128plus_init(&s, 0);
+
+    for(i = 0; i < n; i++) {
+        uint64_t z = xoro128plus_u64(&s);
+        printf("%#.16" PRIx64 "\n", z);
     }
 
     return 0;
