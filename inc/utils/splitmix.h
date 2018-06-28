@@ -1,10 +1,10 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * utils/xoroshiro.h - Xoroshiro 128+ PRNG
+ * utils/splitmix.h - Splitmix64 Simple PRNG
  *
- * Copyright (c) 2017 Sudhi Herle <sw at herle.net>
+ * Copyright (c) 2015 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -25,22 +25,21 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <stdint.h>
-#include <stdlib.h>
-#include "utils/splitmix.h"
-
-struct xoro128plus
-{
-    uint64_t v0, v1;
-};
-typedef struct xoro128plus xoro128plus;
-
 
 /*
- * Xoroshiro 128+ PRNG
+ * SplitMix64 PRNG
  */
-void xoro128plus_init(xoro128plus *z, uint64_t seed);
-uint64_t xoro128plus_u64(xoro128plus *z);
+static inline uint64_t
+splitmix64(uint64_t x)
+{
+    uint64_t z;
 
+    z = x += 0x9E3779B97F4A7C15;
+    z = (z ^ (z >> 30) * 0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27) * 0x94D049BB133111EB);
+
+    return z ^ (z >> 31);
+}
 
 #ifdef __cplusplus
 }

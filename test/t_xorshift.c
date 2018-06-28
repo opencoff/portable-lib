@@ -41,7 +41,7 @@ main(int argc, char* argv[])
         uint64_t v1 = xs128plus_u64(&xp);
         uint64_t v2 = xs1024star_u64(&xss);
 
-        printf("%" PRIu64 " %" PRIu64 " %" PRIu64 "\n", v0, v1, v2);
+        printf("%#.16" PRIx64 " %#.16" PRIx64 " %#.16" PRIx64 "\n", v0, v1, v2);
     }
 
     return 0;

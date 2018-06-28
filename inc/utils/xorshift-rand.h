@@ -28,6 +28,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "utils/splitmix.h"
 
 struct xs64star
 {
