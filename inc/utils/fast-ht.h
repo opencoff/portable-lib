@@ -35,7 +35,9 @@ extern "C" {
 
 
 /*
- * Hash node. Sized to occupy a full cache-line.
+ * Hash node.
+ *
+ * For BAGSZ == 4, these nodes will occupy a full cache-line.
  */
 struct hn
 {
@@ -45,21 +47,25 @@ struct hn
 typedef struct hn hn;
 
 
-#define HB       8
-#define FILLPCT  75
+#define FASTHT_BAGSZ       3
+#define FILLPCT            75
 
 /*
  * Bucket
  */
 struct bag
 {
+    hn         a[FASTHT_BAGSZ];
     SL_ENTRY(bag) link;
-    hn         a[HB];
+    uint64_t __pad0; // cache-line aligned for BAGSZ==3
 };
 typedef struct bag bag;
 
 SL_HEAD_TYPEDEF(bag_head, bag);
 
+/*
+ * Hash bucket.
+ */
 struct hb
 {
     bag_head  head;

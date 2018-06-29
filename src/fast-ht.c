@@ -32,6 +32,7 @@
 #include "utils/utils.h"
 #include "utils/fast-ht.h"
 
+
 #define _d(z)       ((double)(z))
 
 extern void arc4random_buf(void *, size_t);
@@ -97,15 +98,17 @@ __insert(hb *b, hn *p)
     SL_FOREACH(g, &b->head, link) {
         hn *x = &g->a[0];
 
-        FIND(x);
-        FIND(x);
-        FIND(x);
-        FIND(x);
-
-        FIND(x);
-        FIND(x);
-        FIND(x);
-        FIND(x);
+        switch (FASTHT_BAGSZ) {
+            default:
+            case 8: FIND(x);
+            case 7: FIND(x);
+            case 6: FIND(x);
+            case 5: FIND(x);
+            case 4: FIND(x);
+            case 3: FIND(x);
+            case 2: FIND(x);
+            case 1: FIND(x);
+        }
     }
 
     if (!pos) {
@@ -136,15 +139,17 @@ __insert_quick(hb *b, hn *p)
     SL_FOREACH(g, &b->head, link) {
         hn *x = &g->a[0];
 
-        PUT(x);
-        PUT(x);
-        PUT(x);
-        PUT(x);
-
-        PUT(x);
-        PUT(x);
-        PUT(x);
-        PUT(x);
+        switch (FASTHT_BAGSZ) {
+            default:
+            case 8: PUT(x);
+            case 7: PUT(x);
+            case 6: PUT(x);
+            case 5: PUT(x);
+            case 4: PUT(x);
+            case 3: PUT(x);
+            case 2: PUT(x);
+            case 1: PUT(x);
+        }
     }
 
     // Make a new bag and put our element there.
@@ -178,15 +183,17 @@ __findx(ht *h, uint64_t hv, void** p_ret, int zero)
     SL_FOREACH(g, &b->head, link) {
         x = &g->a[0];
 
-        SRCH(x);
-        SRCH(x);
-        SRCH(x);
-        SRCH(x);
-
-        SRCH(x);
-        SRCH(x);
-        SRCH(x);
-        SRCH(x);
+        switch (FASTHT_BAGSZ) {
+            default:
+            case 8: SRCH(x);
+            case 7: SRCH(x);
+            case 6: SRCH(x);
+            case 5: SRCH(x);
+            case 4: SRCH(x);
+            case 3: SRCH(x);
+            case 2: SRCH(x);
+            case 1: SRCH(x);
+        }
     }
     return 0;
 
@@ -219,7 +226,7 @@ resize(ht* h)
         bag *g, *tmp;
 
         SL_FOREACH_SAFE(g, &o->head, link, tmp) {
-            for (i = 0; i < HB; i++) {
+            for (i = 0; i < FASTHT_BAGSZ; i++) {
                 hn *p = &g->a[i];
 
                 if (p->h) {

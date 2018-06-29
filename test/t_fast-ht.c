@@ -95,9 +95,10 @@ insert_words(strvect* v, ht* h)
 static void
 print_ht(ht* h)
 {
-    printf("stats:\n"
+    printf("stats: Bag size %d elements\n"
            "  %" PRIu64 " buckets; %" PRIu64 " nodes, fill %4.2f density %4.2f (exp %4.2f)\n"
            "  max-bags %u, max-nodes-per-bucket %u, splits %u\n",
+           FASTHT_BAGSZ,
            h->n, h->nodes, fill(h), density(h), exp_density(h),
            h->bagmax, h->maxn, h->splits);
 }
