@@ -95,7 +95,7 @@ randstr(foo* f)
 
 
 static void
-test0()
+test1()
 {
     foo _f;
     foo *f = &_f;
@@ -128,11 +128,31 @@ test0()
 
 }
 
+static void
+test0()
+{
+    foo _f;
+    foo *f = &_f;
+    int i;
+    uint8_t hex[MAXHEX];
+    size_t n;
+
+    f->sn = f->hn = 0;
+    for (i = 0; i < 256; i++) {
+        append_ch(f, i);
+
+        n = str2hex(hex, sizeof hex, f->s);
+        if (n != f->hn) error(1, 0, "%s: Expected %d, saw %d", f->s, f->hn, n);
+
+        if (0 != memcmp(hex, f->h, n)) error(1, 0, "%s: content mismatch", f->s);
+    }
+}
 
 
 int
 main()
 {
     test0();
+    test1();
     return 0;
 }
