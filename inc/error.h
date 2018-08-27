@@ -47,6 +47,16 @@ extern void (*error_print_progname) (void);
 extern const char * program_name;
 
 
+/*
+ * Die with an error message.
+ */
+#define die(a, ...) error(1, 0, a, #__VA_ARGS__)
+
+/*
+ * Show a warning.
+ */
+#define warn(a, ...) error(0, 0, a, #__VA_ARGS__)
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -168,13 +168,12 @@ pack(const char *fmt, pdata *pd, va_list ap)
         }
 
         if ('0' <= c && c <= '9') {
-            size_t max = ~((size_t)0) / 10;
+            const size_t max = ~((size_t)0) / 10;
             num = c - '0';
-            while ((c = *fmt++)) {
-                size_t v = c - '0';
-
+            for (++fmt, c = *fmt; c; ++fmt) {
                 if (!('0' <= c && c <= '9')) break;
 
+                size_t v = c - '0';
                 if (num > max || 
                         (num == max && v > (~((size_t)0) % 10))) {
                     return -E2BIG;
@@ -266,13 +265,12 @@ unpack(const char *fmt, pdata *pd, va_list ap)
         }
 
         if ('0' <= c && c <= '9') {
-            size_t max = ~((size_t)0) / 10;
+            const size_t max = ~((size_t)0) / 10;
             num = c - '0';
-            while ((c = *fmt++)) {
-                size_t v = c - '0';
-
+            for (++fmt, c = *fmt; c; ++fmt) {
                 if (!('0' <= c && c <= '9')) break;
 
+                size_t v = c - '0';
                 if (num > max || 
                         (num == max && v > (~((size_t)0) % 10))) {
                     return -E2BIG;
@@ -330,6 +328,15 @@ unpack(const char *fmt, pdata *pd, va_list ap)
 static ssize_t
 b_pack(const packer *p, pdata *pd, size_t num, void *arg)
 {
+    if (num == 1) {
+        ptrdiff_t zz = (ptrdiff_t)arg;
+        uint8_t x = zz & 0xff;
+
+        *pd->ptr = x;
+        pd->ptr += 1;
+        return 1;
+    }
+
     uint8_t *x = arg;
 
     USEARG(p);
