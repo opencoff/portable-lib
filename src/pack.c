@@ -66,6 +66,12 @@ const packer be_packers[];
 static int unpack(const char *fmt, pdata *pd, va_list ap);
 static int pack(const char *fmt, pdata *pd, va_list ap);
 
+/*
+ * Pack into buf.
+ *
+ * Return > 0: Number of packed bytes.
+ * Return < 0: -errno.
+ */
 ssize_t
 Pack(uint8_t *buf, size_t bufsize, const char *fmt, ...)
 {
@@ -85,6 +91,12 @@ Pack(uint8_t *buf, size_t bufsize, const char *fmt, ...)
     return pd.ptr - buf;
 }
 
+/*
+ * Unpack from buf.
+ *
+ * Return > 0: Number of packed bytes.
+ * Return < 0: -errno.
+ */
 ssize_t
 Unpack(uint8_t *buf, size_t bufsize, const char *fmt, ...)
 {
@@ -104,6 +116,7 @@ Unpack(uint8_t *buf, size_t bufsize, const char *fmt, ...)
     return pd.ptr - buf;
 }
 
+// Get pack/unpack actor for format char 'c'.
 static const packer*
 getpacker(int c, const packer* pp)
 {
@@ -117,6 +130,7 @@ getpacker(int c, const packer* pp)
 }
 
 
+// internal pack function that operates on va_list
 static int
 pack(const char *fmt, pdata *pd, va_list ap)
 {
@@ -370,7 +384,7 @@ le_s_pack(const packer *p, pdata *pd, size_t num, void *arg)
 {
     if (num == 1) {
         ptrdiff_t zz = (ptrdiff_t)arg;
-        uint16_t x = zz & 0xffff;
+        uint16_t  x  = zz & 0xffff;
 
         pd->ptr = enc_LE_u16(pd->ptr, x);
         return p->size;
