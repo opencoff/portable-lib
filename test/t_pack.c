@@ -12,271 +12,108 @@
 #include "utils/utils.h"
 #include "utils/pack.h"
 
-static void test_b(void);
-static void test_s(void);
+static void test1(void);
 
 int
 main()
 {
-    test_b();
-    test_s();
+    test1();
 }
 
+// test exactly one value 'val' of type 'typ' with format 'fmt'.
+#define xtest1(typ, psz, fmt, val, ...) \
+                do { \
+                    const uint8_t pval[] = { \
+                        __VA_ARGS__  \
+                    };\
+                    int i;\
+                    uint8_t pbuf[psz];\
+                    const typ   pv = (typ)val;\
+                    typ   uv;\
+                    ssize_t sz; \
+                    memset(pbuf, 0, sizeof pbuf);\
+                    memset(&uv, 0, sizeof uv);\
+                    sz = Pack(&pbuf[0], sizeof pbuf, fmt, pv);\
+                    assert(sz == psz);\
+                    for(i=0; i<psz; i++) {\
+                        assert(pbuf[i] == pval[i]);\
+                    }\
+                    sz = Unpack(&pbuf[0], sz, fmt, &uv);\
+                    assert(sz == psz);\
+                    assert(uv == pv);\
+                }while (0)
+
+// test 4 items of a single type 'typ'
+#define xtest4(typ, psz, fmt, val, ...) \
+                do { \
+                    const uint8_t pval[] = { \
+                        __VA_ARGS__  \
+                    };\
+                    const ssize_t expsz = psz * 4; \
+                    const typ pv     = (typ)val;\
+                    int i;\
+                    uint8_t pbuf[expsz];\
+                    uint8_t *x = &pbuf[0];\
+                    const typ pva[4] = { pv, pv, pv, pv };\
+                    typ uva[4];\
+                    ssize_t sz; \
+                    memset(pbuf, 0, sizeof pbuf);\
+                    memset(&uva, 0, sizeof uva);\
+                    sz = Pack(&pbuf[0], sizeof pbuf, fmt, &pva[0]);\
+                    assert(sz == expsz);\
+                    for(i=0; i < 4; i++) {\
+                        int j;\
+                        for(j=0; j<psz; j++, x++) {\
+                            assert(*x == pval[j]);\
+                        }\
+                    }\
+                    sz = Unpack(&pbuf[0], sz, fmt, &uva);\
+                    assert(expsz == sz);\
+                    for(i=0; i < 4;i++) {\
+                        assert(uva[i] == pva[i]);\
+                    }\
+                }while (0)
+
+    
 static void
-test_b()
+test1(void)
 {
-    uint8_t pk[8];
-    ssize_t npk;
-    ssize_t upk;
-    int8_t  sb;
-    uint8_t ub;
+    xtest1(uint8_t, 1, "B", 0x33, 0x33);
+    xtest1( int8_t, 1, "b", -1,   0xff);
 
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "B", 0x33);
-    assert(npk == 1);
-    assert(pk[0] == 0x33);
+    xtest1(uint16_t, 2, "S",  0x1234,   0x34, 0x12);
+    xtest1(uint16_t, 2, ">S", 0x1234,   0x12, 0x34);
+    xtest1( int16_t, 2, "s",  -3,       0xfd, 0xff);
+    xtest1( int16_t, 2, ">s", -3,       0xff, 0xfd);
 
-    upk = Unpack(pk, 1, "B", &ub);
-    assert(upk == 1);
-    assert(ub == 0x33);
+    xtest1(uint32_t, 4, "I",  0xabcd1234,   0x34, 0x12, 0xcd, 0xab);
+    xtest1(uint32_t, 4, ">I", 0xabcd1234,   0xab, 0xcd, 0x12, 0x34);
+    xtest1( int32_t, 4, "i",  -3,       0xfd, 0xff, 0xff, 0xff);
+    xtest1( int32_t, 4, ">i", -3,       0xff, 0xff, 0xff, 0xfd);
 
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "b", -3);
-    assert(npk == 1);
-    assert(pk[0] == 0xfd);
+    xtest1(uint64_t, 8, "L",  0xdeadbeefabcd1234,   0x34, 0x12, 0xcd, 0xab, 0xef, 0xbe, 0xad, 0xde);
+    xtest1(uint64_t, 8, ">L", 0xdeadbeefabcd1234,   0xde, 0xad, 0xbe, 0xef, 0xab, 0xcd, 0x12, 0x34);
+    xtest1( int64_t, 8, "l",  -3,       0xfd, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff);
+    xtest1( int64_t, 8, ">l", -3,       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfd);
 
-    upk = Unpack(pk, 1, "b", &sb);
-    assert(upk == 1);
-    assert(sb == -3);
+    // test 4 item vect
 
-    uint8_t b4[] = { 0xaa, 0xbb, 0xcc, 0xdd };
-    uint8_t ub4[4] = { 0x11, 0x22, 0x33, 0x44 };
+    xtest4(uint8_t, 1, "4B", 0x33, 0x33);
+    xtest4( int8_t, 1, "4b", -1,   0xff);
 
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "4B", b4);
-    assert(npk == 4);
-    assert(pk[0] == 0xaa);
-    assert(pk[1] == 0xbb);
-    assert(pk[2] == 0xcc);
-    assert(pk[3] == 0xdd);
+    xtest4(uint16_t, 2, "4S",  0x1234,   0x34, 0x12);
+    xtest4(uint16_t, 2, ">4S", 0x1234,   0x12, 0x34);
+    xtest4( int16_t, 2, "4s",  -3,       0xfd, 0xff);
+    xtest4( int16_t, 2, ">4s", -3,       0xff, 0xfd);
 
-    memset(ub4, 0, sizeof ub4);
-    upk = Unpack(pk, npk, "4B", ub4);
-    assert(upk == 4);
-    assert(ub4[0] == 0xaa);
-    assert(ub4[1] == 0xbb);
-    assert(ub4[2] == 0xcc);
-    assert(ub4[3] == 0xdd);
+    xtest4(uint32_t, 4, "4I",  0xabcd1234,   0x34, 0x12, 0xcd, 0xab);
+    xtest4(uint32_t, 4, ">4I", 0xabcd1234,   0xab, 0xcd, 0x12, 0x34);
+    xtest4( int32_t, 4, "4i",  -3,       0xfd, 0xff, 0xff, 0xff);
+    xtest4( int32_t, 4, ">4i", -3,       0xff, 0xff, 0xff, 0xfd);
 
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "B B B B", b4[0], b4[1], b4[2], b4[3]);
-    assert(npk == 4);
-    assert(pk[0] == 0xaa);
-    assert(pk[1] == 0xbb);
-    assert(pk[2] == 0xcc);
-    assert(pk[3] == 0xdd);
-
-    memset(ub4, 0, sizeof ub4);
-    npk = Unpack(pk, npk, "B B B B", &ub4[0], &ub4[1], &ub4[2], &ub4[3]);
-    assert(upk == 4);
-    assert(ub4[0] == 0xaa);
-    assert(ub4[1] == 0xbb);
-    assert(ub4[2] == 0xcc);
-    assert(ub4[3] == 0xdd);
+    xtest4(uint64_t, 8, "4L",  0xdeadbeefabcd1234,   0x34, 0x12, 0xcd, 0xab, 0xef, 0xbe, 0xad, 0xde);
+    xtest4(uint64_t, 8, ">4L", 0xdeadbeefabcd1234,   0xde, 0xad, 0xbe, 0xef, 0xab, 0xcd, 0x12, 0x34);
+    xtest4( int64_t, 8, "4l",  -3,       0xfd, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff);
+    xtest4( int64_t, 8, ">4l", -3,       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfd);
 }
 
-static void
-test_s()
-{
-    uint8_t pk[256];
-    ssize_t npk;
-    ssize_t upk;
-    int16_t  sb;
-    uint16_t ub;
-
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "S", 0x33ff);
-    assert(npk == 2);
-    assert(pk[0] == 0xff);
-    assert(pk[1] == 0x33);
-
-    upk = Unpack(pk, npk, "S", &ub);
-    assert(upk == 2);
-    assert(ub == 0x33ff);
-
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "s", (int16_t)-3);
-    assert(npk == 2);
-    assert(pk[0] == 0xfd);
-    assert(pk[1] == 0xff);
-
-    sb = 0;
-    upk = Unpack(pk, npk, "s", &sb);
-    assert(upk == 2);
-    assert(sb == -3);
-
-    uint16_t b4[] = { 0xaa11, 0xbb22, 0xcc33, 0xdd44 };
-    uint16_t ub4[4];
-
-    memset(pk, 0, sizeof pk);
-    memset(ub4, 0, sizeof ub4);
-
-    npk = Pack(pk, sizeof pk, "4S", b4);
-    assert(npk == 8);
-    assert(pk[0] == 0x11);
-    assert(pk[1] == 0xaa);
-    assert(pk[2] == 0x22);
-    assert(pk[3] == 0xbb);
-    assert(pk[4] == 0x33);
-    assert(pk[5] == 0xcc);
-    assert(pk[6] == 0x44);
-    assert(pk[7] == 0xdd);
-
-    upk = Unpack(pk, npk, "4S", ub4);
-    assert(upk == 8);
-    assert(ub4[0] == 0xaa11);
-    assert(ub4[1] == 0xbb22);
-    assert(ub4[2] == 0xcc33);
-    assert(ub4[3] == 0xdd44);
-
-    memset(pk, 0, sizeof pk);
-    memset(ub4, 0, sizeof ub4);
-
-    npk = Pack(pk, sizeof pk, "S S S S", b4[0], b4[1], b4[2], b4[3]);
-    assert(npk == 8);
-    assert(pk[0] == 0x11);
-    assert(pk[1] == 0xaa);
-    assert(pk[2] == 0x22);
-    assert(pk[3] == 0xbb);
-    assert(pk[4] == 0x33);
-    assert(pk[5] == 0xcc);
-    assert(pk[6] == 0x44);
-    assert(pk[7] == 0xdd);
-
-    npk = Unpack(pk, npk, "S S S S", &ub4[0], &ub4[1], &ub4[2], &ub4[3]);
-    assert(upk == 8);
-    assert(ub4[0] == 0xaa11);
-    assert(ub4[1] == 0xbb22);
-    assert(ub4[2] == 0xcc33);
-    assert(ub4[3] == 0xdd44);
-}
-
-#if 0
-static void
-test_i()
-{
-    uint8_t pk[8];
-    ssize_t npk;
-    ssize_t upk;
-    int8_t  sb;
-    uint8_t ub;
-
-    npk = Pack(pk, sizeof pk, "B", 0x33);
-    assert(npk == 1);
-    assert(pk[0] = 0x33);
-
-    upk = Unpack(pk, 1, "B", &ub);
-    assert(upk == 1);
-    assert(ub == 0x33);
-
-    npk = Pack(pk, sizeof pk, "b", -3);
-    assert(npk == 1);
-    assert(pk[0] = 0xfd);
-
-    upk = Unpack(pk, 1, "B", &sb);
-    assert(upk == 1);
-    assert(sb == -3);
-
-    uint8_t b4[] = { 0xaa, 0xbb, 0xcc, 0xdd };
-    uint8_t ub4[4] = { 0x11, 0x22, 0x33, 0x44 };
-
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "4B", b4);
-    assert(npk == 4);
-    assert(pk[0] == 0xaa);
-    assert(pk[1] == 0xbb);
-    assert(pk[2] == 0xcc);
-    assert(pk[3] == 0xdd);
-
-    upk = Unpack(pk, npk, "4B", ub4);
-    assert(upk == 4);
-    assert(ub4[0] == 0xaa);
-    assert(ub4[1] == 0xbb);
-    assert(ub4[2] == 0xcc);
-    assert(ub4[3] == 0xdd);
-
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "B B B B", b4[0], b4[1], b4[2], b4[3]);
-    assert(npk == 4);
-    assert(pk[0] == 0xaa);
-    assert(pk[1] == 0xbb);
-    assert(pk[2] == 0xcc);
-    assert(pk[3] == 0xdd);
-
-    npk = Unpack(pk, npk, "B B B B", &b4[0], &b4[1], &b4[2], &b4[3]);
-    assert(upk == 4);
-    assert(ub4[0] == 0xaa);
-    assert(ub4[1] == 0xbb);
-    assert(ub4[2] == 0xcc);
-    assert(ub4[3] == 0xdd);
-}
-
-static void
-test_l()
-{
-    uint8_t pk[8];
-    ssize_t npk;
-    ssize_t upk;
-    int8_t  sb;
-    uint8_t ub;
-
-    npk = Pack(pk, sizeof pk, "B", 0x33);
-    assert(npk == 1);
-    assert(pk[0] = 0x33);
-
-    upk = Unpack(pk, 1, "B", &ub);
-    assert(upk == 1);
-    assert(ub == 0x33);
-
-    npk = Pack(pk, sizeof pk, "b", -3);
-    assert(npk == 1);
-    assert(pk[0] = 0xfd);
-
-    upk = Unpack(pk, 1, "B", &sb);
-    assert(upk == 1);
-    assert(sb == -3);
-
-    uint8_t b4[] = { 0xaa, 0xbb, 0xcc, 0xdd };
-    uint8_t ub4[4] = { 0x11, 0x22, 0x33, 0x44 };
-
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "4B", b4);
-    assert(npk == 4);
-    assert(pk[0] == 0xaa);
-    assert(pk[1] == 0xbb);
-    assert(pk[2] == 0xcc);
-    assert(pk[3] == 0xdd);
-
-    upk = Unpack(pk, npk, "4B", ub4);
-    assert(upk == 4);
-    assert(ub4[0] == 0xaa);
-    assert(ub4[1] == 0xbb);
-    assert(ub4[2] == 0xcc);
-    assert(ub4[3] == 0xdd);
-
-    memset(pk, 0, sizeof pk);
-    npk = Pack(pk, sizeof pk, "B B B B", b4[0], b4[1], b4[2], b4[3]);
-    assert(npk == 4);
-    assert(pk[0] == 0xaa);
-    assert(pk[1] == 0xbb);
-    assert(pk[2] == 0xcc);
-    assert(pk[3] == 0xdd);
-
-    npk = Unpack(pk, npk, "B B B B", &b4[0], &b4[1], &b4[2], &b4[3]);
-    assert(upk == 4);
-    assert(ub4[0] == 0xaa);
-    assert(ub4[1] == 0xbb);
-    assert(ub4[2] == 0xcc);
-    assert(ub4[3] == 0xdd);
-}
-#endif
