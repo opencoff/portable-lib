@@ -39,7 +39,7 @@ all-objs	   += $$(real_$(1)_objs) $$(real_$(1)_opts)
 $$(real_$(1)_objs): $$(real_$(1)_opts)
 $$(real_$(1)_exe): $$(real_$(1)_objs) $$(real_$(1)_opts) $$(libs)
 
-.PRECIOUS: $($$(real_$(1)_opts):.o=.c) .s .S
+.PRECIOUS: $($$($(1)_opt_objs):.o=.c) .s .S
 endef
 
 deps		= $(all-objs:.o=.d) $(_libobjs:.o=.d)
@@ -158,12 +158,6 @@ $(objdir)/%.i: %.c
 
 $(objdir)/%.i: %.cpp
 	$(CXX) -E -dMD $(CXXFLAGS) $< > $@
-
-
-#$(objdir)/%.c $(objdir)/%.h: %.in $(MKGETOPT)
-	#$(MKGETOPT) $<
-%.c %.h: %.in $(MKGETOPT)
-	$(MKGETOPT) $<
 
 
 #_MP := -MP

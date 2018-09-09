@@ -28,7 +28,7 @@ PORTABLE := ..
 
 # My test cases
 posix_tests +=
-Linux_tests  = $(posix_tests)
+Linux_tests  = $(posix_tests) mt-dd-wipe
 Darwin_tests = $(posix_tests) mt-dd-wipe
 win32_tests += mmap_win32 t_socketpair
  
@@ -66,7 +66,8 @@ $(foreach p,$(target),$(eval $(call obj_def,$(p))))
 #$(warning targets=$(target))
 #$(warning b64_objs=$(b64_objs))
 
-mt-dd-wipe_objs := mt-dd-wipe.o disksize.o dd-wipe-opt.o
+mt-dd-wipe_opt_objs = dd-wipe-opt.o
+mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 
 
 # Define common library objects needed for this project
