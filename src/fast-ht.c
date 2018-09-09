@@ -99,15 +99,15 @@ __insert(hb *b, hn *p)
         hn *x = &g->a[0];
 
         switch (FASTHT_BAGSZ) {
-            default:
-            case 8: FIND(x);
-            case 7: FIND(x);
-            case 6: FIND(x);
-            case 5: FIND(x);
-            case 4: FIND(x);
-            case 3: FIND(x);
-            case 2: FIND(x);
-            case 1: FIND(x);
+            default:                // fallthrough
+            case 8: FIND(x);        // fallthrough
+            case 7: FIND(x);        // fallthrough
+            case 6: FIND(x);        // fallthrough
+            case 5: FIND(x);        // fallthrough
+            case 4: FIND(x);        // fallthrough
+            case 3: FIND(x);        // fallthrough
+            case 2: FIND(x);        // fallthrough
+            case 1: FIND(x);        // fallthrough
         }
     }
 
@@ -140,15 +140,15 @@ __insert_quick(hb *b, hn *p)
         hn *x = &g->a[0];
 
         switch (FASTHT_BAGSZ) {
-            default:
-            case 8: PUT(x);
-            case 7: PUT(x);
-            case 6: PUT(x);
-            case 5: PUT(x);
-            case 4: PUT(x);
-            case 3: PUT(x);
-            case 2: PUT(x);
-            case 1: PUT(x);
+            default:            // fallthrough
+            case 8: PUT(x);     // fallthrough
+            case 7: PUT(x);     // fallthrough
+            case 6: PUT(x);     // fallthrough
+            case 5: PUT(x);     // fallthrough
+            case 4: PUT(x);     // fallthrough
+            case 3: PUT(x);     // fallthrough
+            case 2: PUT(x);     // fallthrough
+            case 1: PUT(x);     // fallthrough
         }
     }
 
@@ -184,15 +184,15 @@ __findx(ht *h, uint64_t hv, void** p_ret, int zero)
         x = &g->a[0];
 
         switch (FASTHT_BAGSZ) {
-            default:
-            case 8: SRCH(x);
-            case 7: SRCH(x);
-            case 6: SRCH(x);
-            case 5: SRCH(x);
-            case 4: SRCH(x);
-            case 3: SRCH(x);
-            case 2: SRCH(x);
-            case 1: SRCH(x);
+            default:            // fallthrough
+            case 8: SRCH(x);    // fallthrough
+            case 7: SRCH(x);    // fallthrough
+            case 6: SRCH(x);    // fallthrough
+            case 5: SRCH(x);    // fallthrough
+            case 4: SRCH(x);    // fallthrough
+            case 3: SRCH(x);    // fallthrough
+            case 2: SRCH(x);    // fallthrough
+            case 1: SRCH(x);    // fallthrough
         }
     }
     return 0;

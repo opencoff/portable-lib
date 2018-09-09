@@ -40,7 +40,7 @@
 // Auto-generated headerfile
 #include "dd-wipe-opt.h"
 
-extern uint32_t arc4random(void);
+extern uint32_t arc4random_buf(void*, size_t);
 
 extern uint64_t get_disksize(int fd, const char* fnam);
 
