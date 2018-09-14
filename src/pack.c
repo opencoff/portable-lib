@@ -174,7 +174,7 @@ pack(const char *fmt, pdata *pd, va_list ap)
             if ((pd->ptr + p->size) > pd->end)
                return -ENOSPC;
 
-            c = p->pack(p, pd, 1, &vnum);
+            c = p->pack(p, pd, 1, vnum);
             if (c < 0) return c;
 
             have_vnum = 1;
@@ -294,6 +294,9 @@ unpack(const char *fmt, pdata *pd, va_list ap)
             }
 
         }
+
+        // XXX What takes precedence if vnum > 0 and num > 0?
+        //     e.g., "* 18I"
 
         const packer *p = getpacker(c, pk);
         if (!p) return -ENOENT;

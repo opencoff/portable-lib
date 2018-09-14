@@ -13,11 +13,105 @@
 #include "utils/pack.h"
 
 static void test1(void);
+static void testmulti(void);
+static void testvararg(void);
 
 int
 main()
 {
     test1();
+    testmulti();
+    testvararg();
+}
+
+// Test multiple arguments of various type
+static void
+testmulti()
+{
+    uint8_t pbuf[256];
+    ssize_t psz;
+    uint8_t  bva[2] = { 0x33, 0x55 };
+    uint32_t iva[2] = { 0x12345678, 0xabcd9988 };
+    uint64_t lv     = 0xdeadbeefbaadf00d;
+
+    memset(pbuf, 0, sizeof pbuf);
+    psz = Pack(pbuf, sizeof pbuf, ">  2B   2I   \tL", bva, iva, lv);
+    assert(psz == 18);
+
+    uint8_t *x = pbuf;
+    assert(*x++ == 0x33);
+    assert(*x++ == 0x55);
+
+    assert(*x++ == 0x12);
+    assert(*x++ == 0x34);
+    assert(*x++ == 0x56);
+    assert(*x++ == 0x78);
+
+    assert(*x++ == 0xab);
+    assert(*x++ == 0xcd);
+    assert(*x++ == 0x99);
+    assert(*x++ == 0x88);
+
+    assert(*x++ == 0xde);
+    assert(*x++ == 0xad);
+    assert(*x++ == 0xbe);
+    assert(*x++ == 0xef);
+    assert(*x++ == 0xba);
+    assert(*x++ == 0xad);
+    assert(*x++ == 0xf0);
+    assert(*x++ == 0x0d);
+
+    // now unpack.
+    memset(bva, 0, sizeof bva);
+    memset(iva, 0, sizeof iva);
+    lv = 0;
+    psz = Unpack(pbuf, psz, "> 2B 2I L", bva, iva, &lv);
+    assert(psz == 18);
+    assert(bva[0] == 0x33);
+    assert(bva[1] == 0x55);
+    assert(iva[0] == 0x12345678);
+    assert(iva[1] == 0xabcd9988);
+    assert(lv     == 0xdeadbeefbaadf00d);
+}
+
+// test var-arg for simple types.
+// XXX We only do _one_ type. No need for anything else.
+static void
+testvararg()
+{
+    uint8_t pbuf[256];
+    ssize_t psz;
+    uint8_t  bva[4] = { 0x33, 0x55, 0x77, 0x99 };
+    uint8_t *uva    = 0;
+    uint32_t nargs  = 0;
+
+    memset(pbuf, 0, sizeof pbuf);
+    psz = Pack(pbuf, sizeof pbuf, "> * B", 4, bva);
+    assert(psz == 8);
+
+    uint8_t *x = pbuf;
+    assert(*x++ == 0x00);
+    assert(*x++ == 0x00);
+    assert(*x++ == 0x00);
+    assert(*x++ == 0x04);
+
+    assert(*x++ == 0x33);
+    assert(*x++ == 0x55);
+    assert(*x++ == 0x77);
+    assert(*x++ == 0x99);
+
+
+    memset(bva, 0, sizeof bva);
+    psz = Unpack(pbuf, psz, "> * B", &nargs, &uva);
+    assert(psz == 8);
+    assert(nargs == 4);
+
+    x = uva;
+    assert(*x++ == 0x33);
+    assert(*x++ == 0x55);
+    assert(*x++ == 0x77);
+    assert(*x++ == 0x99);
+    DEL(uva);
 }
 
 // test exactly one value 'val' of type 'typ' with format 'fmt'.
