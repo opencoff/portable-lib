@@ -174,7 +174,7 @@ pack(const char *fmt, pdata *pd, va_list ap)
             if ((pd->ptr + p->size) > pd->end)
                return -ENOSPC;
 
-            c = p->pack(p, pd, 1, vnum);
+            c = p->pack(p, pd, 1, (void *)(ptrdiff_t)vnum);
             if (c < 0) return c;
 
             have_vnum = 1;
@@ -201,16 +201,38 @@ pack(const char *fmt, pdata *pd, va_list ap)
         const packer *p = getpacker(c, pk);
         if (!p) return -ENOENT;
 
-        if (have_vnum) {
-            have_vnum = 0;
+        // Two rules:
+        // * length prefix is always 1 except for strings (Z)
+        // * VLA always overrides any other length prefix.
 
-            // zero length VLA => nothing to encode.
-            if (0 == (num = vnum)) continue;
-        } else {
+        // We always pull apart a generic pointer; each
+        // packer/unpacker knows what to do with it.
+        void *arg = va_arg(ap, void *);
 
-            // For all other encodings, we need at least _one_
-            // element to encode.
-            if (num == 0) num = 1;
+        switch (c) {
+            case 'z':   // fallthrough
+            case 'Z':
+                // we let the string packer call strlen() and
+                // calculate the correct number of bytes.
+                // If num > 0, it serves as an upper bound.
+                // In particular, we need a way to encode
+                // zero-length strings (with a solo 0).
+
+                // Gah. Without this, we have no way to
+                // distinguish a clamping value vs. actual
+                // value.
+                num = have_vnum ? vnum : strlen((const char*)arg);
+                break;
+
+            default:
+                if (have_vnum) {
+                    num = vnum;
+                    if (0 == num) continue;
+                } else {
+
+                    // All other types need _atleast_ one arg.
+                    if (0 == num) num = 1;
+                }
         }
 
         // pad and strings get extra validations. Most other types
@@ -218,12 +240,11 @@ pack(const char *fmt, pdata *pd, va_list ap)
         if (p->size > 0 && ((pd->ptr + (num * p->size)) > pd->end))
            return -ENOSPC;
 
-        // We always pull apart a generic pointer; each
-        // packer/unpacker knows what to do with it.
-        void *arg = va_arg(ap, void *);
-
         c = p->pack(p, pd, num, arg);
         if (c < 0) return c;
+
+        have_vnum = 0;
+        vnum = 0;
     }
 
     return 0;
@@ -301,20 +322,30 @@ unpack(const char *fmt, pdata *pd, va_list ap)
         const packer *p = getpacker(c, pk);
         if (!p) return -ENOENT;
 
-        // Set to true if we want the next unpack to dynamically
-        // allocate an array of suitable type.
-        //
-        // We can't reuse have_vnum for denoting this because 'vnum'
-        // lives across two successive loop invocation.
-        int alloc = 0;
+        // string encodings are special. We must be able to detect
+        // empty strings.
+        switch (c) {
+            case 'z':   // fallthrough
+            case 'Z':
+                // we let the string packer call strlen() and
+                // calculate the correct number of bytes.
+                // If num > 0, it serves as an upper bound.
+                // In particular, we need a way to decode
+                // zero-length strings (with a solo 0).
+                if (have_vnum) {
+                    num = vnum;
+                }
+                break;
 
-        if (have_vnum) {
-            alloc = 1;
-            have_vnum = 0;
+            default:
+                if (have_vnum) {
+                    num = vnum;
+                    if (0 == num) continue;
+                } else {
 
-            if (0 == (num = vnum)) continue;
-        } else {
-            if (num == 0) num = 1;
+                    // All other types need _atleast_ one arg.
+                    if (0 == num) num = 1;
+                }
         }
 
         // pad and strings get extra validations. Most other types
@@ -330,8 +361,11 @@ unpack(const char *fmt, pdata *pd, va_list ap)
         // valid.
         if (!arg) return -EINVAL;
 
-        c = p->unpack(p, pd, num, arg, alloc);
+        c = p->unpack(p, pd, num, arg, have_vnum == 1);
         if (c < 0) return c;
+
+        have_vnum = 0;
+        vnum = 0;
     }
 
     // missing type descriptor after '*'
@@ -679,30 +713,32 @@ x_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
     return num;
 }
 
-
+/*
+ * We are always passed at least the length of the string.
+ */
 static ssize_t
-z_pack(const packer *p, pdata *pd, size_t num, void *arg)
+z_pack(const packer *p, pdata *pd, size_t n, void *arg)
 {
     const char *s = arg;
-    size_t n;
 
     USEARG(p);
     if (!s) return -EINVAL;
 
-    n = strlen(s);
-    if (n == 0) return -EINVAL;
-
-    if (n > num) n = num;
-
     if ((pd->ptr + n+1) > pd->end) return -ENOSPC;
 
-    // XXX Do we encode string + len?
-    memcpy(pd->ptr, s, n);
+    // If caller told us to only pack() a fixed number of chars,
+    // then we must explicitly null-terminate. To avoid special
+    // casing this, we *always* null terminate.
+    if (n > 0) memcpy(pd->ptr, s, n);
     pd->ptr[n] = 0;
     pd->ptr += n+1;
     return n+1;
 }
 
+/*
+ * For unpacking strings, we *always* allocate memory.
+ * Note: strings are encoded with their trailing 0.
+ */
 static ssize_t
 z_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
 {
@@ -721,19 +757,21 @@ z_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
     }
 
     n = (s - pd->ptr);
-    if (num < n) n = num;
 
     char *z = NEWZA(char, n+1);
     if (!z) return -ENOMEM;
 
-    memcpy(z, pd->ptr, n);
+    if (n > 0) memcpy(z, pd->ptr, n);
     z[n] = 0;
 
+    // If we have a clamping value, we ignore it.
+    // z[num] = 0;
+    USEARG(num);
+
     // we start the *next* processing after the trailing \0
-    pd->ptr = s+1;
+    pd->ptr += n+1;
     *ps = z;
 
-    // XXX What do we return?
     return n+1;
 }
 
@@ -762,6 +800,7 @@ const packer le_packers[] = {
 
     , {'x', 0, x_pack,    x_unpack}
     , {'z', 1, z_pack,    z_unpack}
+    , {'Z', 1, z_pack,    z_unpack}
 
     , {0, 0, 0, 0}  // always in the end
 };
@@ -784,6 +823,7 @@ const packer be_packers[] = {
 
     , {'x', 0, x_pack,    x_unpack}
     , {'z', 1, z_pack,    z_unpack}
+    , {'Z', 1, z_pack,    z_unpack}
 
     , {0, 0, 0, 0}  // always in the end
 };

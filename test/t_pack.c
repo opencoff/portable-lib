@@ -15,6 +15,8 @@
 static void test1(void);
 static void testmulti(void);
 static void testvararg(void);
+static void teststr(void);
+static void testerr(void);
 
 int
 main()
@@ -22,6 +24,8 @@ main()
     test1();
     testmulti();
     testvararg();
+    teststr();
+    testerr();
 }
 
 // Test multiple arguments of various type
@@ -112,6 +116,42 @@ testvararg()
     assert(*x++ == 0x77);
     assert(*x++ == 0x99);
     DEL(uva);
+}
+
+// Test strings
+static void
+teststr()
+{
+    const char *ps     = "hello\tmonkeys";
+    const size_t pslen = strlen(ps);
+    uint8_t pbuf[256];
+    ssize_t psz;
+    char *us = 0;    // unpacked string
+    uint32_t uv = 0; // unpacked u32
+
+    psz = Pack(pbuf, sizeof pbuf, "> Z I", ps, 0xbeefdead);
+    assert(psz == (4 + 1 + pslen));
+    assert(0 == memcmp(pbuf, ps, pslen));
+
+    psz = Unpack(pbuf, psz, "> Z I", &us, &uv);
+    assert(psz == (4 + 1 + pslen));
+    assert(us);
+    assert(strlen(us) == pslen);
+    assert(0 == strcmp(us, ps));
+    assert(uv == 0xbeefdead);
+}
+
+
+// test error paths
+static void
+testerr()
+{
+    uint8_t pbuf[4];
+    ssize_t n;
+
+    n = Pack(pbuf, sizeof pbuf, "> Z I I", "hello", 0xf0001000, 0xd000100c);
+    assert(n < 0);
+    assert(n == -ENOSPC);
 }
 
 // test exactly one value 'val' of type 'typ' with format 'fmt'.
