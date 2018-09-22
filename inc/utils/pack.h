@@ -61,6 +61,16 @@ extern "C" {
  *           whatever element is being encoded/decoded. While
  *           decoding, this count is returned in a uint32_t* arg.
  *
+ * Types and Arguments:
+ * ====================
+ * o Individual type descriptors ("B", "I", etc.) require a
+ *   corresponding argument of the appropriate C type (uint8_t,
+ *   uint32_t etc.).
+ * o Type descriptors with integral prefixes ("4B", "4I" etc.)
+ *   require corresponding arguments of pointer types (uint8_t*,
+ *   uint32_t* etc.). This applies ONLY to integral count of greater
+ *   than 1.
+ *
  * Notes:
  * ======
  * o A repeat-count of 'n' in front of 's' implies no more than n
@@ -75,6 +85,7 @@ extern "C" {
  * Return values:
  *    > 0:  Number of bytes in the encoded stream.
  *    < 0:  -errno on failure:
+ *          -EINVAL invalid type descriptor string
  *          -ENOSPC input buffer is too small to encode all types
  *          -ENOENT unknown type descriptor
  *          -E2BIG  repeat count is larger than 32 bits
@@ -89,9 +100,9 @@ ssize_t Pack(uint8_t *buf, size_t bsize, const char *fmt, ...);
  * In order to return decoded values, the input arguments *must* all
  * be pointers to their respective types.
  *
- * For type 's', Unpack() allocates a char string of the appropriate
- * size and unpacks into the newly allocated area. Thus, the
- * argument to 's' should be "char **".
+ * For type descriptors with integral count prefix, the pointers
+ * should point to memory to accommodate the required number of
+ * bytes.
  *
  * Whenever a wild-card '*' is used before a type descriptor while
  * unpacking, the subsequent argument must be a double pointer of
@@ -103,6 +114,20 @@ ssize_t Pack(uint8_t *buf, size_t bsize, const char *fmt, ...);
  *
  * In the above call, when Unpack() returns successfully, 'va' will
  * point to a dynamically allocated array of 'n' uint32_t.
+ *
+ * For type 's', Unpack() allocates a char string of the appropriate
+ * size and unpacks into the newly allocated area. Thus, the
+ * argument to 's' should be "char **".
+ *
+ * Return values:
+ *    > 0:  Number of bytes decoded
+ *    < 0:  -errno on failure:
+ *          -EINVAL nil pointer encountered for a type or arg or
+ *                  no '\0' found for unpacking string type
+ *          -ENOSPC input buffer is too small to decode all types
+ *          -ENOENT unknown type descriptor
+ *          -ENOMEM out of memory
+ *          -E2BIG  repeat count is larger than 32 bits
  */
 ssize_t Unpack(uint8_t *buf, size_t bsize, const char *fmt, ...);
 

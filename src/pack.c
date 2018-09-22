@@ -405,6 +405,7 @@ b_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
         uint8_t **p_x = arg;
 
         x = NEWZA(uint8_t, num);
+        if (!x) return -ENOMEM;
         *p_x = x;
     }
 
@@ -449,6 +450,7 @@ le_s_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
         uint16_t **p_x = arg;
 
         x = NEWZA(uint16_t, num);
+        if (!x) return -ENOMEM;
         *p_x = x;
     }
 
@@ -493,6 +495,7 @@ be_s_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
         uint16_t **p_x = arg;
 
         x = NEWZA(uint16_t, num);
+        if (!x) return -ENOMEM;
         *p_x = x;
     }
 
@@ -541,6 +544,7 @@ le_i_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
         uint32_t **p_x = arg;
 
         x = NEWZA(uint32_t, num);
+        if (!x) return -ENOMEM;
         *p_x = x;
     }
 
@@ -631,6 +635,7 @@ le_l_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
         uint64_t **p_x = arg;
 
         x = NEWZA(uint64_t, num);
+        if (!x) return -ENOMEM;
         *p_x = x;
     }
 
@@ -674,6 +679,7 @@ be_l_unpack(const packer *p, pdata *pd, size_t num, void *arg, int alloc)
         uint64_t **p_x = arg;
 
         x = NEWZA(uint64_t, num);
+        if (!x) return -ENOMEM;
         *p_x = x;
     }
 
