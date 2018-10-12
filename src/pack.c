@@ -181,11 +181,11 @@ pack(const char *fmt, pdata *pd, va_list ap)
             continue;
         }
 
-        if ('0' <= c && c <= '9') {
+        if (isdigit(c)) {
             const size_t max = ~((size_t)0) / 10;
             num = c - '0';
             for (++fmt, c = *fmt; c; ++fmt) {
-                if (!('0' <= c && c <= '9')) break;
+                if (!isdigit(c)) break;
 
                 size_t v = c - '0';
                 if (num > max || 
@@ -195,7 +195,6 @@ pack(const char *fmt, pdata *pd, va_list ap)
                 num *= 10;
                 num += v;
             }
-
         }
 
         const packer *p = getpacker(c, pk);
@@ -299,11 +298,11 @@ unpack(const char *fmt, pdata *pd, va_list ap)
             continue;
         }
 
-        if ('0' <= c && c <= '9') {
+        if (isdigit(c)) {
             const size_t max = ~((size_t)0) / 10;
             num = c - '0';
             for (++fmt, c = *fmt; c; ++fmt) {
-                if (!('0' <= c && c <= '9')) break;
+                if (!isdigit(c)) break;
 
                 size_t v = c - '0';
                 if (num > max || 
@@ -313,11 +312,10 @@ unpack(const char *fmt, pdata *pd, va_list ap)
                 num *= 10;
                 num += v;
             }
-
         }
 
         // XXX What takes precedence if vnum > 0 and num > 0?
-        //     e.g., "* 18I"
+        //     e.g., "* 8I"
 
         const packer *p = getpacker(c, pk);
         if (!p) return -ENOENT;
