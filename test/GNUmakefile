@@ -46,7 +46,7 @@ tests = strmatch t_strtoi t_arena t_str2hex \
 		t_bits t_siphash24 hashtok t_readpass \
 		t_spscq t_mpmcq t_ipaddr t_strcopy \
 		t_bloom t_bitvect  t_fts t_rotatefile \
-		t_pack \
+		t_pack t_strsplit_csv \
 		$($(platform)_tests)
 
 

@@ -237,6 +237,22 @@ extern char** strsplit(int *strv_size, char* str, const char* tok, int sqz_conse
 extern int  strsplit_quick(char** strv, int n, char* str, const char* tok, int sqz_consec);
 
 
+/**
+ * Split a Comma separated string, handle quoted strings and
+ * escaped quotes.
+ *
+ * Fills the array 'strv' with pointers into the input string 'str'.
+ * Returns:
+ *
+ *      < 0: -ENOSPC if array is too small to hold the delimited parts
+ *      >=0: Number of split tokens in the original string; this
+ *           number is necessarily <= n.
+ *
+ * NB: 'str' - the input string needs to be WRITABLE. The delimiters
+ *     are replaced by '\0'.
+ */
+extern int  strsplit_csv(char** strv, int n, char* str);
+
 
 /**
  * Split a string into tokens just as shell would; handle quoted
