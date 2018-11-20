@@ -12,7 +12,6 @@ struct testcase
     const char* in;     // input string
 };
 typedef struct testcase testcase;
-#define _x(s, e, i) { s, e, i }
 
 static const testcase T[] = 
 {
@@ -20,6 +19,8 @@ static const testcase T[] =
     , { 1, 0,  "",      ""      }
     , { 2, 0,  "",      ""      }
     , { 2, -1, "x",     "xyz"   }
+    , { 2, -1, "xy",    "xy"    }
+    , { 3, 2,  "xy",    "xy"    }
     , { 4, 3,  "abc",   "abc"   }
     , { 5, 3,  "ABC",   "ABC"   }
 

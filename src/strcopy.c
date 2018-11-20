@@ -34,14 +34,17 @@ strcopy(char* dst, size_t sz, const char* src)
 
     assert(sz > 0);
 
-    for (; --sz != 0; dst++, src++) {
-        if (!(*dst = *src))
-            break;
+    while (1) {
+        if (!(*dst = *src)) return dst - z;
+
+        if (--sz == 0) break;
+
+        dst++;
+        src++;
     }
 
-    if (sz == 0)    *dst = 0;
-
-    return *src ? -1 : dst - z;
+    *dst = 0;
+    return -1;
 }
 
 /* EOF */
