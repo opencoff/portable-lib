@@ -2,6 +2,7 @@
  * Test harness for strsplit_csv()
  */
 #include <stdio.h>
+#include <errno.h>
 #include "utils/utils.h"
 
 #define __xstr(a) #a
@@ -36,6 +37,7 @@ static testcase tests[] =
     _T("\"\",,", ";;", 3),
     _T("\"\\\"\",,", "\";;", 3),
     _T("", "", 3),
+    _T("\"abc", "abc", -EINVAL),
     { 0, {0}, 0 }
 };
 
@@ -64,15 +66,20 @@ main ()
 {
     char buf[64];
     char * strv[16];
-    testcase * test;
+    testcase * t;
     int i = 0;
 
-    for (test = tests; test->str; i++, test++) {
+    for (t = tests; t->str; i++, t++) {
         int n;
 
-        strcpy(buf, test->str);
-        n = strsplit_csv(strv, test->strv_size, buf);
-        cmpv(i, strv, n, test->exp);
+        strcpy(buf, t->str);
+        n = strsplit_csv(strv, t->strv_size, buf);
+        if (n < 0) {
+            if (n != t->strv_size)
+                die("%d: <%s> exp %d, saw %d\n", i, t->str, t->strv_size, n);
+        } else {
+            cmpv(i, strv, n, t->exp);
+        }
     }
     return 0;
 

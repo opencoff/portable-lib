@@ -30,11 +30,11 @@
  *     output array 'strv' points to locations within 'str'.
  */
 int
-strsplit_csv(char *strv [], int strv_size, char *str)
+strsplit_csv(char *sv[], int sv_size, char *str)
 {
     int c,
-        k     = 0,   // count of # of elements
-        quote = 0;
+        k = 0,   // count of # of elements
+        q = 0;
 
     char *sub = str, // start of substring.
          *p   = str; // copy ptr
@@ -42,21 +42,19 @@ strsplit_csv(char *strv [], int strv_size, char *str)
     while ((c = *str)) {
         switch (c) {
             case '\'': case '"':
-                if (quote == c) {
+                if (q == c) {
                     // Already in a quote. If previous char is an
                     // escape char - we unescape and keep the quote
                     // char.
                     if (str[-1] == '\\') {
-                        p[-1] = quote;
-                        str++;
-                        continue;
+                        p[-1] = q;
+                    } else {
+                        // Otherwise, we are done with the quoted word.
+                        q = 0;
                     }
-
-                    // Otherwise, we are done with the quoted word.
-                    quote = 0;
                 } else {
                     // Start of quote.
-                    quote = c;
+                    q = c;
                 }
 
                 str++;
@@ -65,11 +63,11 @@ strsplit_csv(char *strv [], int strv_size, char *str)
             case ',':
                 // If we are not quoting, then we terminate word
                 // here.
-                if (quote == 0) {
-                    if (k == strv_size) return -ENOSPC;
+                if (q == 0) {
+                    if (k == sv_size) return -ENOSPC;
 
                     *p++ = 0;
-                    strv[k++] = sub;
+                    sv[k++] = sub;
 
                     // Start of new word;
                     sub = p;
@@ -87,10 +85,11 @@ strsplit_csv(char *strv [], int strv_size, char *str)
     }
 
     if (sub != p) {
-        if (k == strv_size) return -ENOSPC;
+        if (q)              return -EINVAL;
+        if (k == sv_size) return -ENOSPC;
 
         *p++ = 0;
-        strv[k++] = sub;
+        sv[k++] = sub;
     }
     return k;
 }
