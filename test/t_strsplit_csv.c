@@ -73,7 +73,7 @@ main ()
         int n;
 
         strcpy(buf, t->str);
-        n = strsplit_csv(strv, t->strv_size, buf);
+        n = strsplit_csv(strv, t->strv_size, buf, 0);
         if (n < 0) {
             if (n != t->strv_size)
                 die("%d: <%s> exp %d, saw %d\n", i, t->str, t->strv_size, n);

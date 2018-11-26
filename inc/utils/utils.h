@@ -241,6 +241,11 @@ extern int  strsplit_quick(char** strv, int n, char* str, const char* tok, int s
  * Split a Comma separated string, handle quoted strings and
  * escaped quotes.
  *
+ * The separator can be any of characters in 'sep'. A nil ptr
+ * indicates the _default_ of ','.  If 'sep' contains more than
+ * one character, then any of them can be a valid separator.
+ * e.g., ",;" indicates that ',' or ';' can be a field separator.
+ *
  * Fills the array 'strv' with pointers into the input string 'str'.
  * Returns:
  *
@@ -251,7 +256,7 @@ extern int  strsplit_quick(char** strv, int n, char* str, const char* tok, int s
  * NB: 'str' - the input string needs to be WRITABLE. The delimiters
  *     are replaced by '\0'.
  */
-extern int  strsplit_csv(char** strv, int n, char* str);
+extern int  strsplit_csv(char** strv, int n, char* str, const char *sep);
 
 
 /**
