@@ -1,10 +1,10 @@
 /* vim: ts=4:sw=4:expandtab:tw=72:
- * 
+ *
  * mempool.h - Fast, scalable fixed-size objects' allocator.
  *
  * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -98,7 +98,7 @@ struct mempool;
  *
  *  This function creates a new fixed size allocator to
  *  efficiently allocate objects of 'blksize' bytes.
- *  
+ *
  *
  *  @param st       Allocator state that must be initialized.
  *                  Callers must treat this as an opaque handle
@@ -131,13 +131,18 @@ int mempool_new(struct mempool** p_st,
                 unsigned int blksize, unsigned int maxblks,
                 unsigned int min_alloc_units);
 
+int mempool_init(struct mempool* st,
+                const memmgr* traits,
+                unsigned int blksize, unsigned int maxblks,
+                unsigned int min_alloc_units);
+
 
 /** Create a new small obj allocator out of the pre-allocated memory.
  *
  *  This function creates a new fixed size allocator to
  *  efficiently allocate objects of 'blksize' bytes. New blocks are
  *  allocated from the specified memory zone.
- *  
+ *
  *
  *  @param st       Allocator state that must be initialized.
  *                  Callers must treat this as an opaque handle
@@ -155,13 +160,15 @@ int mempool_new(struct mempool** p_st,
 int mempool_new_from_mem(struct mempool** st,
                          unsigned int blksize, void* mem, unsigned int memsize);
 
+int mempool_init_from_mem(struct mempool* st,
+                         unsigned int blksize, void* mem, unsigned int memsize);
 
 
 /** Delete a fixed size allocator.
  *
  *  This function deletes a fixed size allocator created by the
  *  previous function.
- *  
+ *
  *  @param a Handle to the allocator
  *
  *  @see  mempool_new
@@ -173,7 +180,7 @@ void mempool_delete(struct mempool* a);
 /** Allocate one fixed size from the allocator.
  *
  *  @param a Handle to the allocator
- *  
+ *
  *  @return If successful, pointer to a suitably aligned
  *          fixed size memory location.
  *
@@ -202,7 +209,7 @@ void mempool_free(struct mempool* a, void * ptr);
  *       the value given to mempool_new().
  *
  * @param a Handle to the allocator
- * 
+ *
  * @return Actual block size (size of each small obj) used by the allocator
  */
 unsigned int mempool_block_size(struct mempool* a);
@@ -214,7 +221,7 @@ unsigned int mempool_block_size(struct mempool* a);
  *       allocator is bounded (with max number of blocks).
  *
  * @param a Handle to the allocator
- * 
+ *
  * @return > 0  Max available blocks
  * @return == 0 If an infinite number of blocks are available
  */
@@ -327,7 +334,7 @@ protected:
 
 protected:
     static mempool* find(size_t n, bool alloc_new=true);
-    
+
     static alloc_type mem;
     static state_type state;
 };

@@ -31,7 +31,9 @@
 #define LONGBIT       (LONGBYTES * 8)   // 8 bits per byte
 #define BITVECTSIZE   (256 / LONGBIT)
 
-#define DELIM_DECL(v)  uint64_t v[BITVECTSIZE]
+typedef uint64_t      DELIM_TYPE[BITVECTSIZE];
+
+#define INIT_DELIM(v)  memset(v, 0, sizeof v)
 
 #define ADD_DELIM(v, c) do { \
                             uint64_t c_ = (uint64_t)(c);\
@@ -69,12 +71,12 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
         k = 0,   // count of # of elements
         q = 0;
 
-    DELIM_DECL(v);
     char *sub = str, // start of substring.
          *p   = str; // copy ptr
 
+    DELIM_TYPE  v;
 
-    memset(v, 0, sizeof v);
+    INIT_DELIM(v);
 
     if (!sep) {
         ADD_DELIM(v, ',');  // default delimiter
