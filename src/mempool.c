@@ -1,10 +1,10 @@
 /* vim: ts=4:sw=4:expandtab:tw=72:
- * 
+ *
  * mempool.c - Small, scalable fixed size object state.
  *
  * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stddef.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -102,19 +103,19 @@
 
 /* useful typedefs */
 typedef unsigned int       uint_t;
-typedef unsigned char      uchar_t;
+typedef unsigned char      uint8_t;
 #if defined(__PTRDIFF_TYPE__)
 typedef unsigned __PTRDIFF_TYPE__ ptrval_t;
 #elif defined(__LP64__)
-typedef unsigned long long   ptrval_t;
+typedef uint64_t  ptrval_t;
 #else
-typedef unsigned long ptrval_t;
+typedef uint32_t ptrval_t;
 #endif
 
 
 /* handy macros to cast away our troubles */
 #define _PTRVAL(x)  ((ptrval_t)(x))
-#define pUCHAR(x)   ((unsigned char *)(x))
+#define pUCHAR(x)   ((uint8_t *)(x))
 
 
 
@@ -131,10 +132,10 @@ struct memchunk
      * pointer to free area from whence we can carve out
      * new blocks
      */
-    uchar_t * free_area;
+    uint8_t * free_area;
 
     /* points to the end of this hunk */
-    uchar_t * end;
+    uint8_t * end;
 };
 typedef struct memchunk memchunk;
 
@@ -281,8 +282,8 @@ new_chunk(state * a)
 {
     uint64_t chunk_size = (uint64_t)a->block_size * (uint64_t)a->min_units;
     uint64_t alloc_size = sizeof(memchunk) + chunk_size + MINALIGNMENT;
-    memchunk   * ch;
-    uchar_t * ptr;
+    memchunk *ch;
+    uint8_t  *ptr;
 
     /* Guard against arithmetic overflow */
     assert(chunk_size > a->block_size && chunk_size > a->min_units);
@@ -308,7 +309,7 @@ new_chunk(state * a)
      */
 
     ptr           = pUCHAR(ch) + sizeof *ch;    /* start of free area */
-    ch->free_area = _Align(uchar_t *, ptr);     /* aligned start of blocks */
+    ch->free_area = _Align(uint8_t *, ptr);     /* aligned start of blocks */
     ch->end       = ch->free_area + chunk_size; /* end of chunk memory */
 
     return 1;
@@ -345,13 +346,13 @@ alloc_from_chunk(state * a)
 #ifdef MEMPOOL_DEBUG
 
 static int
-_valid_blk_p(state *a, uchar_t * ptr)
+_valid_blk_p(state *a, uint8_t * ptr)
 {
     memchunk * ch = a->chunks;
 
     while (ch)
     {
-        uchar_t * chunk_start = pUCHAR(ch) + sizeof *ch;
+        uint8_t * chunk_start = pUCHAR(ch) + sizeof *ch;
 
         if (chunk_start <= ptr && ptr < ch->end)
             return 1;
@@ -381,20 +382,11 @@ _valid_blk_p(state *a, uchar_t * ptr)
  */
 
 
-
-
-/*
- * Instantiate a new fixed sized obj state.
- */
 int
-mempool_new(state ** p_a, const memmgr* tr, uint_t block_size,
+mempool_init(state *a, const memmgr* tr, uint_t block_size,
                   uint_t max, uint_t min_alloc_units)
 {
-    state* a;
-
-    if ( !p_a )
-        return -EINVAL;
-
+    if ( !a ) return -EINVAL;
     if (!tr) {
         static const memmgr os_traits = {
             .alloc   = __os_alloc,
@@ -404,21 +396,15 @@ mempool_new(state ** p_a, const memmgr* tr, uint_t block_size,
         tr = &os_traits;
     }
 
-    if  (!(tr->alloc && tr->free))
-        return -EINVAL;
+    if  (!(tr->alloc && tr->free)) return -EINVAL;
 
-    a = (state *)tr->alloc(tr->context, sizeof *a);
-    if (!a)
-        return -ENOMEM;
 
     memset(a, 0, sizeof *a);
-
 
     /*
      * Make sure block_size has minimum qualifications.
      */
-    if (block_size < MIN_OBJ_SIZE)
-        block_size = MIN_OBJ_SIZE;
+    if (block_size < MIN_OBJ_SIZE) block_size = MIN_OBJ_SIZE;
 
 
     block_size = _Align(uint_t, block_size);
@@ -437,36 +423,62 @@ mempool_new(state ** p_a, const memmgr* tr, uint_t block_size,
     a->traits     = *tr;
 
 
-    if (!new_chunk(a))
-        return -ENOMEM;
+    if (!new_chunk(a)) return -ENOMEM;
 
-    *p_a = a;
     return 0;
 }
 
 
+/*
+ * Instantiate a new fixed sized obj state.
+ */
+int
+mempool_new(state ** p_a, const memmgr* tr, uint_t block_size,
+                  uint_t max, uint_t min_alloc_units)
+{
+    state* a;
+
+    if ( !p_a ) return -EINVAL;
+
+    if (!tr) {
+        static const memmgr os_traits = {
+            .alloc   = __os_alloc,
+            .free    = __os_free,
+            .context = 0
+        };
+        tr = &os_traits;
+    }
+
+    if  (!(tr->alloc && tr->free)) return -EINVAL;
+
+    a = (state *)tr->alloc(tr->context, sizeof *a);
+    if (!a) return -ENOMEM;
+
+
+    *p_a = a;
+    return mempool_init(a, tr, block_size, max, min_alloc_units);
+}
+
 
 
 int
-mempool_new_from_mem(state ** p_a, uint_t block_size,
+mempool_init_from_mem(state *a, uint_t block_size,
                            void* pool, uint_t poolsize)
 {
-    state* a;
     memchunk * ch;
-    uchar_t* ptr,
+    uint8_t* ptr,
            * end;
     unsigned int nblocks;
 
-    if (!(p_a && pool && poolsize))
-        return -EINVAL;
+    if (!(a && pool && poolsize)) return -EINVAL;
 
+    memset(a, 0, sizeof *a);
 
     /*
      * the pool must be big enough to hold a chunk and at least one
      * aligned block.
      */
-    if (block_size < MIN_OBJ_SIZE)
-        block_size = MIN_OBJ_SIZE;
+    if (block_size < MIN_OBJ_SIZE) block_size = MIN_OBJ_SIZE;
 
 
     /*
@@ -478,21 +490,13 @@ mempool_new_from_mem(state ** p_a, uint_t block_size,
      * Make sure pool is aligned to begin with. Most of the time, it
      * will be.
      */
-    ptr       = _Align(uchar_t *, pool);
-    a         = (state *)ptr;
-    ptr      += sizeof *a;
-    poolsize -= sizeof *a;
-    ptr       = _Align(uchar_t*, ptr);
+    ptr       = _Align(uint8_t *, pool);
     poolsize -= (ptr - pUCHAR(pool));
     pool      = ptr;
 
-    if (poolsize < (block_size + MINALIGNMENT + sizeof *ch))
-        return -ENOMEM;
-
-    memset(a, 0, sizeof *a);
+    if (poolsize < (block_size + MINALIGNMENT + sizeof *ch)) return -ENOMEM;
 
     ch = (memchunk*)pool;
-
 
     /*
      * Setup the pointers within this chunk so that all alignment
@@ -506,7 +510,7 @@ mempool_new_from_mem(state ** p_a, uint_t block_size,
 
     ptr            = pUCHAR(ch) + sizeof *ch;    /* start of free area */
     end            = pUCHAR(ch) + poolsize;      /* end of the pool */
-    ch->free_area  = _Align(uchar_t *, ptr);     /* aligned start of blocks */
+    ch->free_area  = _Align(uint8_t *, ptr);     /* aligned start of blocks */
     nblocks        = (end - ch->free_area) / block_size;
     ch->end        = ch->free_area + (nblocks * block_size);
 
@@ -516,8 +520,31 @@ mempool_new_from_mem(state ** p_a, uint_t block_size,
     a->block_size  = block_size;
     a->traits.free = __dummy_free;
 
-    *p_a = a;
     return 0;
+}
+
+
+int
+mempool_new_from_mem(state ** p_a, uint_t block_size,
+                           void* pool, uint_t poolsize)
+{
+    state* a;
+    uint8_t* ptr;
+
+    if (!(p_a && pool && poolsize)) return -EINVAL;
+
+
+    /*
+     * Make sure pool is aligned to begin with. Most of the time, it
+     * will be.
+     */
+    ptr       = _Align(uint8_t *, pool);
+    a         = (state *)ptr;
+    ptr      += sizeof *a;
+    poolsize -= sizeof *a;
+
+    *p_a = a;
+    return mempool_init_from_mem(a, block_size, ptr, poolsize);
 }
 
 

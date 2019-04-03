@@ -288,6 +288,7 @@ perf_consumer(void *v)
 
 
 
+// sort func that orders by time-stamp
 static int
 ts_cmp(const void* a, const void* b)
 {
@@ -304,6 +305,21 @@ ts_cmp(const void* a, const void* b)
 }
 
 
+// sort func that orders byompares latency value
+static int
+lat_cmp(const void* a, const void* b)
+{
+    const lat* x = a;
+    const lat* y = b;
+
+    if (x->v < y->v)
+        return -1;
+
+    if (x->v > y->v)
+        return +1;
+
+    return 0;
+}
 
 
 // finisher for the performance test
@@ -329,8 +345,11 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
     }
     printf("#    P Total %zd elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
 
-    latv    all;
+    latv all;
+    latv pctile;
+
     VECT_INIT(&all, tot);
+    VECT_INIT(&pctile, tot);
 
     tot = 0;
     cyc = 0;
@@ -348,7 +367,24 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
     printf("#    C Total %zd elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
 
     assert(tot == VECT_SIZE(&all));
+
+    VECT_APPEND_VECT(&pctile, &all);
+
     VECT_SORT(&all, ts_cmp);
+    VECT_SORT(&pctile, lat_cmp);
+
+    // Percentiles: 99, 70, 50
+    int64_t p99 = 99 * tot / 100,
+            p70 = 70 * tot / 100,
+            p50 = 70 * tot / 100;
+
+    printf("# Latencies: (percentiles)\n"
+           "#     99th: %" PRIu64 "\n"
+           "#     70th: %" PRIu64 "\n"
+           "#     50th: %" PRIu64 "\n",
+           VECT_ELEM(&pctile, p99).v,
+           VECT_ELEM(&pctile, p70).v,
+           VECT_ELEM(&pctile, p50).v);
 
     lat* v;
     VECT_FOR_EACH(&all, v) {
