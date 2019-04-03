@@ -57,9 +57,7 @@ wc_submit(worker_context* wc, void* j)
 static void*
 wc_get(worker_context* wc)
 {
-    void* j =  0;
-    SYNCQ_DEQ(&wc->q, j);
-    return j;
+    return SYNCQ_DEQ(&wc->q);
 }
 
 /*

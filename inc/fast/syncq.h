@@ -113,15 +113,17 @@ __syncobj_init(__syncobj* s, size_t n)
 /**
  * Dequeue an object from queue 'q0' and return it.
  */
-#define SYNCQ_DEQ(q0, obj)      do { \
+#define SYNCQ_DEQ(q0)      ({\
                                     typeof(q0)  q = q0; \
+                                    typeof(q->q.elem[0]) z;\
                                     __syncobj*  s = &q->s; \
                                     sem_wait(&s->notempty); \
                                     pthread_mutex_lock(&s->lock); \
-                                    FQ_DEQ(&q->q, obj);    \
+                                    FQ_DEQ(&q->q, z);    \
                                     pthread_mutex_unlock(&s->lock); \
                                     sem_post(&s->notfull); \
-                                } while (0)
+                                    z;\
+                             })
                                 
 
 #ifdef __cplusplus

@@ -193,10 +193,7 @@ job_manager_wait(job_manager* jm)
 static void*
 job_manager_get(job_manager* jm)
 {
-    void* j = 0;
-
-    SYNCQ_DEQ(&jm->q, j);
-    return j;
+    return SYNCQ_DEQ(&jm->q);
 }
 
 /* EOF */

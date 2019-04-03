@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <assert.h>
 #include <errno.h>
 #include <semaphore.h>
@@ -319,7 +320,7 @@ start(ctxt* cx, int cpu, uint64_t st, uint64_t count)
     cx->count = count;
     cx->start = st;
 
-    printf("CPU %d: Off %llu size %llu\n", cpu, st, count);
+    printf("CPU %d: Off %" PRIu64 " size %" PRIu64 "\n", cpu, st, count);
 
     r = pthread_create(&cx->id, 0, IOTHREAD_FUNC, cx);
     if (r != 0) 
@@ -435,7 +436,7 @@ main(int argc, char **argv)
     while (done > 0) {
         progress p = { .cpu = 0, .id = 0, .done = 0 };
 
-       SYNCQ_DEQ(&pq, p);
+       p = SYNCQ_DEQ(&pq);
 
         if (p.done == p.total) {
             void* rr;
