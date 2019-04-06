@@ -104,7 +104,11 @@ extern "C" {
 
 /* Functional style casts */
 #define pUCHAR(x)    ((unsigned char*)(x))
+#define pUINT(x)     ((unsigned int*)(x))
 #define pULONG(x)    ((unsigned long*)(x))
+#define pCHAR(x)     ((char*)(x))
+#define pINT(x)      ((int*)(x))
+#define pLONG(x)     ((long*)(x))
 
 #define _ULLONG(x)   ((unsigned long long)(x))
 #define _ULONG(x)    ((unsigned long)(x))
