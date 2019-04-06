@@ -28,16 +28,20 @@ extern "C" {
 #include <assert.h>
 #include <semaphore.h>
 #include <pthread.h>
-#include "fast/queue.h"
 
 
 
-// Handy typedefs
-#define __rawq(x)           x ## __objtype
-
-// Holds all the synchronization objects
+/*
+ * Holds all the synchronization objects protected by 'lock'.
+ *
+ * We don't worry about queue-full, queue-empty conditions via 'rd'
+ * and 'wr'; the semaphores tell us when there is space and when
+ * there isn't. We just have to worry about wraparound of rd and wr.
+ */
 struct __syncobj
 {
+    uint32_t rd, wr;
+    uint32_t sz;
     pthread_mutex_t lock;
     sem_t notempty;
     sem_t notfull;
@@ -49,11 +53,10 @@ typedef struct __syncobj __syncobj;
  * Define a new sync-queue type 'pqtype' to hold 'SZ' objects of
  * type 'objtyp'.
  */
-#define SYNCQ_TYPEDEF(pqtyp, objtyp, SZ)        FQ_TYPEDEF(__rawq(pqtyp), objtyp, SZ); \
-                                                struct pqtyp {             \
-                                                    __rawq(pqtyp) q;       \
-                                                    __syncobj     s;       \
-                                                };                         \
+#define SYNCQ_TYPEDEF(pqtyp, objtyp, SZ)        struct pqtyp {         \
+                                                    __syncobj s;       \
+                                                    objtyp    e[SZ];   \
+                                                };                     \
                                                 typedef struct pqtyp pqtyp
 
 
@@ -68,6 +71,8 @@ __syncobj_init(__syncobj* s, size_t n)
     if ((r = sem_init(&s->notempty, 0, 0)) != 0)     return -errno;
     if ((r = sem_init(&s->notfull,  0, n)) != 0)     return -errno;
 
+    s->rd = s->wr = 0;
+    s->sz = n;
     return 0;
 }
 
@@ -77,7 +82,6 @@ __syncobj_init(__syncobj* s, size_t n)
  */
 #define SYNCQ_INIT(q0, SZ)       ({ \
                                     typeof(q0)  q = q0; \
-                                    FQ_INIT(&q->q, SZ);     \
                                     __syncobj_init(&q->s, SZ); \
                                  })
 
@@ -91,7 +95,6 @@ __syncobj_init(__syncobj* s, size_t n)
                                     sem_destroy(&s->notfull); \
                                     sem_destroy(&s->notempty); \
                                     pthread_mutex_destroy(&s->lock); \
-                                    FQ_FINI(&q->q); \
                                 } while (0)
 
 
@@ -103,7 +106,9 @@ __syncobj_init(__syncobj* s, size_t n)
                                     __syncobj*  s = &q->s; \
                                     sem_wait(&s->notfull); \
                                     pthread_mutex_lock(&s->lock); \
-                                    FQ_ENQ(&q->q, obj); \
+                                    uint32_t w = s->wr++; \
+                                    if (s->wr == s->sz) s->wr = 0;\
+                                    q->e[w] = obj;\
                                     pthread_mutex_unlock(&s->lock); \
                                     sem_post(&s->notempty); \
                                 } while (0)
@@ -115,11 +120,12 @@ __syncobj_init(__syncobj* s, size_t n)
  */
 #define SYNCQ_DEQ(q0)      ({\
                                     typeof(q0)  q = q0; \
-                                    typeof(q->q.elem[0]) z;\
                                     __syncobj*  s = &q->s; \
                                     sem_wait(&s->notempty); \
                                     pthread_mutex_lock(&s->lock); \
-                                    FQ_DEQ(&q->q, z);    \
+                                    uint32_t r = s->rd++;\
+                                    if (s->rd == s->sz) s->rd = 0;\
+                                    typeof(q->e[0]) z = q->e[r];\
                                     pthread_mutex_unlock(&s->lock); \
                                     sem_post(&s->notfull); \
                                     z;\
