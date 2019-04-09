@@ -81,8 +81,8 @@ __syncobj_init(__syncobj* s, size_t n)
  * Initialize a SyncQ 'q0'.
  */
 #define SYNCQ_INIT(q0, SZ)       ({ \
-                                    typeof(q0)  q = q0; \
-                                    __syncobj_init(&q->s, SZ); \
+                                    typeof(q0)  q_ = q0; \
+                                    __syncobj_init(&q_->s, SZ); \
                                  })
 
 
@@ -90,11 +90,11 @@ __syncobj_init(__syncobj* s, size_t n)
  * Finalize/delete a syncQ.
  */
 #define SYNCQ_FINI(q0)          do { \
-                                    typeof(q0)  q = q0; \
-                                    __syncobj*  s = &q->s; \
-                                    sem_destroy(&s->notfull); \
-                                    sem_destroy(&s->notempty); \
-                                    pthread_mutex_destroy(&s->lock); \
+                                    typeof(q0)  q_ = q0; \
+                                    __syncobj*  s_ = &q_->s; \
+                                    sem_destroy(&s_->notfull); \
+                                    sem_destroy(&s_->notempty); \
+                                    pthread_mutex_destroy(&s_->lock); \
                                 } while (0)
 
 
@@ -102,15 +102,15 @@ __syncobj_init(__syncobj* s, size_t n)
  * Enqueue object 'obj' into queue 'q0'.
  */
 #define SYNCQ_ENQ(q0, obj)      do { \
-                                    typeof(q0)  q = q0; \
-                                    __syncobj*  s = &q->s; \
-                                    sem_wait(&s->notfull); \
-                                    pthread_mutex_lock(&s->lock); \
-                                    uint32_t w = s->wr++; \
-                                    if (s->wr == s->sz) s->wr = 0;\
-                                    q->e[w] = obj;\
-                                    pthread_mutex_unlock(&s->lock); \
-                                    sem_post(&s->notempty); \
+                                    typeof(q0)  q_ = q0; \
+                                    __syncobj*  s_ = &q_->s; \
+                                    sem_wait(&s_->notfull); \
+                                    pthread_mutex_lock(&s_->lock); \
+                                    uint32_t w_ = s_->wr++; \
+                                    if (s_->wr == s_->sz) s_->wr = 0;\
+                                    q_->e[w_] = obj;\
+                                    pthread_mutex_unlock(&s_->lock); \
+                                    sem_post(&s_->notempty); \
                                 } while (0)
 
 
@@ -119,16 +119,16 @@ __syncobj_init(__syncobj* s, size_t n)
  * Dequeue an object from queue 'q0' and return it.
  */
 #define SYNCQ_DEQ(q0)      ({\
-                                    typeof(q0)  q = q0; \
-                                    __syncobj*  s = &q->s; \
-                                    sem_wait(&s->notempty); \
-                                    pthread_mutex_lock(&s->lock); \
-                                    uint32_t r = s->rd++;\
-                                    if (s->rd == s->sz) s->rd = 0;\
-                                    typeof(q->e[0]) z = q->e[r];\
-                                    pthread_mutex_unlock(&s->lock); \
-                                    sem_post(&s->notfull); \
-                                    z;\
+                                    typeof(q0)  q_ = q0; \
+                                    __syncobj*  s_ = &q_->s; \
+                                    sem_wait(&s_->notempty); \
+                                    pthread_mutex_lock(&s_->lock); \
+                                    uint32_t r_ = s_->rd++;\
+                                    if (s_->rd == s_->sz) s_->rd = 0;\
+                                    typeof(q_->e[0]) z_ = q_->e[r_];\
+                                    pthread_mutex_unlock(&s_->lock); \
+                                    sem_post(&s_->notfull); \
+                                    z_;\
                              })
                                 
 
