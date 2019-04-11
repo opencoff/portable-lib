@@ -503,7 +503,7 @@ rdhdr(uint8_t *buf, uint64_t sz, mstate *m)
     // At this point, we have not setup b->e. We will do that when
     // we read in the actual filter data.
 
-    m->b = __alloc_bloom(typ, next_pow2(n));
+    m->b = __alloc_bloom(typ, NEXTPOW2(n));
     if (!m->b) return -ENOMEM;
 
     m->b->n = bn;

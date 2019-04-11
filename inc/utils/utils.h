@@ -139,24 +139,24 @@ extern "C" {
 
 /* Align a quantity 'v' to 'n' byte boundary and return as type 'T". */
 #define _ALIGN_UP(v, n)        (typeof(v))({ \
-                                  uint64_t x  = _U64(v); \
-                                  uint64_t z1 = _U64(n) - 1; \
-                                  (x + z1) & ~z1;})
+                                  uint64_t x_ = _U64(v); \
+                                  uint64_t z_ = _U64(n) - 1; \
+                                  (x_ + z_) & ~z_;})
                             
 
 #define _ALIGN_DOWN(v, n)    (typeof(v))({ \
-                                uint64_t x  = _U64(v); \
-                                uint64_t z1 = _U64(n) - 1; \
-                                x & ~z1;})
+                                uint64_t x_ = _U64(v); \
+                                uint64_t z_ = _U64(n) - 1; \
+                                x_ & ~z_;})
 
 #define _IS_ALIGNED(v, n)    ({ \
-                                uint64_t x  = _U64(v); \
-                                uint64_t z1 = _U64(n) - 1; \
-                                x == (x & ~z1);})
+                                uint64_t x_  = _U64(v); \
+                                uint64_t z_ = _U64(n) - 1; \
+                                x_ == (x_ & ~z_);})
                             
 #define _IS_POW2(n)          ({ \
-                                uint64_t x  = _U64(n); \
-                                x == (x & ~(x-1));})
+                                uint64_t x_ = _U64(n); \
+                                x_ == (x_ & ~(x_-1));})
 
 
 /**
@@ -407,49 +407,43 @@ timenow()
     return tv.tv_usec + (1000000 * tv.tv_sec);
 }
 
+
 /*
- * Return next power of 2 for 'x'
+ * Round 'v' to the next closest power of 2.
  */
-#define next_pow2(x)  (typeof(x))(__nextpow2(sizeof(x), (uint64_t)(x)))
-static inline uint64_t
-__nextpow2(size_t sz, uint64_t n)
-{
-    n--;
-    switch (sz)
-    {
-        case 1:
-            n |= n >> 1;
-            n |= n >> 2;
-            n |= n >> 4;
-            break;
-
-        case 2:
-            n |= n >> 1;
-            n |= n >> 2;
-            n |= n >> 4;
-            n |= n >> 8;
-            break;
-
-        default:
-        case 4:
-            n |= n >> 1;
-            n |= n >> 2;
-            n |= n >> 4;
-            n |= n >> 8;
-            n |= n >> 16;
-            break;
-
-        case 8:
-            n |= n >> 1;
-            n |= n >> 2;
-            n |= n >> 4;
-            n |= n >> 8;
-            n |= n >> 16;
-            n |= n >> 32;
-            break;
-    }
-    return n+1;
-}
+#define NEXTPOW2(v)     ({\
+                            uint64_t n_  = _U64(v); \
+                            switch(sizeof n_) {     \
+                            case 1:                 \
+                                n_ |= n_ >> 1;      \
+                                n_ |= n_ >> 2;      \
+                                n_ |= n_ >> 4;      \
+                                break;              \
+                            case 2:                 \
+                                n_ |= n_ >> 1;      \
+                                n_ |= n_ >> 2;      \
+                                n_ |= n_ >> 4;      \
+                                n_ |= n_ >> 8;      \
+                                break;              \
+                            default:                \
+                            case 4:                 \
+                                n_ |= n_ >> 1;      \
+                                n_ |= n_ >> 2;      \
+                                n_ |= n_ >> 4;      \
+                                n_ |= n_ >> 8;      \
+                                n_ |= n_ >> 16;     \
+                                break;              \
+                            case 8:                 \
+                                n_ |= n_ >> 1;      \
+                                n_ |= n_ >> 2;      \
+                                n_ |= n_ >> 4;      \
+                                n_ |= n_ >> 8;      \
+                                n_ |= n_ >> 16;     \
+                                n_ |= n_ >> 32;     \
+                                break;              \
+                        }           \
+                        (typeof(v))(n_+1);       \
+                      })
 
 
 

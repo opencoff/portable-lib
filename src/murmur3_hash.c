@@ -145,7 +145,7 @@ murmur3_hash_32(const void* key, size_t len, uint32_t seed)
 
   for(i = -nblocks; i; i++)
   {
-      uint32_t k1 = getblock(blocks,i);
+      k1 = getblock(blocks,i);
 
       k1 *= c1;
       k1 = ROTL32(k1,15);
@@ -207,10 +207,10 @@ murmur3_hash_128(const void* key, const size_t len, uint32_t seed)
 
     for(i = -nblocks; i; i++)
     {
-        uint32_t k1 = getblock(blocks,i*4+0);
-        uint32_t k2 = getblock(blocks,i*4+1);
-        uint32_t k3 = getblock(blocks,i*4+2);
-        uint32_t k4 = getblock(blocks,i*4+3);
+        k1 = getblock(blocks,i*4+0);
+        k2 = getblock(blocks,i*4+1);
+        k3 = getblock(blocks,i*4+2);
+        k4 = getblock(blocks,i*4+3);
 
         k1 *= c1; k1  = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
 
@@ -309,8 +309,8 @@ murmur3_hash64_128(const void* key, size_t len, uint32_t seed)
 
     for(i = 0; i < nblocks; i++)
     {
-        uint64_t k1 = getblock(blocks,i*2+0);
-        uint64_t k2 = getblock(blocks,i*2+1);
+        k1 = getblock(blocks,i*2+0);
+        k2 = getblock(blocks,i*2+1);
 
         k1 *= c1; k1  = ROTL64(k1,31); k1 *= c2; h1 ^= k1;
 

@@ -72,8 +72,8 @@ free_nodes(hb * b, uint64_t n)
     hb *e = b + n;
 
     for (; b < e; b++) {
-        bag *g, *n;
-        SL_FOREACH_SAFE(g, &b->head, link, n) {
+        bag *g, *next;
+        SL_FOREACH_SAFE(g, &b->head, link, next) {
             DEL(g);
         }
     }

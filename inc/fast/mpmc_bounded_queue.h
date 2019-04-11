@@ -362,7 +362,7 @@ __mpmcq_empty_p(__mpmcq * q)
 
 /* Initialize queue 'q_' for size 'sz_' */
 #define MPMCQ_INIT(q_,sz_)  do {                             \
-                                size_t zz_ = next_pow2(sz_); \
+                                size_t zz_ = NEXTPOW2(sz_);  \
                                 __mpmcq_init(&(q_)->q, zz_); \
                                 __mpmcq_node_init(q_, zz_);  \
                             } while (0)
@@ -377,7 +377,7 @@ __mpmcq_empty_p(__mpmcq * q)
 
 
 #define MPMCQ_DYN_INIT(q_, sz_) do {                                \
-                                size_t zz_   = next_pow2(sz_);      \
+                                size_t zz_   = NEXTPOW2(sz_);       \
                                 __mpmcq_init(&(q_)->q, zz_);        \
                                 (q_)->elem   = NEWZA(__mpmcqetyp(q_), zz_); \
                                 __mpmcq_node_init(q_, zz_);         \

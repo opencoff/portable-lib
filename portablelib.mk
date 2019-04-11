@@ -155,8 +155,8 @@ DEPWEED  = $(TOOLSDIR)/depweed.py
 MKGETOPT = $(TOOLSDIR)/mkgetopt.py
 
 
-WARNINGS	    = -Wall -Wextra -Wpointer-arith
-EXTRA_WARNINGS  = -Wsign-compare -Wconversion
+WARNINGS	    = -Wall -Wextra -Wpointer-arith -Wshadow
+#EXTRA_WARNINGS  = -Wsign-compare -Wconversion -Wsign-conversion
 
 win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
@@ -164,7 +164,7 @@ Linux_CXXFLAGS += -std=c++11
 Linux_ldlibs   += -lpthread
 
 ARFLAGS  = rv
-CFLAGS  += $($(platform)_CFLAGS) $(WARNINGS) $(INCS) $(DEFS)
+CFLAGS  += $($(platform)_CFLAGS) $(WARNINGS) $(EXTRA_WARNINGS) $(INCS) $(DEFS)
 LDFLAGS += $($(platform)_ldflags)
 
 

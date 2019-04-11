@@ -31,7 +31,7 @@
 #define QSIZ        8192
 
 // Simple Queue of ints
-SPSCQ_TYPEDEF(pcq, int, QSIZ);
+SPSCQ_TYPEDEF(pcq, uint64_t, QSIZ);
 
 struct ctx
 {
@@ -54,7 +54,10 @@ mt_setup(ctx* c)
     SPSCQ_INIT(&c->q, QSIZ);
     atomic_init(&c->done, 0);
 
-    c->pcyc = c->ccyc = c->ploop = c->cloop = 0;
+    c->pcyc = c->ccyc = 0;
+
+    // initialize with a random starting number.
+    c->ploop = c->cloop = sys_cpu_timestamp() / 2;
 }
 
 
@@ -86,24 +89,23 @@ producer(void* v)
 // Drain the queue of all elements and verify that what we removed
 // is what we expect
 static inline int
-drain(ctx* c, int i, int done)
+drain(ctx* c, uint64_t i, int done)
 {
     pcq*q = &c->q;
-    int j = 0;
-    int n = 0;
+    uint64_t j = 0;
 
     do {
         uint64_t t0 = sys_cpu_timestamp();
         if (!SPSCQ_DEQ(q, j)) break;
 
         c->ccyc += (sys_cpu_timestamp() - t0);
-        c->cloop++;
-
         if (j != i)
-            error(1, 0, "deq mismatch; exp %d, saw %d [n %d%s]\n",
-                    i, j, n, done ? " DONE" : "");
+            error(1, 0, "deq mismatch; exp %d, saw %d [%s]\n",
+                    i, j, done ? " DONE" : "");
         ++i;
     } while (1);
+
+    c->cloop = i;
     return i;
 }
 
@@ -112,11 +114,11 @@ static void*
 consumer(void* v)
 {
     ctx* c = v;
-    int  i = 0;
+    int  i = c->cloop;
 
-    while (!atomic_load(&c->done)) {
-        i  = drain(c, i, 0);
-    }
+    do {
+        i = drain(c, i, 0);
+    } while (!atomic_load(&c->done));
 
     // Go through one last time - the producer may have put
     // something in there between the time we drained and checked
@@ -265,7 +267,8 @@ main(int argc, char *argv[])
     int n = 32;
     for (i = 0; i < n; ++i) {
         mt_test();
-        usleep(500 * 1000);
+        //usleep(500 * 1000);
+        usleep(900 * 200);
     }
 
     return 0;

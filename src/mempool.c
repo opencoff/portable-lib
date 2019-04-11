@@ -463,12 +463,13 @@ mempool_new(state ** p_a, const memmgr* tr, uint_t block_size,
 
 int
 mempool_init_from_mem(state *a, uint_t block_size,
-                           void* pool, uint_t poolsize)
+                           void* pool, uint_t poolsz)
 {
     memchunk * ch;
     uint8_t* ptr,
            * end;
     unsigned int nblocks;
+    uint64_t poolsize = poolsz;
 
     if (!(a && pool && poolsize)) return -EINVAL;
 
