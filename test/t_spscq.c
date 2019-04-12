@@ -54,10 +54,8 @@ mt_setup(ctx* c)
     SPSCQ_INIT(&c->q, QSIZ);
     atomic_init(&c->done, 0);
 
-    c->pcyc = c->ccyc = 0;
-
-    // initialize with a random starting number.
-    c->ploop = c->cloop = sys_cpu_timestamp() / 2;
+    c->pcyc  = c->ccyc  = 0;
+    c->ploop = c->cloop = 0;
 }
 
 
@@ -88,25 +86,24 @@ producer(void* v)
 
 // Drain the queue of all elements and verify that what we removed
 // is what we expect
-static inline int
-drain(ctx* c, uint64_t i, int done)
+static inline void
+drain(ctx* c, int done)
 {
     pcq*q = &c->q;
     uint64_t j = 0;
+    int      k = 0;
 
     do {
         uint64_t t0 = sys_cpu_timestamp();
         if (!SPSCQ_DEQ(q, j)) break;
 
         c->ccyc += (sys_cpu_timestamp() - t0);
-        if (j != i)
-            error(1, 0, "deq mismatch; exp %d, saw %d [%s]\n",
-                    i, j, done ? " DONE" : "");
-        ++i;
+        k++;
+        if (j != c->cloop)
+            error(1, 0, "iter %d: deq mismatch; exp %" PRIu64 ", saw %" PRIu64 " [%s]\n",
+                    k, c->cloop, j, done ? " DONE" : "");
+        c->cloop++;
     } while (1);
-
-    c->cloop = i;
-    return i;
 }
 
 
@@ -114,16 +111,15 @@ static void*
 consumer(void* v)
 {
     ctx* c = v;
-    int  i = c->cloop;
 
     do {
-        i = drain(c, i, 0);
+        drain(c, 0);
     } while (!atomic_load(&c->done));
 
     // Go through one last time - the producer may have put
     // something in there between the time we drained and checked
     // the atomic_load().
-    i = drain(c, i, 1);
+    drain(c, 1);
 
     return 0;
 }
