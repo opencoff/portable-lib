@@ -148,9 +148,6 @@ extern "C" {
                                     v_->array[v_->size++] = e;      \
                                 } while (0)
 
-/* Handy synonym for PUSH_BACK()  */
-#define VECT_APPEND(v,e)  VECT_PUSH_BACK(v,e)
-
 
 /*
  * Remove last element and store in 'e'
@@ -169,11 +166,10 @@ extern "C" {
  */
 #define VECT_PUSH_FRONT(v,e)         do {                             \
                                             typeof(v) v_ = v;         \
-                                            typeof(e) e_ = e;         \
-                                            __vect_RESERVE(v_, v_->size+1);             \
-                                            typeof(e) * start_ = v_->array + 1;         \
-                                            typeof(e) * p_     = start_ + v_->size - 1; \
-                                            for (; p_ >= start_; p_--)   \
+                                            __vect_RESERVE(v_, v_->size+1);         \
+                                            typeof(e) * start_ = v_->array;         \
+                                            typeof(e) * p_     = start_ + v_->size; \
+                                            for (; p_ > start_; p_--)   \
                                                 *p_ = *(p_ - 1);         \
                                             *p_ = (e);                   \
                                             v_->size++;                  \
@@ -190,7 +186,7 @@ extern "C" {
                                         typeof(v_->array[0]) e_    = *p_;            \
                                         for (; p_ < end_; p_++) \
                                             *p_ = *(p_ + 1);    \
-                                        *e_;\
+                                        e_;\
                                      })
 
 
@@ -326,7 +322,8 @@ extern "C" {
 /* Fetch the n'th element */
 #define VECT_ELEM(v,n)  ((v)->array[(n)])
 
-#define VECT_SIZE(v)        ((v)->size)
+#define VECT_LEN(v)        ((v)->size)
+#define VECT_LEN(v)         ((v)->size)
 #define VECT_CAPACITY(v)    ((v)->capacity)
 
 

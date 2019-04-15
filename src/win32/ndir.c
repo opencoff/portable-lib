@@ -135,7 +135,7 @@ closedir(DIR *dirp)
 {
     int i = 0;
 
-    for (i = 0; i < VECT_SIZE(&dirp->dd_list); ++i)
+    for (i = 0; i < VECT_LEN(&dirp->dd_list); ++i)
     {
         char * e = VECT_ELEM(&dirp->dd_list, i);
         free (e);
@@ -152,8 +152,8 @@ readdir(DIR *dirp)
     char * nm;
     size_t len;
 
-    if ( VECT_SIZE(&dirp->dd_list) == 0 ||
-         VECT_SIZE(&dirp->dd_list) <= dirp->dd_off )
+    if ( VECT_LEN(&dirp->dd_list) == 0 ||
+         VECT_LEN(&dirp->dd_list) <= dirp->dd_off )
         return 0;
 
     nm  = VECT_ELEM(&dirp->dd_list, dirp->dd_off);
@@ -174,8 +174,8 @@ readdir(DIR *dirp)
 void
 seekdir(DIR *dirp, long off)
 {
-    if ( VECT_SIZE(&dirp->dd_list) > 0   &&
-         VECT_SIZE(&dirp->dd_list) > off )
+    if ( VECT_LEN(&dirp->dd_list) > 0   &&
+         VECT_LEN(&dirp->dd_list) > off )
         dirp->dd_off = (int)off;
 }
 

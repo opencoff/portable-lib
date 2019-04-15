@@ -351,7 +351,7 @@ read_data(input_vect* inp, FILE* fp, memmgr* mem)
         VECT_PUSH_BACK(inp, z);
     } while(1);
 
-    printf("Read %zu records into array\n", VECT_SIZE(inp));
+    printf("Read %zu records into array\n", VECT_LEN(inp));
 }
 
 #define _d(x)   ((double)(x))
@@ -388,7 +388,7 @@ remove_data(input_vect *inp, hash_table_t tb)
                     i, d->key);
     }
     
-    show_timing("Removed ", VECT_SIZE(inp), &p);
+    show_timing("Removed ", VECT_LEN(inp), &p);
 
 }
 
@@ -428,7 +428,7 @@ store_data(input_vect *inp, hash_table_t tb)
         }
     }
 
-    show_timing("Inserted", VECT_SIZE(inp), &p);
+    show_timing("Inserted", VECT_LEN(inp), &p);
 
     //hash_table_apply(tb, dumper, 0);
 }
@@ -463,7 +463,7 @@ query_data(input_vect *inp, hash_table_t tb)
         }
     }
 
-    show_timing("Queried ", VECT_SIZE(inp), &p);
+    show_timing("Queried ", VECT_LEN(inp), &p);
 }
 
 
@@ -514,12 +514,12 @@ iterator_test(input_vect* inp, hash_table_t tb, int sorted)
 
     perfaccum(&p, p0);
 
-    if ( n != VECT_SIZE(inp) )
-        error (0, 0, "Iterator returned '%d' items; expected '%d'\n", n, VECT_SIZE(inp));
+    if ( n != VECT_LEN(inp) )
+        error (0, 0, "Iterator returned '%d' items; expected '%d'\n", n, VECT_LEN(inp));
 
     hash_table_iter_delete(iter);
 
-    show_timing(buf, VECT_SIZE(inp), &p);
+    show_timing(buf, VECT_LEN(inp), &p);
 }
 
 

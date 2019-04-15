@@ -412,7 +412,7 @@ timenow()
  * Round 'v' to the next closest power of 2.
  */
 #define NEXTPOW2(v)     ({\
-                            uint64_t n_  = _U64(v); \
+                            uint64_t n_ = _U64(v)-1;\
                             switch(sizeof n_) {     \
                             case 1:                 \
                                 n_ |= n_ >> 1;      \

@@ -133,7 +133,7 @@ static int
 finddups(HV* hv)
 {
     size_t i;
-    size_t n = VECT_SIZE(hv);
+    size_t n = VECT_LEN(hv);
 
     if (n < 2) return 0;
 

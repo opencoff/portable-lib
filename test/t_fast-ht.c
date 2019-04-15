@@ -136,7 +136,7 @@ perf_test(strvect* v, size_t Niters)
              cys = 0;
 
     size_t i;
-    size_t n = VECT_SIZE(v);
+    size_t n = VECT_LEN(v);
     size_t nlog2 = (size_t) log2(n)+1;
     ht _h;
     ht* h = &_h;

@@ -259,7 +259,7 @@ perf_drain(ctx* c)
         c->nelem++;
         uint64_t nn = timenow();
         lat      ll = { .v = nn - j, .ts = nn };
-        VECT_APPEND(v, ll);
+        VECT_PUSH_BACK(v, ll);
     } while (1);
 }
 
@@ -357,16 +357,16 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
         ctx* cx = cc[i];
         double speed = _d(cx->cycles) / _d(cx->nelem);
 
-        printf("#    C %d on cpu %d, %zd elem %5.2f cy/deq\n", i, cx->cpu, VECT_SIZE(&cx->lv), speed);
+        printf("#    C %d on cpu %d, %zd elem %5.2f cy/deq\n", i, cx->cpu, VECT_LEN(&cx->lv), speed);
         VECT_APPEND_VECT(&all, &cx->lv);
-        tot += VECT_SIZE(&cx->lv);
+        tot += VECT_LEN(&cx->lv);
         cyc += cx->cycles;
         delctx(cx);
     }
 
     printf("#    C Total %zd elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
 
-    assert(tot == VECT_SIZE(&all));
+    assert(tot == VECT_LEN(&all));
 
     VECT_APPEND_VECT(&pctile, &all);
 
@@ -416,14 +416,14 @@ vrfy_producer(void* v)
         uint32_t z = n;
 
         if (MPMCQ_ENQ(q, z)) {
-            VECT_APPEND(&c->pseq, z);
+            VECT_PUSH_BACK(&c->pseq, z);
             n = atomic_fetch_add(c->seq, 1);
         }
         else
             upause(100);
     }
 
-    c->nelem = VECT_SIZE(&c->pseq);
+    c->nelem = VECT_LEN(&c->pseq);
     sem_post(c->ending);
     return (void*)0;
 }
@@ -442,7 +442,7 @@ vrfy_drain(ctx* c)
             break;
 
         lat      ll = { .v = j, .ts = 0 };
-        VECT_APPEND(v, ll);
+        VECT_PUSH_BACK(v, ll);
     } while (1);
 }
 
@@ -510,7 +510,7 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
     }
 
     assert(tot > 1);
-    assert(tot == VECT_SIZE(&allp));
+    assert(tot == VECT_LEN(&allp));
 
     printf("#    Total %zd elem\n", tot);
 
@@ -520,16 +520,16 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
         ctx* cx = cc[i];
         lat* ll;
 
-        printf("#    C %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_SIZE(&cx->lv));
+        printf("#    C %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_LEN(&cx->lv));
         
         // Only use the seq# we got off the queue
         VECT_FOR_EACH(&cx->lv, ll) {
-            VECT_APPEND(&allc, ll->v);
+            VECT_PUSH_BACK(&allc, ll->v);
         }
         delctx(cx);
     }
 
-    assert(tot == VECT_SIZE(&allc));
+    assert(tot == VECT_LEN(&allc));
 
 
     // Now sort based on sequence#

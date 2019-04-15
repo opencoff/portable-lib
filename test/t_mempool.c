@@ -82,7 +82,7 @@ perf_test(int run)
         cy_a += (sys_cpu_timestamp() - c0);
         tm_a += (timenow() - t0);
 
-        VECT_APPEND(&pv, p);
+        VECT_PUSH_BACK(&pv, p);
     }
 
     // Now, randomize the elements

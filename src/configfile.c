@@ -131,7 +131,7 @@ newnode(node* parent, gstr* g, int col)
         gstr_init_from(&kv.key, s);
         gstr_init_from(&kv.val, v);
 
-        VECT_APPEND(&parent->values, kv);
+        VECT_PUSH_BACK(&parent->values, kv);
     }
 
     return n;
@@ -201,7 +201,7 @@ parse(configfile* cf, FILE* fp)
 
         } else if (c < prevcol) {
             node* t = 0;
-            while (VECT_SIZE(&st) > 0) {
+            while (VECT_LEN(&st) > 0) {
                 t = VECT_POP_BACK(&st);
                 if (t->col < c) goto ok;
             }

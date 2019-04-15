@@ -92,7 +92,7 @@ static uint32_t
 benchmark(const token_array* tok, const hashfunc* hf)
 {
     int i,
-        n = VECT_SIZE(tok);
+        n = VECT_LEN(tok);
     uint64_t nbytes = 0;
     double speed, perbyte;
 
@@ -145,7 +145,7 @@ read_tokens(token_array* tok, FILE* fp, arena_t a)
         assert(t.str);
 
         memcpy(t.str, buf, n+1);
-        VECT_APPEND(tok, t);
+        VECT_PUSH_BACK(tok, t);
 
         if (n < min)
             min = n;
@@ -155,10 +155,10 @@ read_tokens(token_array* tok, FILE* fp, arena_t a)
         tot += n;
     }
 
-    avg = tot / VECT_SIZE(tok);
+    avg = tot / VECT_LEN(tok);
 
     printf("%u bytes in %lu tokens, min len %d, max %d, avg %d\n",
-            tot, VECT_SIZE(tok), min, max, avg);
+            tot, VECT_LEN(tok), min, max, avg);
     return 0;
 }
 

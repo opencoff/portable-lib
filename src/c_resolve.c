@@ -270,7 +270,7 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
         memcpy(&a->sa, ifp->ifa_addr, len);
 
         a->flags = ifp->ifa_flags;
-        VECT_APPEND(&av, t);
+        VECT_PUSH_BACK(&av, t);
     }
 
     freeifaddrs(ifa);
@@ -284,15 +284,15 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
     cur  = &VECT_ELEM(addrv, 0);
     VECT_INIT(&cur->if_addr, 4);
 
-    if (VECT_SIZE(&av) == 0)
+    if (VECT_LEN(&av) == 0)
         return 0;
 
     strcopy(cur->if_name, sizeof cur->if_name, prev->nm);
-    VECT_APPEND(&cur->if_addr, prev->ifa);
+    VECT_PUSH_BACK(&cur->if_addr, prev->ifa);
 
 
     size_t j;
-    for (j = 1; j < VECT_SIZE(&av); ++j)
+    for (j = 1; j < VECT_LEN(&av); ++j)
     {
         iftmp* x = &VECT_ELEM(&av, j);
 
@@ -307,7 +307,7 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
             strcopy(cur->if_name, sizeof cur->if_name, x->nm);
         }
 
-        VECT_APPEND(&cur->if_addr, x->ifa);
+        VECT_PUSH_BACK(&cur->if_addr, x->ifa);
         prev = x;
     }
 
@@ -319,7 +319,7 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
         char buf[64];
         if_addr* z;
 
-        printf("%s: %d addresses:\n", cur->if_name, VECT_SIZE(&cur->if_addr));
+        printf("%s: %d addresses:\n", cur->if_name, VECT_LEN(&cur->if_addr));
         VECT_FOR_EACH(&cur->if_addr, z)
         {
             printf("   %s\n", sockaddr_to_string(buf, sizeof buf, (struct sockaddr*)&z->sa));
@@ -354,7 +354,7 @@ get_interface_address(const char* ifname, if_addr_vect* addrv, unsigned int mask
     VECT_RESET(addrv);
     VECT_RESERVE(addrv, 8);
 
-    for (j = 0; j < VECT_SIZE(&av); ++j)
+    for (j = 0; j < VECT_LEN(&av); ++j)
     {
         if_address* a = &VECT_ELEM(&av, j);
 
@@ -408,7 +408,7 @@ resolve_host_or_ifname(const char* name, if_addr_vect* addrv, unsigned int mask)
         u.sin.sin_addr.s_addr = INADDR_ANY;
         x.sa = u.sa;
 
-        VECT_APPEND(addrv, x);
+        VECT_PUSH_BACK(addrv, x);
 
         return 0;
     }
@@ -423,7 +423,7 @@ resolve_host_or_ifname(const char* name, if_addr_vect* addrv, unsigned int mask)
             memset(&x, 0, sizeof x);
             u.sin.sin_addr = a;
             x.sa = u.sa;
-            VECT_APPEND(addrv, x);
+            VECT_PUSH_BACK(addrv, x);
 
             return 0;
         }
@@ -483,7 +483,7 @@ resolve_host_or_ifname(const char* name, if_addr_vect* addrv, unsigned int mask)
         memset(&x, 0, sizeof x);
         memcpy(&x.sa, s, ptr->ai_addrlen);
 
-        VECT_APPEND(addrv, x);
+        VECT_PUSH_BACK(addrv, x);
     }
 
     freeaddrinfo(ai);

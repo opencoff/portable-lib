@@ -154,7 +154,7 @@ perf_test(strvect* v, size_t Niters, int counting, int scalable)
     uint64_t tins  = 0,
              tsrch = 0;
     size_t i;
-    size_t n = VECT_SIZE(v);
+    size_t n = VECT_LEN(v);
     Bloom *b;
 
     if (counting) {
@@ -218,7 +218,7 @@ delete_test(strvect* v, Bloom* b)
     size_t i;
     result rr = { 0, 0, 0};
 
-    for (i = 1; i < VECT_SIZE(v); i += 2) {
+    for (i = 1; i < VECT_LEN(v); i += 2) {
         word* w = &VECT_ELEM(v, i);
         int   r = Bloom_remove(b, w->h);
         if (!r) error(1, 0, "Element %d: %s -- delete error", i, w->w);
@@ -231,7 +231,7 @@ delete_test(strvect* v, Bloom* b)
      * False Negative: An element known to be in the table, but the
      *                 filter says it is NOT ("definitely not").
      */
-    for (i = 1; i < VECT_SIZE(v); i += 2) {
+    for (i = 1; i < VECT_LEN(v); i += 2) {
         int   r;
         word* w = &VECT_ELEM(v, i);
         word* x = &VECT_ELEM(v, i-1);
@@ -305,7 +305,7 @@ counting_tests(strvect* v)
 {
     char buf[4096];
     Bloom _b;
-    size_t n = VECT_SIZE(v);
+    size_t n = VECT_LEN(v);
     Bloom* b;
 
     printf("Counting-Bloom-Tests:\n");
@@ -338,7 +338,7 @@ quick_tests(strvect* v, int scalable)
     char desc[64] = "";
     char buf[8192];
     Bloom _b;
-    size_t n = VECT_SIZE(v);
+    size_t n = VECT_LEN(v);
     Bloom *b;
 
     if (scalable) {
