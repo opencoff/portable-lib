@@ -50,12 +50,12 @@ extern const char * program_name;
 /*
  * Die with an error message.
  */
-#define die(a, ...) error(1, 0, a, #__VA_ARGS__)
+extern void die(const char* fmt, ...);
 
 /*
  * Show a warning.
  */
-#define warn(a, ...) error(0, 0, a, #__VA_ARGS__)
+extern void warn(const char *fmt, ...);
 
 #ifdef __cplusplus
 }
