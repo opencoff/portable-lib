@@ -31,16 +31,16 @@ __dummy_memmgr_free(void * context, void * ptr)
 }
 
 memmgr *
-memmgr_init(memmgr * m, Alloc_f * alloc, Free_f * free, void * context)
+memmgr_init(memmgr * m, Alloc_f * alloc, Free_f * freefp, void * context)
 {
     if ( m) {
         assert(alloc);
 
-        if (!free)
-            free = __dummy_memmgr_free;
+        if (!freefp)
+            freefp = __dummy_memmgr_free;
 
         m->alloc   = alloc;
-        m->free    = free;
+        m->free    = freefp;
         m->context = context;
     }
     return m;

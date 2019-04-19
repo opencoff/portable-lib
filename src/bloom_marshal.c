@@ -546,10 +546,10 @@ is_valid_cktyp(checksummer *ck, int typ)
 int
 Bloom_marshal(Bloom *b, const char *fname)
 {
-    mstate m;
     char file[PATH_MAX];
     int fd, r = 0;
     uint64_t sz;
+    mstate m;
 
     memset(&m, 0, sizeof m);
     m.b  = b;
@@ -632,10 +632,10 @@ fail:
 int
 Bloom_unmarshal(Bloom **p_b, const char *fname, uint32_t flags)
 {
-    mstate m;
     uint8_t ckcalc[max_CKSUMSZ];
     const int do_mmap = flags & BLOOM_BITMAP_MMAP;
     int fd, r;
+    mstate m;
 
     memset(&m, 0, sizeof m);
 

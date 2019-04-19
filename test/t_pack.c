@@ -26,6 +26,7 @@ main()
     testvararg();
     teststr();
     testerr();
+    return 0;
 }
 
 // Test multiple arguments of various type
@@ -130,11 +131,11 @@ teststr()
     uint32_t uv = 0; // unpacked u32
 
     psz = Pack(pbuf, sizeof pbuf, "> Z I", ps, 0xbeefdead);
-    assert(psz == (4 + 1 + pslen));
+    assert((size_t)psz == (4 + 1 + pslen));
     assert(0 == memcmp(pbuf, ps, pslen));
 
     psz = Unpack(pbuf, psz, "> Z I", &us, &uv);
-    assert(psz == (4 + 1 + pslen));
+    assert((size_t)psz == (4 + 1 + pslen));
     assert(us);
     assert(strlen(us) == pslen);
     assert(0 == strcmp(us, ps));

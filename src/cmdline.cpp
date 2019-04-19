@@ -221,11 +221,11 @@ command_line_parser::parse(int argc, const char * const * argv)
 
 // parse a vector of strings
 void
-command_line_parser::parse(const command_line_parser::argv_array& args)
+command_line_parser::parse(const command_line_parser::argv_array& av)
 {
     // We make a copy of the table -- in case 'args' is the same as
     // 'm_args'.
-    argv_array a(args);
+    argv_array a(av);
 
     parse_internal(a);
 }
@@ -323,7 +323,7 @@ command_line_exception::err2str(command_line_error_t e)
 
 // Actual routine to parse command line arguments
 void
-command_line_parser::parse_internal(const command_line_parser::argv_array& args)
+command_line_parser::parse_internal(const command_line_parser::argv_array& av)
 {
     // Reset important temporary tables and initialize values to
     // their defaults
@@ -335,15 +335,15 @@ command_line_parser::parse_internal(const command_line_parser::argv_array& args)
 
     // skip program name (argv[0])
     // and start from index '1'.
-    for(size_t i = 1; i < args.size(); ++i)
+    for(size_t i = 1; i < av.size(); ++i)
     {
-        string arg(args[i]);
+        string arg(av[i]);
 
         // This must be the _first_ thing we check
         if (is_opt_end(arg))
         {
             // consume the args[i]; it's a lone "--".
-            append_rest(args, i+1);
+            append_rest(av, i+1);
             return;
         }
 
@@ -374,7 +374,7 @@ command_line_parser::parse_internal(const command_line_parser::argv_array& args)
             if (m_no_permute)
             {
                 // stop at the first non-option
-                append_rest(args, i);
+                append_rest(av, i);
                 return;
             }
             else
@@ -430,10 +430,10 @@ command_line_parser::find_partial_match(const string& arg) const
 
 // append rest of command line arguments into our array
 void
-command_line_parser::append_rest(const command_line_parser::argv_array& args, size_t off)
+command_line_parser::append_rest(const command_line_parser::argv_array& av, size_t off)
 {
-    for(size_t i = off; i < args.size(); ++i)
-        m_args.push_back(args[i]);
+    for(size_t i = off; i < av.size(); ++i)
+        m_args.push_back(av[i]);
 }
 
 

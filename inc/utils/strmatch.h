@@ -106,15 +106,15 @@ kmp_search<T>::calc_prefix_table()
 
 
 template<typename T>
-kmp_search<T>::kmp_search(const T * pat, int patlen)
-    : m_patlen(patlen),
-      m_prefix_tab(patlen)
+kmp_search<T>::kmp_search(const T * p, int plen)
+    : m_patlen(plen),
+      m_prefix_tab(plen)
 {
-    if ( patlen < 0 )
+    if ( plen < 0 )
         throw std::length_error("patlen is negative");
 
-    m_pat = new T[patlen];
-    memcpy(m_pat, pat, sizeof(char_type) * patlen);
+    m_pat = new T[plen];
+    memcpy(m_pat, p, sizeof(char_type) * plen);
     calc_prefix_table();
 }
 
@@ -300,16 +300,16 @@ template<typename T> void boyer_moore_search<T>::calc_good_shift()
 }
 
 template<typename T>
-boyer_moore_search<T>::boyer_moore_search(const T * pat, int patlen)
-    : m_patlen(patlen),
+boyer_moore_search<T>::boyer_moore_search(const T * p, int plen)
+    : m_patlen(plen),
       m_bad_char(_bm_alphabet_size),
-      m_good_shift(patlen)
+      m_good_shift(plen)
 {
-    if ( patlen < 0 )
+    if ( plen < 0 )
         throw std::length_error("patlen is negative");
 
-    m_pat = new T[patlen];
-    memcpy(m_pat, pat, sizeof(char_type) * patlen);
+    m_pat = new T[plen];
+    memcpy(m_pat, p, sizeof(char_type) * plen);
 
     calc_good_shift();
     calc_bad_char();
@@ -445,14 +445,14 @@ private:
 
 
 template<typename T>
-rabin_karp_search<T>::rabin_karp_search(const T * pat, int patlen)
-    : m_patlen(patlen)
+rabin_karp_search<T>::rabin_karp_search(const T * p, int plen)
+    : m_patlen(plen)
 {
-    if ( patlen < 0 )
+    if ( plen < 0 )
         throw std::length_error("patlen is negative");
 
-    m_pat = new T[patlen];
-    memcpy(m_pat, pat, sizeof(char_type) * patlen);
+    m_pat = new T[plen];
+    memcpy(m_pat, p, sizeof(char_type) * plen);
 }
 
 

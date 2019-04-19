@@ -72,7 +72,7 @@ main ()
     for (t = tests; t->str; i++, t++) {
         int n;
 
-        strcpy(buf, t->str);
+        strcopy(buf, sizeof buf, t->str);
         n = strsplit_csv(strv, t->strv_size, buf, 0);
         if (n < 0) {
             if (n != t->strv_size)

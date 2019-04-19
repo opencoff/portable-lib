@@ -32,11 +32,11 @@ using namespace putils;
 
 namespace putils {
 
-mmap_file::mmap_file(const string& filename, unsigned int flags)
+mmap_file::mmap_file(const string& fname, unsigned int flags)
         : m_fd(0),
           m_flags(flags),
           m_filesize(0),
-          m_filename(filename)
+          m_filename(fname)
 {
     unsigned int mode = O_RDONLY;
 

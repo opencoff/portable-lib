@@ -312,14 +312,17 @@ __mpmcq_empty_p(__mpmcq * q)
  *
  * XXX Do NOT call this from a multi-threaded context!
  */
-#define __MPMCQ_CONSISTENCY_CHECK(q_) ({                \
-                        __mpmcq* q0 = &(q_)->q;         \
+#define __MPMCQ_CONSISTENCY_CHECK(qx) ({                \
+                        typeof(qx) q_ = (qx);           \
+                        __mpmcq* q0 = &q_->q;           \
                         uint64_t z = __mpmcq_size(q0);  \
-                        uint64_t seq = (q_)->elem[q0->rd & q0->mask].seq; \
+                        uint64_t r = atomic_load_explicit(&q0->rd, memory_order_relaxed);     \
+                        uint64_t seq = atomic_load_explicit(&q_->elem[r & q0->mask].seq, memory_order_acquire);\
                         uint64_t ii;                    \
                         int err = 0;                    \
                         for (ii = 0; ii < z; ii++) {    \
-                            uint64_t ss = (q_)->elem[(q0->rd+ii) & q0->mask].seq; \
+                            r = ii+atomic_load_explicit(&q0->rd, memory_order_relaxed);     \
+                            uint64_t ss = atomic_load_explicit(&q_->elem[r & q0->mask].seq, memory_order_acquire);\
                             if (ss == seq) seq++;       \
                             else err++;                 \
                         }       \

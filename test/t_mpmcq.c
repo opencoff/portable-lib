@@ -1,7 +1,7 @@
 /*
  * MPMC Queue Tests
  *
- * (c) 2015 Sudhi Herle <sw-at-herle.net> 
+ * (c) 2015 Sudhi Herle <sw-at-herle.net>
  *
  *
  * Producer-consumer tests with two threads.
@@ -274,7 +274,7 @@ perf_consumer(void *v)
     // Wait to be kicked off
     waitstart(c);
 
-    do { 
+    do {
         perf_drain(c);
     } while (!atomic_load(c->done));
 
@@ -337,7 +337,7 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
     for (i = 0; i < np; ++i) {
         ctx* cx = pp[i];
         double speed = _d(cx->cycles) / _d(cx->nelem);
-        
+
         printf("#    P %d on cpu %d, %zd elem %5.2f cy/enq\n", i, cx->cpu, cx->nelem, speed);
         tot += cx->nelem;
         cyc += cx->cycles;
@@ -455,7 +455,7 @@ vrfy_consumer(void *v)
     // Wait to be kicked off
     waitstart(c);
 
-    do { 
+    do {
         vrfy_drain(c);
     } while (!atomic_load(c->done));
 
@@ -500,7 +500,7 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
     size_t tot = 0;
     for (i = 0; i < np; ++i) {
         ctx* cx = pp[i];
-        
+
         printf("#    P %d on cpu %d, %zd elem\n", i, cx->cpu, cx->nelem);
         tot += cx->nelem;
 
@@ -521,7 +521,7 @@ vrfy_finisher(ctx** pp, int np, ctx** cc, int nc)
         lat* ll;
 
         printf("#    C %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_LEN(&cx->lv));
-        
+
         // Only use the seq# we got off the queue
         VECT_FOR_EACH(&cx->lv, ll) {
             VECT_PUSH_BACK(&allc, ll->v);

@@ -114,7 +114,7 @@ vprint(FILE *fp, const char *fmt, va_list ap)
     size_t max = (sizeof buf) - 2; // for \n and \0
 
     int n = vsnprintf(buf, max, fmt, ap);
-    if (n >= max || n < 0) {
+    if (n < 0 || ((size_t)n) >= max) {
         // output truncated. Ensure we have a trailing zero!
         buf[max] = 0;
         n = max;
