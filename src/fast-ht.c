@@ -119,7 +119,7 @@ __insert(hb *b, hn *p)
     }
 
     *pos = *p;
-    b->n++;
+    b->nodes++;
     return 0;
 }
 
@@ -160,7 +160,7 @@ __insert_quick(hb *b, hn *p)
 
 done:
     *pos = *p;
-    b->n++;
+    b->nodes++;
     return 0;
 }
 
@@ -199,7 +199,11 @@ __findx(ht *h, uint64_t hv, void** p_ret, int zero)
 
 found:
     if (p_ret) *p_ret = x->v;
-    if (zero)      *x = zn;
+    if (zero) {
+        *x = zn;
+        h->nodes--;
+        b->nodes--;
+    }
     return 1;
 }
 
@@ -235,8 +239,8 @@ resize(ht* h)
 
                     __insert_quick(x, p);
                     if (x->bags > maxbags) maxbags = x->bags;
-                    if (x->n    > maxn)    maxn    = x->n;
-                    if (x->n == 1)         fill++;
+                    if (x->nodes > maxn)   maxn    = x->nodes;
+                    if (x->nodes == 1)     fill++;
                 }
             }
 
@@ -326,7 +330,7 @@ ht_probe(ht* h, uint64_t hv, void* v)
     h->nodes++;
 
     // time to split?
-    if (b->n == 1) {
+    if (b->nodes == 1) {
         h->fill++;
 
         if ( ((h->fill * 100) / (1 + h->n)) > FILLPCT) {
@@ -336,8 +340,8 @@ ht_probe(ht* h, uint64_t hv, void* v)
         }
     }
 
-    if (b->bags > h->bagmax) h->bagmax = b->bags;
-    if (b->n    > h->maxn)   h->maxn   = b->n;
+    if (b->bags  > h->bagmax) h->bagmax = b->bags;
+    if (b->nodes > h->maxn)   h->maxn   = b->nodes;
 
     return 0;
 }

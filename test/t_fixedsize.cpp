@@ -25,6 +25,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <random>
 #include <time.h>
 #include <sys/time.h>
 
@@ -57,10 +58,17 @@ typedef vector<obj *> vector_type;
 #define N       (65535 * 16)
 
 
-static size_t
-cpp_rand(size_t n)
+
+// Fisher-Yates shuffler
+template <typename O> void
+xshuffle(vector<O>& v)
 {
-    return arc4random() % n;
+    const size_t n = v.size();
+
+    for(int i = n-1; i > 0; i--) {
+        int j = arc4random() % (i+1);
+        swap(v[i], v[j]);
+    }
 }
 
 struct stopwatch
@@ -133,8 +141,8 @@ perf_test(int run)
         vb.push_back(p);
     }
 
-    random_shuffle(va.begin(), va.end(), cpp_rand);
-    random_shuffle(vb.begin(), vb.end(), cpp_rand);
+    xshuffle(va);
+    xshuffle(vb);
 
     vector<obj2 *>::iterator vai = va.begin();
     for (; vai != va.end(); ++vai)
@@ -203,7 +211,7 @@ simple_test()
 
     printf("Infinite-mem-allocator: completed allocating %u blocks; freeing ..\n", N);
 
-    random_shuffle(v.begin(), v.end(), cpp_rand);
+    xshuffle(v);
 
     vector_type::iterator vi = v.begin();
     for (int i = 0; vi != v.end(); ++vi, ++i)
@@ -253,7 +261,7 @@ pool_test()
 
     printf("fixed-mem-allocator: Allocated %lu blocks; freeing ..\n", v.size());
 
-    random_shuffle(v.begin(), v.end(), cpp_rand);
+    xshuffle(v);
 
     vector_type::iterator vi = v.begin();
     for (i = 0; vi != v.end(); ++vi, ++i)

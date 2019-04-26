@@ -47,7 +47,7 @@ struct hn
 typedef struct hn hn;
 
 
-#define FASTHT_BAGSZ       3
+#define FASTHT_BAGSZ       4
 #define FILLPCT            75
 
 /*
@@ -57,7 +57,7 @@ struct bag
 {
     hn         a[FASTHT_BAGSZ];
     SL_ENTRY(bag) link;
-    uint64_t __pad0; // cache-line aligned for BAGSZ==3
+    //uint64_t __pad0; // cache-line aligned for BAGSZ==3
 };
 typedef struct bag bag;
 
@@ -69,7 +69,7 @@ SL_HEAD_TYPEDEF(bag_head, bag);
 struct hb
 {
     bag_head  head;
-    uint32_t  n;        // number of nodes in this list
+    uint32_t  nodes;    // number of nodes in this list
     uint32_t  bags;     // number of bags
 };
 typedef struct hb hb;
