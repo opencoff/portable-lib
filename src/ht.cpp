@@ -31,20 +31,6 @@
 #include <string>
 #include <stdint.h>
 
-/*
- * Round 'v' to the next closest power of 2.
- */
-#define NEXTPOW2(v)     ({\
-                            uint64_t n_ = ((uint64_t)(v))-1;\
-                            n_ |= n_ >> 1;      \
-                            n_ |= n_ >> 2;      \
-                            n_ |= n_ >> 4;      \
-                            n_ |= n_ >> 8;      \
-                            n_ |= n_ >> 16;     \
-                            n_ |= n_ >> 32;     \
-                            (__typeof__(v))(n_+1); \
-                      })
-
 
 
 // Fast Hash table for key K and value V.
@@ -65,7 +51,7 @@ protected:
         node(node&& n) = default;
         ~node() = default;
 
-        uint64_t hash;
+        uint64_t hash;  // nonceless hash of key
         K key;
         V value;
     };
@@ -133,8 +119,10 @@ public:
     fht(hashfunc *hasher, equalfunc *equal, size_t n = 0)
                 : m_hasher(hasher), m_equal(equal) {
 
-        if (n == 0) n = 128;
-        setup(n);
+        m_size = n == 0 ? 128 : nextpow2(n);
+        m_tab  = new bucket[m_size];
+
+        arc4random_buf(&m_seed, sizeof m_seed);
     }
 
     fht() = delete;
@@ -210,10 +198,37 @@ public:
 
 protected:
 
-    // given a key-hash, return its bucket.
+// Compression function from fasthash
+#define __mix(h) ({                   \
+            (h) ^= (h) >> 23;       \
+            (h) *= 0x2127599bf4325c37ULL;   \
+            (h) ^= (h) >> 47; h; })
+
+    // fasthash64() - but tuned for exactly _one_ round and
+    // one 64-bit word.
+    //
+    // Borrowed from Zilong Tan's superfast hash.
+    // Copyright (C) 2012 Zilong Tan (eric.zltan@gmail.com)
+    //
+    // given a key-hash, return its bucket. Use the random nonce to
+    // mix the hash.
+    bucket *hashseed(bucket *tab, uint64_t k, uint64_t seed) {
+        const uint64_t m = 0x880355f21e6d1965ULL;
+        uint64_t       h = 8 * m;
+
+        h ^= __mix(k);
+        h *= m;
+
+        h ^= __mix(seed);
+        h *= m;
+
+        h  = h & (m_size-1);
+        return &tab[h];
+    }
+
+    // hash with the default seed
     bucket *hash(bucket *tab, uint64_t k) {
-        uint64_t i = (k ^ m_seed) & (m_size-1);
-        return &tab[i];
+        return hashseed(tab, k, m_seed);
     }
 
 
@@ -244,7 +259,7 @@ protected:
                     node *p = g->a[i];
 
                     if (p) {
-                        bucket *x  = hash(b, p->hash);
+                        bucket *x  = hashseed(b, p->hash, seed);
 
                         insert_quick(x, p);
 
@@ -330,16 +345,6 @@ protected:
         return r;
     }
 
-    // Setup the table
-    void setup(size_t n) {
-        n = NEXTPOW2(n);
-
-        m_size = n;
-        m_tab  = new bucket[m_size];
-
-        arc4random_buf(&m_seed, sizeof m_seed);
-    }
-
     // Insert if not present
     // If present: return pointer to its node
     // If not present: allocate new node and return pointer to it
@@ -422,6 +427,16 @@ protected:
         b->nitems++;
     }
 
+    static uint64_t nextpow2(uint64_t v) {
+        v--;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        v |= v >> 32;
+        return v+1;
+    }
 };
 
 
