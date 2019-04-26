@@ -142,13 +142,6 @@ ifeq ($(platform),win32)
 	WIN32 := 1
 endif
 
-# Tools we need
-AR    = $(CROSSPATH)ar
-CC    = $(CROSSPATH)gcc
-CXX   = $(CROSSPATH)g++
-LD    = $(CXX)
-RANLIB = $(CROSSPATH)ranlib
-
 # Aux tools we need
 TOOLSDIR = $(PORTABLE)/tools
 DEPWEED  = $(TOOLSDIR)/depweed.py
@@ -160,8 +153,13 @@ WARNINGS	    = -Wall -Wextra -Wpointer-arith -Wshadow
 
 win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
-Linux_CXXFLAGS += -std=c++11
+Linux_CXXFLAGS += -std=c++17
 Linux_ldlibs   += -lpthread
+
+OpenBSD_CXX     = clang++
+OpenBSD_CC      = clang
+OpenBSD_LD      = clang++
+OpenBSD_CXXFLAGS += -std=c++17
 
 ARFLAGS  = rv
 CFLAGS  += $($(platform)_CFLAGS) $(WARNINGS) $(EXTRA_WARNINGS) $(INCS) $(DEFS)
@@ -173,8 +171,8 @@ CXXFLAGS += $(CFLAGS) $($(platform)_CXXFLAGS)
 
 
 # XXX Can use better optimization on newer CPUs
-Linux_OFLAGS   = -fexpensive-optimizations
-OpenBSD_OFLAGS = -fexpensive-optimizations
+Linux_OFLAGS   =
+OpenBSD_OFLAGS =
 Darwin_OFLAGS  =
 
 ifeq ($(OPTIMIZE),1)
@@ -206,6 +204,25 @@ define strip-cmd
 endef
 
 endif
+
+ifneq ($($(platform)_CC),)
+	CC := $($(platform)_CC)
+endif
+
+ifneq ($($(platform)_CXX),)
+	CXX := $($(platform)_CXX)
+endif
+
+ifneq ($($(platform)_LD),)
+	LD := $($(platform)_LD)
+endif
+
+# Tools we need
+AR    ?= $(CROSSPATH)ar
+CC    ?= $(CROSSPATH)gcc
+CXX   ?= $(CROSSPATH)g++
+LD    ?= $(CXX)
+RANLIB ?= $(CROSSPATH)ranlib
 
 
 # vim: ft=make:sw=4:ts=4:noexpandtab:notextmode:tw=72:
