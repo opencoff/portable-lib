@@ -1,10 +1,10 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * ht.cpp - Fast hashtable with array based buckets
+ * inc/utils/fastht.h - Fast hashtable with array based buckets
  *
  * Copyright (c) 2019 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2
+ * Licensing Terms: GPLv2 
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -26,14 +26,19 @@
  *   comparator.
  * o We don't parameterize the allocator; perhaps in the future.
  */
+
+#ifndef ___INC_UTILS_FASTHT_HPP__bvPXRcBpxfyui1IT___
+#define ___INC_UTILS_FASTHT_HPP__bvPXRcBpxfyui1IT___ 1
+
 #include <list>
 #include <utility>
 #include <string>
+#include <stdlib.h>
 #include <stdint.h>
 
 
-
 // Fast Hash table for key K and value V.
+// No iterators; only membership, adds/deletes supported
 template <typename K, typename V> class fht {
 public:
     typedef K        key_type;
@@ -157,6 +162,31 @@ public:
     }
 
 
+    // Return true if hash table is empty
+    bool empty() const { return m_nodes; }
+
+    // Return true if key exists, false otherwise.
+    bool exists(const K& key) {
+        auto r = xfind(key, false);
+        return r.first;
+    }
+
+    // # of occupied buckets
+    double fill() const {
+        return (100.0 * double(m_fill))/ double(m_size);
+    }
+
+    // actual nodes/bucket
+    double density() const {
+        return m_fill > 0 ? double(m_nodes) / double(m_fill) : 0.0;
+    }
+
+    // expected nodes/bucket
+    double exp_density() const {
+        return double(m_nodes) / double(m_size);
+    }
+
+
     // insert only if not already present; return if already
     // present, false otherwise.
     std::pair<bool, V*> probe(const K& key, const V& value) {
@@ -212,7 +242,7 @@ protected:
     //
     // given a key-hash, return its bucket. Use the random nonce to
     // mix the hash.
-    bucket *hashseed(bucket *tab, uint64_t k, uint64_t seed) {
+    uint64_t hashseed(uint64_t k, uint64_t seed) {
         const uint64_t m = 0x880355f21e6d1965ULL;
         uint64_t       h = 8 * m;
 
@@ -222,13 +252,13 @@ protected:
         h ^= __mix(seed);
         h *= m;
 
-        h  = h & (m_size-1);
-        return &tab[h];
+        return h;
     }
 
     // hash with the default seed
     bucket *hash(bucket *tab, uint64_t k) {
-        return hashseed(tab, k, m_seed);
+        uint64_t h = hashseed(k, m_seed);
+        return &tab[h & (m_size-1)];
     }
 
 
@@ -259,7 +289,8 @@ protected:
                     node *p = g->a[i];
 
                     if (p) {
-                        bucket *x  = hashseed(b, p->hash, seed);
+                        uint64_t h = hashseed(p->hash, seed);
+                        bucket  *x = &b[h & (n-1)];
 
                         insert_quick(x, p);
 
@@ -440,31 +471,6 @@ protected:
 };
 
 
+#endif /* ! ___INC_UTILS_FASTHT_HPP__bvPXRcBpxfyui1IT___ */
 
-#if 0
-
-typedef  fht<std::string, void *> cache;
-
-
-void *
-cache_find(cache *c, const std::string& k)
-{
-    auto r = c->find(k);
-
-    return r.first ? r.second : 0;
-}
-
-void *
-cache_add(cache *c, const std::string& k, void *v)
-{
-    auto r = c->probe(k, v);
-    return r.first ? r.second : 0;
-}
-
-void *
-cache_del(cache *c, const std::string& k, void *v)
-{
-    auto r = c->remove(k);
-    return r.first ? r.second : 0;
-}
-#endif
+/* EOF */
