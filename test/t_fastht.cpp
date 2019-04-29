@@ -22,10 +22,63 @@
 #define _d(x)   ((double)(x))
 
 
-typedef fht<uint64_t, word> ht;
+typedef fht<uint64_t, const char*> ht;
 
 extern uint32_t arc4random(void);
 extern void     arc4random_buf(void *, size_t);
+
+static uint64_t identity(const uint64_t h) {
+    return h;
+}
+
+static bool equalcmp(const uint64_t a, const uint64_t b) {
+    return a == b;
+}
+
+
+int
+main(int argc, char** argv)
+{
+    program_name  = argv[0];
+    char* args[3] = { argv[0], "-", 0 };
+    arena_t a;
+    strvect v;
+    int i;
+
+    if (argc < 2) {
+        argv = args;
+        argc = 2;
+    }
+
+    VECT_INIT(&v, 256*1024);
+    arena_new(&a, 1048576);
+
+    for (i = 1; i < argc; ++i) {
+        read_words(&v, a, argv[i]);
+    }
+
+    ht h(identity_hash, equalcmp);
+
+    insert_words(&v, &h);
+
+    //VECT_SHUFFLE(&v, arc4random);
+
+    find_all(&v, &h, 1);
+    print_ht(&h);
+
+
+#ifdef __MAKE_OPTIMIZE__
+
+#define NITER   10
+    perf_test(&v, NITER);
+
+#endif // __OPTIMIZE__
+
+    VECT_FINI(&v);
+
+    arena_delete(a);
+    return 0;
+}
 
 static uint64_t
 find_all(strvect* v, ht* h, int exp)
@@ -40,15 +93,15 @@ find_all(strvect* v, ht* h, int exp)
     VECT_FOR_EACHi(v, i, w) {
         void *x = 0;
         uint64_t t0 = now();
-        int r = ht_find(h, w->h + perturb, &x);
+        auto r = ht->find(w->h + perturb);
         tot += now() - t0;
         if (exp) {
-            if (!r) {
+            if (!r.first) {
                 printf("** I-MISS %s\n", w->w);
                 continue;
             }
         } else {
-            if (r) {
+            if (r.first) {
                 printf("** I-MISS-X %s\n", w->w);
                 continue;
             }
@@ -75,10 +128,10 @@ insert_words(strvect* v, ht* h)
 
     VECT_FOR_EACH(v, w) {
         uint64_t t0 = now();
-        r = ht_probe(h, w->h, w->w);
+        auto r = ht->probe(w->h, w->w);
         tot += now() - t0;
 
-        assert(!r);
+        assert(!r.first);
     }
     return tot;
 }
@@ -214,53 +267,5 @@ perf_test(strvect* v, size_t Niters)
 #endif // __MAKE_OPTIMIZE__
 
 
-int
-main(int argc, char** argv)
-{
-    program_name  = argv[0];
-    char* args[3] = { argv[0], "-", 0 };
-    arena_t a;
-    strvect v;
-    int i;
-
-    if (argc < 2) {
-        argv = args;
-        argc = 2;
-    }
-
-    VECT_INIT(&v, 256*1024);
-    arena_new(&a, 1048576);
-
-    for (i = 1; i < argc; ++i) {
-        read_words(&v, a, argv[i]);
-    }
-
-
-    ht _h;
-    ht *h = &_h;
-
-    ht_init(h, 2);
-
-    insert_words(&v, h);
-
-    //VECT_SHUFFLE(&v, arc4random);
-
-    find_all(&v, h, 1);
-    print_ht(h);
-    ht_fini(h);
-
-
-#ifdef __MAKE_OPTIMIZE__
-
-#define NITER   10
-    perf_test(&v, NITER);
-
-#endif // __OPTIMIZE__
-
-    VECT_FINI(&v);
-
-    arena_delete(a);
-    return 0;
-}
 
 /* EOF */
