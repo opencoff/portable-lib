@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "fast/list.h"
-
+#include "utils/arc4random.h"
 
 // Fast Hash table for key K and value V.
 // No iterators; only membership, adds/deletes supported
@@ -62,7 +62,7 @@ protected:
         V value;
     };
 
-#define FASTHT_BAGSZ       16
+#define FASTHT_BAGSZ       4
 #define FILLPCT            75
 
     // A bag is a contiguous array of nodes.
@@ -129,7 +129,7 @@ protected:
 
 public:
     fht(hashfunc *hasher, equalfunc *equal, size_t n = 0)
-                : m_hasher(hasher), m_equal(equal) {
+                : m_hasher(hasher) {
 
         m_size = n == 0 ? 128 : nextpow2(n);
         m_tab  = new bucket[m_size];
@@ -144,7 +144,7 @@ public:
     // Move constructor
     fht(fht&& o)
        : m_size(o.m_size), m_seed(o.m_seed),
-         m_hasher(o.m_hasher), m_equal(o.m_equal),
+         m_hasher(o.m_hasher),
          m_nodes(o.m_nodes), m_fill(o.m_fill),
          m_splits(o.m_splits), m_bagmax(o.m_bagmax), m_chainmax(o.m_chainmax)
     {
@@ -239,10 +239,18 @@ public:
         SL_FOREACH(g, &b->bags, link) {
             px = &g->a[0];
 
-#define SRCH(x) do { \
+#define SRCHx(x) do { \
                     node *x = *px;                   \
                     if (x && x->hash == h            \
                           && m_equal(key, x->key)) { \
+                        return std::make_pair(true, &x->value); \
+                    }       \
+                    px++;   \
+                } while(0)
+
+#define SRCH(x) do { \
+                    node *x = *px;                   \
+                    if (x && x->hash == h) {         \
                         return std::make_pair(true, &x->value); \
                     }       \
                     px++;   \
@@ -269,16 +277,22 @@ public:
         uint64_t h = m_hasher(key);
         bucket *b  = hash(m_tab, h);
         node **px  = 0;
-        bag  *bg   = 0;
         bag *g;
 
         SL_FOREACH(g, &b->bags, link) {
             px = &g->a[0];
 #define DELX(x) do { \
                     node *x = *px;                   \
+                    if (x && x->hash == h) {         \
+                        goto found;                  \
+                    }                                \
+                    px++;                            \
+                } while(0)
+
+#define DELXx(x) do { \
+                    node *x = *px;                   \
                     if (x && x->hash == h            \
                           && m_equal(key, x->key)) { \
-                        bg = g;                      \
                         goto found;                  \
                     }                                \
                     px++;                            \
@@ -303,15 +317,15 @@ found:
         delete *px;
         *px = 0;
 
+        if (--b->nitems == 0) m_fill--;
+        m_nodes--;
+
 #if 0
         if (bg->is_empty()) {
             b->bags.remove(bg);
             b->nbags--;
         }
 #endif
-
-        if (--b->nitems == 0) m_fill--;
-        m_nodes--;
 
         return true;
     }
@@ -454,6 +468,15 @@ protected:
             node *x   = *px;
 
 #define FIND(x) do {                \
+                    if (x) {                    \
+                        if (x->hash == hash)    \
+                            return std::make_pair(true, x);\
+                    } else {                    \
+                        if (!pos) pos = px;     \
+                    }                           \
+                    px++;                       \
+                } while (0)
+#define FINDx(x) do {                \
                     if (!x) {       \
                         if (!pos) pos = px;   \
                     } else {        \

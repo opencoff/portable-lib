@@ -68,7 +68,7 @@ extern int getentropy(void* buf, size_t n);
 
 #define minimum(a, b) ((a) < (b) ? (a) : (b))
 
-#include "arc4random.h"
+#include "utils/arc4random.h"
 
 
 static inline void

@@ -185,7 +185,8 @@ ifeq ($(OPTIMIZE),1)
 
 # Strip the final executable
 define strip-cmd
-	$(CROSSPATH)strip $@
+	#$(CROSSPATH)strip $@
+	true
 endef
 
 	#CFLAGS += -ffunction-sections -fdata-sections
@@ -209,22 +210,25 @@ endif
 
 ifneq ($($(platform)_CC),)
 	CC := $($(platform)_CC)
+else
+	CC = $(CROSSPATH)gcc
 endif
 
 ifneq ($($(platform)_CXX),)
 	CXX := $($(platform)_CXX)
+else
+	CXX  = $(CROSSPATH)g++
 endif
 
 ifneq ($($(platform)_LD),)
 	LD := $($(platform)_LD)
+else
+	LD  = $(CXX)
 endif
 
 # Tools we need
-AR    ?= $(CROSSPATH)ar
-CC    ?= $(CROSSPATH)gcc
-CXX   ?= $(CROSSPATH)g++
-RANLIB ?= $(CROSSPATH)ranlib
-LD    = $(CXX)
+AR    = $(CROSSPATH)ar
+RANLIB = $(CROSSPATH)ranlib
 
 
 # vim: ft=make:sw=4:ts=4:noexpandtab:notextmode:tw=72:
