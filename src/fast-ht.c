@@ -60,7 +60,9 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
     h ^= mix(hv);
     h *= m;
 
-    hv = mix(h) ^ salt;
+    h ^= mix(salt);
+    h *= m;
+
     return hv & (n-1);
 }
 

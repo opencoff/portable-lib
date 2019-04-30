@@ -62,10 +62,11 @@ protected:
         V value;
     };
 
-#define FASTHT_BAGSZ       8
+#define FASTHT_BAGSZ       16
 #define FILLPCT            75
 
     // A bag is a contiguous array of nodes.
+    // It is also an intrusive linked list
     struct bag {
         node *a[FASTHT_BAGSZ];
         SL_ENTRY(bag) link;

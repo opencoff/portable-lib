@@ -75,6 +75,7 @@ mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 # PORTABLE must be defined above..
 include $(PORTABLE)/portablelib.mk
 
+CFLAGS += -pg
 
 # Include 
 include $(PORTABLE)/tools.mk
