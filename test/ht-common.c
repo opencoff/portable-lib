@@ -54,7 +54,7 @@ read_words(strvect* v, arena_t a, const char* filename)
         memcpy(z, buf, n+1);
 
         word w  = { .w = z,
-                    .n = n,
+                    .n = (size_t)n,
                     .h = fasthash64(z, n, salt)
                   };
         VECT_PUSH_BACK(v, w);

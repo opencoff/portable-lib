@@ -7,6 +7,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "error.h"
 #include "utils/utils.h"
@@ -27,26 +29,33 @@ typedef fht<uint64_t, const char*> ht;
 extern uint32_t arc4random(void);
 extern void     arc4random_buf(void *, size_t);
 
-static uint64_t identity(const uint64_t h) {
+static uint64_t identity_hash(const uint64_t& h) {
     return h;
 }
 
-static bool equalcmp(const uint64_t a, const uint64_t b) {
+static bool equalcmp(const uint64_t& a, const uint64_t& b) {
     return a == b;
 }
 
+static uint64_t del_all(strvect* v, ht* h, int exp);
+static void print_ht(ht* h);
+static uint64_t insert_words(strvect* v, ht* h);
+static uint64_t find_all(strvect* v, ht* h, int exp);
+
+void perf_test(strvect* v, size_t Niters);
 
 int
 main(int argc, char** argv)
 {
+    const char *minus = "-";
     program_name  = argv[0];
-    char* args[3] = { argv[0], "-", 0 };
+    const char* args[3] = { argv[0], minus, 0 };
     arena_t a;
     strvect v;
     int i;
 
     if (argc < 2) {
-        argv = args;
+        argv = (char **)args;
         argc = 2;
     }
 
@@ -57,14 +66,20 @@ main(int argc, char** argv)
         read_words(&v, a, argv[i]);
     }
 
-    ht h(identity_hash, equalcmp);
+    // Simple tests
+    {
+        ht h(identity_hash, equalcmp, 4);
 
-    insert_words(&v, &h);
+        insert_words(&v, &h);
+        h.check();
 
-    //VECT_SHUFFLE(&v, arc4random);
+        //VECT_SHUFFLE(&v, arc4random);
 
-    find_all(&v, &h, 1);
-    print_ht(&h);
+        find_all(&v, &h, 1);
+        print_ht(&h);
+
+        del_all(&v, &h, 1);
+    }
 
 
 #ifdef __MAKE_OPTIMIZE__
@@ -91,15 +106,20 @@ find_all(strvect* v, ht* h, int exp)
     if (!exp) arc4random_buf(&perturb, sizeof perturb);
 
     VECT_FOR_EACHi(v, i, w) {
-        void *x = 0;
         uint64_t t0 = now();
-        auto r = ht->find(w->h + perturb);
+        auto r = h->find(w->h + perturb);
         tot += now() - t0;
         if (exp) {
             if (!r.first) {
                 printf("** I-MISS %s\n", w->w);
                 continue;
             }
+
+            if (0 != strcmp(*r.second, w->w)) {
+                printf(" word-missed: exp %s, saw %s\n", w->w, *r.second);
+                continue;
+            }
+
         } else {
             if (r.first) {
                 printf("** I-MISS-X %s\n", w->w);
@@ -124,11 +144,10 @@ insert_words(strvect* v, ht* h)
 {
     word* w;
     uint64_t tot = 0;
-    int r;
 
     VECT_FOR_EACH(v, w) {
         uint64_t t0 = now();
-        auto r = ht->probe(w->h, w->w);
+        auto r = h->probe(w->h, w->w);
         tot += now() - t0;
 
         assert(!r.first);
@@ -138,50 +157,41 @@ insert_words(strvect* v, ht* h)
 
 
 
-// % of buckets occupied
-#define fill(h) ((100.0 * _d(h->fill)) / _d(h->n))
-
-// expected nodes/bucket
-#define exp_density(h)  (_d(h->nodes) / _d(h->n))
-
-// actual density
-#define density(h)  (h->fill ? (_d(h->nodes) / _d(h->fill)) : 0.0)
-
 static void
 print_ht(ht* h)
 {
     printf("stats: Bag size %d elements\n"
            "  %" PRIu64 " buckets; %" PRIu64 " nodes, fill %4.2f density %4.2f (exp %4.2f)\n"
-           "  max-bags %u, max-nodes-per-bucket %u, splits %u\n",
-           FASTHT_BAGSZ,
-           h->n, h->nodes, fill(h), density(h), exp_density(h),
-           h->bagmax, h->maxn, h->splits);
+           "  max-bags %" PRIu64 ", max-nodes-per-bucket %" PRIu64 ", splits %" PRIu64 "\n",
+           FASTHT_BAGSZ, h->size(), h->nodes(), h->fill(), h->density(), h->exp_density(),
+           h->maxbags(), h->maxchainlen(), h->splits());
 }
 
 
-#ifdef __MAKE_OPTIMIZE__    // set by GNUmakefile.portablelib.mk
 
 static uint64_t
 del_all(strvect* v, ht* h, int exp)
 {
     word* w;
     uint64_t tot = 0;
-    int r;
+    bool pexp = !!exp;
 
     VECT_FOR_EACH(v, w) {
-        void *x = 0;
         uint64_t t0 = now();
-        r = ht_remove(h, w->h, &x);
+        auto r = h->remove(w->h);
         tot += now() - t0;
 
-        if (r != exp) {
+        if (r != pexp) {
             printf("** DEL MISS %s\n", w->w);
             continue;
         }
     }
     return tot;
 }
-static void
+
+#ifdef __MAKE_OPTIMIZE__    // set by GNUmakefile.portablelib.mk
+
+void
 perf_test(strvect* v, size_t Niters)
 {
     uint64_t cyi = 0,
@@ -193,8 +203,6 @@ perf_test(strvect* v, size_t Niters)
     size_t i;
     size_t n = VECT_LEN(v);
     size_t nlog2 = (size_t) log2(n)+1;
-    ht _h;
-    ht* h = &_h;
     uint64_t ti  = 0,
              td  = 0,
              tx  = 0,
@@ -206,34 +214,33 @@ perf_test(strvect* v, size_t Niters)
 
     VECT_SHUFFLE(v, arc4random);
     for (i = 0; i < Niters; ++i) {
-        ht_init(h, nlog2);
+        ht h(identity_hash, equalcmp, 1 << nlog2);
+
         t0    = timenow();
-        cyi  += insert_words(v, h);
+        cyi  += insert_words(v, &h);
         ti   += timenow() - t0;
 
 
         t0    = timenow();
-        cys  += find_all(v, h, 1);
+        cys  += find_all(v, &h, 1);
         ts   += timenow() - t0;
 
         t0    = timenow();
-        cyy  += find_all(v, h, 0);
+        cyy  += find_all(v, &h, 0);
         ty   += timenow() - t0;
 
         t0    = timenow();
-        cyd  += del_all(v, h, 1);
+        cyd  += del_all(v, &h, 1);
         td   += timenow() - t0;
 
 
         // Finally, delete it again -- this will give us delete for
         // non existing
         t0    = timenow();
-        cyx  += del_all(v, h, 0);
+        cyx  += del_all(v, &h, 0);
         tx   += timenow() - t0;
 
-        if (i == 0) print_ht(h);
-
-        ht_fini(h);
+        if (i == 0) print_ht(&h);
     }
 
     double tot    = _d(n) * _d(Niters);

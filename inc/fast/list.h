@@ -38,6 +38,11 @@ extern "C" {
  */
 
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
 
 
 /**

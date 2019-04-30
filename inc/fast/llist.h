@@ -31,6 +31,12 @@
 #include <stddef.h>
 
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
+
 /*
  * Simple doubly linked list implementation.
  *

@@ -28,6 +28,11 @@ extern "C" {
 #include "utils/utils.h"
 
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
 
 /*
  * Define a vector of type 'type'

@@ -30,6 +30,10 @@
 #ifndef		__ARENA_H__
 #define		__ARENA_H__		1
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <string.h>
 #include "utils/memmgr.h"
 
@@ -71,8 +75,12 @@ arena_strdup(arena_t a, const char* s)
 {
     size_t n = strlen(s) + 1;
     void*  p = arena_alloc(a, n);
-    return memcpy(p, s, n);
+    return (char *)memcpy(p, s, n);
 }
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif	/* ! __ARENA_H__ */
 /* EOF */

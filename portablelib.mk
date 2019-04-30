@@ -161,6 +161,8 @@ OpenBSD_CC      = clang
 OpenBSD_LD      = clang++
 OpenBSD_CXXFLAGS += -std=c++17
 
+Darwin_CXXFLAGS += -std=c++17
+
 ARFLAGS  = rv
 CFLAGS  += $($(platform)_CFLAGS) $(WARNINGS) $(EXTRA_WARNINGS) $(INCS) $(DEFS)
 LDFLAGS += $($(platform)_ldflags)
@@ -221,8 +223,8 @@ endif
 AR    ?= $(CROSSPATH)ar
 CC    ?= $(CROSSPATH)gcc
 CXX   ?= $(CROSSPATH)g++
-LD    ?= $(CXX)
 RANLIB ?= $(CROSSPATH)ranlib
+LD    = $(CXX)
 
 
 # vim: ft=make:sw=4:ts=4:noexpandtab:notextmode:tw=72:

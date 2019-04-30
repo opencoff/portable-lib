@@ -135,6 +135,11 @@ extern "C" {
 #define _VU32(x)     ((volatile uint32_t)(x))
 #define _VU64(x)     ((volatile uint64_t)(x))
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
 
 
 /* Align a quantity 'v' to 'n' byte boundary and return as type 'T". */

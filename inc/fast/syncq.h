@@ -30,6 +30,11 @@ extern "C" {
 #include <pthread.h>
 
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
 
 /*
  * Holds all the synchronization objects protected by 'lock'.

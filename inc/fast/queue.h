@@ -59,6 +59,12 @@ extern "C" {
 #include <stdint.h>
 #include "utils/utils.h"
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
+
 struct __fast_queue
 {
     uint32_t rd, /* Next slot from which to read */

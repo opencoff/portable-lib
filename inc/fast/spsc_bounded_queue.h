@@ -85,6 +85,11 @@ extern "C" {
 
 #define __PADSZ(x)  ((CACHELINE_SIZE - sizeof(x))/sizeof(uint32_t))
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
 
 /*
  * We put the rd, wr and sz elements in different cache lines by
@@ -182,23 +187,20 @@ __spscq_init(__spscq* q, size_t n)
 static inline int
 __spscq_full_p(__spscq * q)
 {
-    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast32_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
+    uint_fast32_t wr = 1 + atomic_load_explicit(&q->wr, memory_order_acquire);
 
-    if (++wr == q->sz)
-        wr = 0;
+    if (wr == q->sz) wr = 0;
 
-    return rd == wr;
+    return wr == atomic_load_explicit(&q->rd, memory_order_acquire);
 }
 
 /* Return true if queue is empty */
 static inline int
 __spscq_empty_p(__spscq * q)
 {
-    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast32_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
+    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_acquire);
 
-    return rd == wr;
+    return rd == atomic_load_explicit(&q->wr, memory_order_acquire);
 }
 
 /*
@@ -210,8 +212,8 @@ static inline uint32_t
 __spscq_size(__spscq* q)
 {
     uint_fast32_t n  = 0;
-    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast32_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
+    uint_fast32_t rd = atomic_load_explicit(&q->rd, memory_order_acquire);
+    uint_fast32_t wr = atomic_load_explicit(&q->wr, memory_order_acquire);
 
     if (rd < wr)
         n = wr - rd;
@@ -228,13 +230,12 @@ __spscq_size(__spscq* q)
  */
 #define SPSCQ_ENQ(q_, e_)  ({ \
                     __spscq* _q = &(q_)->q; \
-                    int _z = 1;             \
+                    int _z = 0;             \
                     uint_fast32_t wr_  = atomic_load_explicit(&_q->wr, memory_order_relaxed);\
                     uint_fast32_t nwr_ = wr_ + 1;\
                     if (nwr_ == _q->sz) nwr_ = 0; \
-                    if (nwr_ == atomic_load_explicit(&_q->rd, memory_order_acquire)) { \
-                        _z = 0;               \
-                    } else {                  \
+                    if (nwr_ != atomic_load_explicit(&_q->rd, memory_order_acquire)) { \
+                        _z = 1;               \
                         (q_)->elem[wr_] = e_; \
                         atomic_store_explicit(&_q->wr, nwr_, memory_order_release); \
                     } \
@@ -247,11 +248,10 @@ __spscq_size(__spscq* q)
  */
 #define SPSCQ_DEQ(q_, e_)   ({                 \
                     __spscq* _q = &(q_)->q;    \
-                    int _z = 1;                \
+                    int _z = 0;                \
                     uint_fast32_t rd_ = atomic_load_explicit(&_q->rd, memory_order_relaxed);\
-                    if (rd_ == atomic_load_explicit(&_q->wr, memory_order_acquire)) {       \
-                        _z = 0;                     \
-                    } else {                        \
+                    if (rd_ != atomic_load_explicit(&_q->wr, memory_order_acquire)) {       \
+                        _z = 1;                     \
                         e_ = (q_)->elem[rd_++];       \
                         if (rd_ == _q->sz) rd_ = 0;\
                         atomic_store_explicit(&_q->rd, rd_, memory_order_release); \

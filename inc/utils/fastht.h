@@ -30,11 +30,12 @@
 #ifndef ___INC_UTILS_FASTHT_HPP__bvPXRcBpxfyui1IT___
 #define ___INC_UTILS_FASTHT_HPP__bvPXRcBpxfyui1IT___ 1
 
-#include <list>
+#include <assert.h>
 #include <utility>
 #include <string>
 #include <stdlib.h>
 #include <stdint.h>
+#include "fast/list.h"
 
 
 // Fast Hash table for key K and value V.
@@ -61,12 +62,14 @@ protected:
         V value;
     };
 
-#define FASTHT_BAGSZ       4
+#define FASTHT_BAGSZ       8
 #define FILLPCT            75
 
     // A bag is a contiguous array of nodes.
     struct bag {
         node *a[FASTHT_BAGSZ];
+        SL_ENTRY(bag) link;
+
         bag() {
             for (int i = 0; i < FASTHT_BAGSZ; i++) a[i] = 0;
         };
@@ -74,7 +77,8 @@ protected:
         ~bag() {
             for (int i = 0; i < FASTHT_BAGSZ; i++) {
                 node *x = a[i];
-                if (x) delete x;
+
+                delete x;
             }
         }
 
@@ -86,19 +90,21 @@ protected:
         }
     };
 
+    SL_HEAD_TYPEDEF(baghead, bag);
+
     // A bucket holds the collision chain; each element in the chain
     // is a bag of "BAGSZ" contiguous nodes. In the future, we can
     // add RWlocks to each bucket for multi-threaded systems.
     // We can also add a second set of RWlocks for each bag.
     struct bucket {
-        std::list<bag *> bags;
+        baghead  bags   = {0};
         uint32_t nitems = 0;      // number of items in this bucket
         uint32_t nbags  = 0;      // number of bags
 
         ~bucket() {
-            while (!bags.empty()) {
-                auto r = bags.front();
-                bags.pop_front();
+            while (!SL_EMPTY(&bags)) {
+                auto r = SL_FIRST(&bags);
+                SL_REMOVE_HEAD(&bags, link);
                 delete r;
             }
         }
@@ -162,6 +168,13 @@ public:
     }
 
 
+    // Read various fields
+    uint64_t nodes()        { return m_nodes;    }
+    uint64_t size()         { return m_size;     }
+    uint64_t splits()       { return m_splits;   }
+    uint64_t maxbags()      { return m_bagmax;   }
+    uint64_t maxchainlen()  { return m_chainmax; }
+
     // Return true if hash table is empty
     bool empty() const { return m_nodes; }
 
@@ -198,41 +211,147 @@ public:
 
         if (b->nitems == 1) {
             m_fill++;
-            if (((m_fill * 100) / (1 + m_nodes)) > FILLPCT) {
+            if (((m_fill * 100) / (1 + m_size)) > FILLPCT) {
                 m_splits++;
-                b = resize();
-                b = hash(b, h);
+                resize();
+                goto end;
             }
         }
 
         if (b->nbags  > m_bagmax)   m_bagmax   = b->nbags;
         if (b->nitems > m_chainmax) m_chainmax = b->nitems;
 
+    end:
         return std::make_pair(false, &r.second->value);
     }
 
     // Find 'key' in table; if key is found, then return <true,
     // value>. Otherwise, return <false, 0>
+    // The returned value is a pointer to the value held in the
+    // node. Callers can modify it if they wish.
     std::pair<bool, V*> find(const K& key) {
-        return xfind(key, false);
+        uint64_t h = m_hasher(key);
+        bucket *b  = hash(m_tab, h);
+        node **px  = 0;
+        bag *g;
+
+        SL_FOREACH(g, &b->bags, link) {
+            px = &g->a[0];
+
+#define SRCH(x) do { \
+                    node *x = *px;                   \
+                    if (x && x->hash == h            \
+                          && m_equal(key, x->key)) { \
+                        return std::make_pair(true, &x->value); \
+                    }       \
+                    px++;   \
+                } while(0)
+
+            switch (FASTHT_BAGSZ) {
+                default:            // fallthrough
+                case 8: SRCH(x);    // fallthrough
+                case 7: SRCH(x);    // fallthrough
+                case 6: SRCH(x);    // fallthrough
+                case 5: SRCH(x);    // fallthrough
+                case 4: SRCH(x);    // fallthrough
+                case 3: SRCH(x);    // fallthrough
+                case 2: SRCH(x);    // fallthrough
+                case 1: SRCH(x);    // fallthrough
+            }
+        }
+
+        return std::make_pair<bool, V*>(false, 0);
+    }
+
+    // Remove if key exists; return true if found, false otherwise.
+    bool remove(const K& key) {
+        uint64_t h = m_hasher(key);
+        bucket *b  = hash(m_tab, h);
+        node **px  = 0;
+        bag  *bg   = 0;
+        bag *g;
+
+        SL_FOREACH(g, &b->bags, link) {
+            px = &g->a[0];
+#define DELX(x) do { \
+                    node *x = *px;                   \
+                    if (x && x->hash == h            \
+                          && m_equal(key, x->key)) { \
+                        bg = g;                      \
+                        goto found;                  \
+                    }                                \
+                    px++;                            \
+                } while(0)
+
+            switch (FASTHT_BAGSZ) {
+                default:            // fallthrough
+                case 8: DELX(x);    // fallthrough
+                case 7: DELX(x);    // fallthrough
+                case 6: DELX(x);    // fallthrough
+                case 5: DELX(x);    // fallthrough
+                case 4: DELX(x);    // fallthrough
+                case 3: DELX(x);    // fallthrough
+                case 2: DELX(x);    // fallthrough
+                case 1: DELX(x);    // fallthrough
+            }
+        }
+
+        return false;
+
+found:
+        delete *px;
+        *px = 0;
+
+#if 0
+        if (bg->is_empty()) {
+            b->bags.remove(bg);
+            b->nbags--;
+        }
+#endif
+
+        if (--b->nitems == 0) m_fill--;
+        m_nodes--;
+
+        return true;
     }
 
 
-    // Remove if key exists. Retval:
-    //   <true, value> if key exists
-    //   <false, undef> if key doesn't exist.
-    std::pair<bool, V*> remove(const K& key) {
-        return xfind(key, true);
+    // consistency check on the whole table
+    void check() {
+        bucket *o = m_tab,
+               *e = o + m_size;
+
+        uint64_t n = 0;
+        for (; o < e; o++) {
+            bag *g;
+            SL_FOREACH(g, &o->bags, link) {
+                for (int i = 0; i < FASTHT_BAGSZ; i++) {
+                    node *p = g->a[i];
+                    if (p) {
+                        n++;
+
+                        auto j = hashseed(p->hash, m_seed);
+                        auto x = &m_tab[j & (m_size-1)];
+
+                        assert(x == o);
+                    }
+                }
+            }
+        }
+
+        assert(n == m_nodes);
     }
 
 
 protected:
 
-// Compression function from fasthash
-#define __mix(h) ({                   \
-            (h) ^= (h) >> 23;       \
-            (h) *= 0x2127599bf4325c37ULL;   \
-            (h) ^= (h) >> 47; h; })
+    // Compression function from fasthash
+    static inline uint64_t __mix(uint64_t h) {
+        h ^= (h >> 23);
+        h *= 0x2127599bf4325c37ULL;
+        h ^= (h >> 47);
+        return h;
+    }
 
     // fasthash64() - but tuned for exactly _one_ round and
     // one 64-bit word.
@@ -242,7 +361,7 @@ protected:
     //
     // given a key-hash, return its bucket. Use the random nonce to
     // mix the hash.
-    uint64_t hashseed(uint64_t k, uint64_t seed) {
+    static inline uint64_t hashseed(uint64_t k, uint64_t seed) {
         const uint64_t m = 0x880355f21e6d1965ULL;
         uint64_t       h = 8 * m;
 
@@ -253,6 +372,7 @@ protected:
         h *= m;
 
         return h;
+        //return (seed * m) ^ k;
     }
 
     // hash with the default seed
@@ -281,10 +401,11 @@ protected:
         // redistribute each node into the new table.
         // XXX We need to find a way to only move 50% of the items.
         for (; o < e; o++) {
-            while (!o->bags.empty()) {
-                bag *&g = o->bags.front();
-                o->bags.pop_front();
+            while (!SL_EMPTY(&o->bags)) {
+                auto g = SL_FIRST(&o->bags);
+                SL_REMOVE_HEAD(&o->bags, link);
 
+                assert(g);
                 for (int i = 0; i < FASTHT_BAGSZ; i++) {
                     node *p = g->a[i];
 
@@ -320,69 +441,14 @@ protected:
     }
 
 
-    // find the key and delete it if delit is true.
-    std::pair<bool, V*> xfind(const K& key, bool delit) {
-        uint64_t h = m_hasher(key);
-        bucket *b  = hash(m_tab, h);
-        node **px  = 0;
-        bag  *bg   = 0;
-
-        for (bag*& g: b->bags) {
-            px = &g->a[0];
-
-            node *x = *px;
-
-#define SRCH(x) do { \
-                    if (x && x->hash == h \
-                          && m_equal(key, x->key)) { \
-                        bg = g;     \
-                        goto found; \
-                    }       \
-                    px++;   \
-                } while(0)
-
-            switch (FASTHT_BAGSZ) {
-                default:            // fallthrough
-                case 8: SRCH(x);    // fallthrough
-                case 7: SRCH(x);    // fallthrough
-                case 6: SRCH(x);    // fallthrough
-                case 5: SRCH(x);    // fallthrough
-                case 4: SRCH(x);    // fallthrough
-                case 3: SRCH(x);    // fallthrough
-                case 2: SRCH(x);    // fallthrough
-                case 1: SRCH(x);    // fallthrough
-            }
-        }
-
-        return std::make_pair<bool, V*>(false, 0);
-
-    found:
-        node *x = *px;
-        auto r  = std::make_pair<bool, V*>(true, &x->value);
-
-        if (delit) {
-            *px = 0;
-            delete x;
-
-            if (bg->is_empty()) {
-                b->bags.remove(bg);
-                b->nbags--;
-            }
-
-            if (--b->nitems == 0) m_fill--;
-            m_nodes--;
-        }
-
-        return r;
-    }
-
     // Insert if not present
     // If present: return pointer to its node
     // If not present: allocate new node and return pointer to it
     std::pair<bool, node *> insert(bucket *b, uint64_t hash, const K& key, const V& val) {
         node **pos = 0;
+        bag *g;
 
-        for (bag*& g: b->bags) {
+        SL_FOREACH(g, &b->bags, link) {
             node **px = &g->a[0];
             node *x   = *px;
 
@@ -411,10 +477,10 @@ protected:
         }
 
         if (!pos) {
-            bag *g = new bag;
-            pos    = &g->a[0];
+            g   = new bag;
+            pos = &g->a[0];
 
-            b->bags.push_front(g);
+            SL_INSERT_HEAD(&b->bags, g, link);
             b->nbags++;
         }
 
@@ -434,7 +500,8 @@ protected:
                     x++; \
                } while(0)
 
-        for (bag*& g: b->bags) {
+        bag *g;
+        SL_FOREACH(g, &b->bags, link) {
             node **x = &g->a[0];
 
             switch (FASTHT_BAGSZ) {
@@ -450,10 +517,9 @@ protected:
             }
         }
 
-        bag *g = new bag;
-
+        g = new bag;
         g->a[0] = n;
-        b->bags.push_front(g);
+        SL_INSERT_HEAD(&b->bags, g, link);
         b->nbags++;
         b->nitems++;
     }

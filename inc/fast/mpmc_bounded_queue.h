@@ -93,6 +93,12 @@ extern "C" {
 #error "Can't define __CACHELINE_ALIGNED for your compiler/machine"
 #endif /* __CACHELINE_ALIGNED */
 
+#ifdef __cplusplus
+#ifndef typeof
+#define typeof(a)   __typeof__(a)
+#endif
+#endif
+
 /*
  * We put the rd, wr and sz elements in different cache lines by
  * forcibly padding the remaining space in this cache line.
