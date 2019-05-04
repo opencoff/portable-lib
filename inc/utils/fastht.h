@@ -36,7 +36,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "fast/list.h"
+
+#ifndef __OpenBSD__
 #include "utils/arc4random.h"
+#endif
 
 // Fast Hash table for key K and value V.
 // No iterators; only membership, adds/deletes supported
