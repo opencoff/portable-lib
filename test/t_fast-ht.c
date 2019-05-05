@@ -31,14 +31,12 @@ find_all(strvect* v, ht* h, int exp)
     size_t i;
     word* w;
     uint64_t tot     = 0;
-    uint64_t perturb = 0;
-
-    if (!exp) arc4random_buf(&perturb, sizeof perturb);
+    uint64_t perturb = !exp;
 
     VECT_FOR_EACHi(v, i, w) {
         void *x = 0;
         uint64_t t0 = now();
-        int r = ht_find(h, w->h + perturb, &x);
+        int r = ht_find(h, w->h >> perturb, &x);
         tot += now() - t0;
         if (exp) {
             if (!r) {
@@ -147,7 +145,7 @@ perf_test(strvect* v, size_t Niters)
              ts  = 0;
     uint64_t t0;
 
-    printf("--- Perf Test --\n");
+    printf("--- Perf Test [%zu iters] --\n", Niters);
 
     VECT_SHUFFLE(v, arc4random);
     for (i = 0; i < Niters; ++i) {
@@ -196,11 +194,11 @@ perf_test(strvect* v, size_t Niters)
     double cs     = _d(cys)  / tot;
 
     
-    printf("Add-empty:      %4.1f cy/add   %8.2f M/sec\n"
-           "Find-existing:  %4.1f cy/find  %8.2f M/sec\n"
-           "Find-non-exist: %4.1f cy/find  %8.2f M/sec\n"
-           "Del-existing:   %4.1f cy/find  %8.2f M/sec\n"
-           "Del-non-exist:  %4.1f cy/find  %8.2f M/sec\n",
+    printf("Add-empty:      %4.1f cy/add   %8.2f M ops/sec\n"
+           "Find-existing:  %4.1f cy/find  %8.2f M ops/sec\n"
+           "Find-non-exist: %4.1f cy/find  %8.2f M ops/sec\n"
+           "Del-existing:   %4.1f cy/find  %8.2f M ops/sec\n"
+           "Del-non-exist:  %4.1f cy/find  %8.2f M ops/sec\n",
            ci, ispd,
            cs, sspd,
            cy, yspd,

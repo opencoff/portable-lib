@@ -37,33 +37,10 @@
 
 extern void arc4random_buf(void *, size_t);
 
-// Compression function from fasthash
-#define mix(h) ({                   \
-            (h) ^= (h) >> 23;       \
-            (h) *= 0x2127599bf4325c37ULL;   \
-            (h) ^= (h) >> 47; h; })
-
-
-/*
- * fasthash64() - but tuned for exactly _one_ round and
- * one 64-bit word.
- *
- * Borrowed from Zilong Tan's superfast hash.
- * Copyright (C) 2012 Zilong Tan (eric.zltan@gmail.com)
- */
-static inline uint64_t
+static uint64_t
 __hash(uint64_t hv, uint64_t n, uint64_t salt)
 {
-    const uint64_t m = 0x880355f21e6d1965ULL;
-    uint64_t h       = (8 * m);
-
-    h ^= mix(hv);
-    h *= m;
-
-    h ^= mix(salt);
-    h *= m;
-
-    return hv & (n-1);
+    return (n-1) & (hv ^ salt);
 }
 
 
@@ -168,22 +145,18 @@ done:
 
 // Find hv in 'h'; return the value in p_ret. If zero is true, also
 // clear the node.
-static int
-__findx(ht *h, uint64_t hv, void** p_ret, int zero)
+static hn *
+__findx(hb *b, uint64_t hv)
 {
-    static const hn zn = { .h = 0, .v = 0 };
-    hb * b = &h->b[__hash(hv, h->n, h->rand)];
-
     bag *g;
-    hn  *x = 0;
 
 #define SRCH(x) do { \
-                    if (likely(x->h == hv)) goto found; \
-                    x++;    \
+                    if (likely(x->h == hv)) return x;\
+                    x++;                            \
                 } while(0)
 
     SL_FOREACH(g, &b->head, link) {
-        x = &g->a[0];
+        hn *x = &g->a[0];
 
         switch (FASTHT_BAGSZ) {
             default:            // fallthrough
@@ -198,16 +171,8 @@ __findx(ht *h, uint64_t hv, void** p_ret, int zero)
         }
     }
     return 0;
-
-found:
-    if (p_ret) *p_ret = x->v;
-    if (zero) {
-        *x = zn;
-        h->nodes--;
-        b->nodes--;
-    }
-    return 1;
 }
+
 
 
 /*
@@ -356,7 +321,15 @@ ht_probe(ht* h, uint64_t hv, void* v)
 int
 ht_find(ht* h, uint64_t hv, void** p_ret)
 {
-    return __findx(h, hv, p_ret, 0);
+    hb *b = &h->b[__hash(hv, h->n, h->rand)];
+    hn *x = __findx(b, hv);
+
+    if (x) {
+        if (p_ret) *p_ret = x->v;
+        return 1;
+    }
+
+    return 0;
 }
 
 
@@ -366,7 +339,17 @@ ht_find(ht* h, uint64_t hv, void** p_ret)
 int
 ht_remove(ht* h, uint64_t hv, void** p_ret)
 {
-    return __findx(h, hv, p_ret, 1);
+    static const hn zn = { .h = 0, .v = 0 };
+    hb *b = &h->b[__hash(hv, h->n, h->rand)];
+    hn *x = __findx(b, hv);
+
+    if (x) {
+        if (p_ret) *p_ret = x->v;
+        *x = zn;
+        return 1;
+    }
+
+    return 0;
 }
 
 

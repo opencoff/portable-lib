@@ -47,7 +47,7 @@ struct hn
 typedef struct hn hn;
 
 
-#define FASTHT_BAGSZ       4
+#define FASTHT_BAGSZ       7
 #define FILLPCT            75
 
 /*
