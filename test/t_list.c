@@ -26,7 +26,7 @@ rmelem(elem_head* head)
     int ndeletes = 0;
     elem* n = DL_FIRST(head);
 
-    printf("BEGIN GC CYCLE\n");
+    //printf("BEGIN GC CYCLE\n");
     while (n)
     {
         elem* next = DL_NEXT(n, link);
@@ -40,12 +40,11 @@ rmelem(elem_head* head)
 
             next = prev ? DL_NEXT(prev, link) : 0;
 
-            printf("   ** Element %d @ %p is now gone\n",
-                    n->val, n);
+            //printf("   ** Element %d @ %p is now gone\n", n->val, n);
             DEL(n);
             ++ndeletes;
         }
-        printf(" [n=%p, next=%p]\n", n, next);
+        //printf(" [n=%p, next=%p]\n", n, next);
         n = next;
     }
 
@@ -90,10 +89,10 @@ main()
 #endif
 
 
-    dump_list(&Head, "INITIAL STATE\n");
+    //dump_list(&Head, "INITIAL STATE\n");
     while (rmelem(&Head))
     {
-        dump_list(&Head, "POST GC CYCLE\n");
+        //dump_list(&Head, "POST GC CYCLE\n");
     }
 
     return 0;

@@ -18,7 +18,7 @@
 int
 main(int argc, char* argv[])
 {
-    size_t i, n = 100;
+    size_t i, n = 5;
 
     if (argc > 1) {
         int x = atoi(argv[1]);

@@ -39,6 +39,9 @@ struct ctx
 
     atomic_uint_fast32_t done;
 
+    // Max number of items to put by producer
+    uint64_t maxitems;
+
     // Producer cycles
     uint64_t pcyc;  // time taken by producer
     uint64_t ploop; // number of producer iterations
@@ -64,6 +67,7 @@ mt_setup(ctx* c)
 static void*
 producer(void* v)
 {
+    uint64_t i = 0;
     ctx* c = v;
     pcq* q = &c->q;
 
@@ -75,6 +79,9 @@ producer(void* v)
 
         c->pcyc += (sys_cpu_timestamp() - t0);
         c->ploop++;
+
+        // artificial clamp on max items
+        if (++i >= c->maxitems) break;
     } while (1);
 
     atomic_store(&c->done, 1);
@@ -126,9 +133,9 @@ consumer(void* v)
 
 
 static void
-mt_test()
+mt_test(uint64_t maxitems)
 {
-    ctx cx;
+    ctx cx   = { .maxitems = maxitems };
     int ncpu = sys_cpu_getavail();
     int cpu  = 0;
 
@@ -253,16 +260,24 @@ basic_dyn_test()
 int
 main(int argc, char *argv[])
 {
+    uint64_t n = 1048576;
+
     (void)argc;
     program_name = argv[0];
+
+    if (argc > 1) {
+        int r = strtosize(argv[1], 0, &n);
+        if (r < 0) error(1, -r, "can't parse number %s", argv[1]);
+    }
 
     basic_test();
     basic_dyn_test();
 
+
     int i = 0;
-    int n = 32;
-    for (i = 0; i < n; ++i) {
-        mt_test();
+    int iters = 32;
+    for (i = 0; i < iters; ++i) {
+        mt_test(n);
         //usleep(500 * 1000);
         usleep(900 * 200);
     }

@@ -27,28 +27,50 @@
  * Checking to see if a character is a delimiter then boils down to
  * checking if the appropriate bit within the long-word is set.
  */
-#define LONGBYTES     (sizeof(uint64_t))
-#define LONGBIT       (LONGBYTES * 8)   // 8 bits per byte
-#define BITVECTSIZE   (256 / LONGBIT)
+#define BITVECTSIZE   (256 / 64)
 
-typedef uint64_t      DELIM_TYPE[BITVECTSIZE];
+typedef struct {
+    volatile uint64_t b[BITVECTSIZE];
+} DELIM_TYPE;
 
-#define INIT_DELIM(v)  memset(v, 0, sizeof v)
+#define INIT_DELIM(v)  memset((v)->b, 0, sizeof (v)->b)
 
 #define ADD_DELIM(v, c) do { \
                             uint64_t c_ = (uint64_t)(c);\
-                            int w_ = c_ / LONGBIT; \
-                            int b_ = c_ % LONGBIT; \
-                            v[w_] |= (1 << b_);\
+                            uint64_t w_ = c_ / 64;  \
+                            uint64_t b_ = c_ & 63;  \
+                            (v)->b[w_] |= (1 << b_);\
                         } while (0)
 
 #define IS_DELIM(v,c) ({ \
                             uint64_t c_ = (uint64_t)(c);\
-                            int w_ = c_ / LONGBIT; \
-                            int b_ = c_ % LONGBIT; \
-                            v[w_] & (1 << b_);\
+                            uint64_t w_ = c_ / 64; \
+                            uint64_t b_ = c_ & 63; \
+                            ((v)->b[w_] & (1 << b_));\
                         })
 
+
+#if 0
+static void
+PRINT_DELIM(DELIM_TYPE *v)
+{
+    int i;
+    int n = 0;
+    fputc(' ', stdout);
+    for (i = 0; i < 256; i++) {
+        fputc(IS_DELIM(v, i) ? '1': 'x', stdout);
+        ++n;
+
+        if ((n % 4) == 0) fputc(' ', stdout);
+        if ((n % 8) == 0) fputc(' ', stdout);
+        if ((n % 64)  == 0) {
+            fputc('\n', stdout);
+            fputc(' ', stdout);
+        }
+    }
+    fputs("---\n", stdout);
+}
+#endif
 
 
 /*
@@ -76,17 +98,15 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
 
     DELIM_TYPE  v;
 
-    INIT_DELIM(v);
+    INIT_DELIM(&v);
 
-    if (!sep) {
-        ADD_DELIM(v, ',');  // default delimiter
-    } else {
-        int x;
-        for (x = 0; (x = *sep); sep++) {
-            ADD_DELIM(v, x);
-        }
+    if (!sep) sep = ",";
+    for (c = 0; (c = *sep); sep++) {
+        ADD_DELIM(&v, c);
     }
 
+
+    //PRINT_DELIM(&v);
     while ((c = *str)) {
         switch (c) {
             case '\'': case '"':
@@ -109,7 +129,7 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
                 continue;
 
             default:
-                if (IS_DELIM(v, c)) {
+                if (IS_DELIM(&v, c)) {
                     // If we are not quoting, then we terminate word
                     // here.
                     if (q == 0) {

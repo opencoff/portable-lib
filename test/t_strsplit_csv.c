@@ -26,8 +26,8 @@ struct testcase
 #define _T(str,exp,vsize) {str,exp,vsize}
 static testcase tests[] =
 {
-    _T("abc", "abc", 10),                           /* 0 */
-    _T("abc,def,ghi", "abc;def;ghi", 10),
+    _T("abc", "abc", 4),                           /* 0 */
+    _T("abc,def,ghi", "abc;def;ghi", 5),
     _T("abc,def,ghi", "abc;def;ghi", 3),
     _T("\"abc\",def,xyz", "abc;def;xyz", 3),
     _T("\"abc\\\"x\",def,ghi", "abc\"x;def;ghi", 3),

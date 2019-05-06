@@ -29,7 +29,7 @@ main(int argc, char **argv)
 
         r = ulid_tostring(s, sizeof s, b);
         assert(r == 26);
-        printf("%s\n", s);
+        //printf("%s\n", s);
     }
     return 0;
 

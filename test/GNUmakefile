@@ -36,25 +36,31 @@ win32_tests += mmap_win32 t_socketpair
 posix_tests += t_cresolve
 
 # What tests to build
-tests = strmatch t_strtoi t_arena t_str2hex \
+autotests = strmatch t_strtoi t_arena t_str2hex \
+		t_ipaddr t_strcopy \
+		t_pack t_strsplit_csv \
 		t_strsplit t_gvarexp t_dirname t_uuid \
-		mmaptest t_mkdirhier t_frand t_ulid \
+		t_frand t_ulid \
 		t_fixedsize t_mempool t_opt_test \
-		t_hashtab t_list t_b64_c t_vect \
-		t_hashfunc t_xorrand t_fast-ht \
-		t_hashspeed t_hashbench t_strtosize \
-		t_bits t_siphash24 hashtok t_readpass \
-		t_spscq t_mpmcq t_ipaddr t_strcopy \
-		t_bloom t_bitvect  t_fts t_rotatefile \
-		t_pack t_strsplit_csv t_prodcons t_fastht \
-		$($(platform)_tests)
+		t_list t_b64_c t_vect \
+		t_xorrand  t_strtosize \
+		t_bits t_siphash24 \
+		t_spscq t_bitvect t_fts t_hashspeed \
+		t_prodcons
 
+
+tests_with_input = mmaptest t_mkdirhier  \
+                   t_readpass t_rotatefile  t_mpmcq
+
+hash-input = $(wildcard ./in) # input for all the tests below
+hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_fastht
+
+tests = $(autotests) $(tests_with_input) $(hashtests) $($(platform)_tests)
 
 nettests =
 
 # List your target here
 target = $(tests)
-
 
 
 define obj_def
@@ -82,10 +88,16 @@ LDFLAGS += -pg -no-pie
 # Include 
 include $(PORTABLE)/tools.mk
 
-tests:
-	@echo CC=$(CC) CXX=$(CXX) LD=$(LD)
-	@echo $(target)
-
+test:
+	for t in $(autotests); do  \
+        echo "TEST $$t:"; \
+		./$(objdir)/$$t || exit 1;   \
+    done
+ifneq ($(hash-input),)
+	for t in $(hashtests); do \
+		./$(objdir)/$$t $(hash-input) || exit 1; \
+	done
+endif
 
 
 

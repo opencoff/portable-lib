@@ -25,7 +25,7 @@ test_run(uint8_t* inbuf, int inbufsz)
     if (0 != memcmp(decbuf, inbuf, inbufsz))
         error(1, 0, "Buf-%d: data mismatch", inbufsz);
 
-    printf("Buf-%d => %d bytes: %s\n", inbufsz, enclen, encbuf);
+    //printf("Buf-%d => %d bytes: %s\n", inbufsz, enclen, encbuf);
 }
 
 

@@ -11,7 +11,7 @@ int
 main(int argc, char **argv)
 {
     int i;
-    int n = 1;
+    int n = 10;
 
     if (argc > 1) {
         n = atoi(argv[1]);
@@ -29,7 +29,7 @@ main(int argc, char **argv)
 
         r = uuid_tostring(s, sizeof s, b);
         assert(r == 37);
-        printf("%s\n", s);
+        //printf("%s\n", s);
     }
     return 0;
 
