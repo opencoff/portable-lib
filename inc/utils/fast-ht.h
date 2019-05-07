@@ -47,8 +47,17 @@ struct hn
 typedef struct hn hn;
 
 
-#define FASTHT_BAGSZ       7
-#define FILLPCT            75
+#define FASTHT_BAGSZ       3
+#define FILLPCT            87
+
+
+#if    FASTHT_BAGSZ > 8
+
+#warn "FASTHT_BAGSZ is too large; clamping at 8"
+#undef FASTHT_BAGSZ
+
+#define FASTHT_BAGSZ    8
+#endif
 
 /*
  * Bucket

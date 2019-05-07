@@ -82,8 +82,8 @@ mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 include $(PORTABLE)/portablelib.mk
 
 # Set this up for profiling
-CFLAGS += -pg -no-pie
-LDFLAGS += -pg -no-pie
+#CFLAGS += -pg -no-pie
+#LDFLAGS += -pg -no-pie
 
 # Include 
 include $(PORTABLE)/tools.mk

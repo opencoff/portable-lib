@@ -30,7 +30,7 @@
 #define BITVECTSIZE   (256 / 64)
 
 typedef struct {
-    volatile uint64_t b[BITVECTSIZE];
+    uint64_t b[BITVECTSIZE];
 } DELIM_TYPE;
 
 #define INIT_DELIM(v)  memset((v)->b, 0, sizeof (v)->b)
@@ -48,6 +48,7 @@ typedef struct {
                             uint64_t b_ = c_ & 63; \
                             ((v)->b[w_] & (1 << b_));\
                         })
+
 
 
 #if 0
@@ -99,6 +100,29 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
     DELIM_TYPE  v;
 
     INIT_DELIM(&v);
+
+    /*
+     * TODO May 2019
+     *
+     * on x86_64, gcc and clang both generate XMM based code for
+     * vectorized operation on the delimiter bitset.
+     *
+     * And, with full optimization, the old code doesn't work:
+     *
+     *  if (sep) {
+     *      for (c = 0; (c = *sep); sep++) {
+     *          ADD_DELIM(&v, c);
+     *      }
+     *  } else {
+     *      ADD_DELIM(&v, ',');
+     *  }
+     *
+     *
+     * Both compilers don't seem to emit any reasonable code for the
+     * 'else' branch; i.e., the bits appear to be unset!
+     *
+     * The code below is written as a workaround..
+     */
 
     if (!sep) sep = ",";
     for (c = 0; (c = *sep); sep++) {
