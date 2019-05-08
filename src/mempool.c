@@ -1,6 +1,6 @@
 /* vim: ts=4:sw=4:expandtab:tw=72:
  *
- * mempool.c - Small, scalable fixed size object state.
+ * mempool.c - Small, scalable fixed size object allocator.
  *
  * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
  *
@@ -29,21 +29,11 @@
 #include "fast/list.h"
 
 /*
- *           IMPLEMENTATION NOTES
- *           ====================
+ * IMPLEMENTATION NOTES
+ * ====================
  *
- * Terminology:
- * ------------
- *    BLKSIZE   - size of each fixed sized object
- *    CHUNKSIZE - granularity of allocation made from lower-layer
- *                state (MIN_ALLOC_UNITS)
- *    block     - a fixed sized object sized region of memory (roughly
- *                equal BLKSIZE)
- *    chunk     - region of memory allocated from lower-layer
- *                state; roughly CHUNKSIZE big.
- *
- *  Note: When we say 'lower-layer state' we refer to a
- *  "primitive" state - typically one supplied by an underlying
+ *  Note: When we say 'lower-layer allocator' we refer to a
+ *  "primitive" allocator - typically one supplied by an underlying
  *  OS - e.g., malloc/free.
  *
  * General idea:
@@ -54,42 +44,35 @@
  *  - Make large allocations from the lower-layer. Each allocation can
  *    satifsy multiple BLKSIZE requests.
  *
- *  - Keep track of such large allocations in a singly linked list.
- *    We need the starting pointers of each such chunk when we are
- *    deleting the fixed sized object state.
- *
- *  - Once fixed sized objects are returned back to the state, we
- *    keep the returned objects in a second "MRU" linked list.
+ *  - Keep track of such large allocations in a singly linked list
+ *    of "memchunks".  Each such memchunk holds a integral number
+ *    of fixed-size objects.
  *
  *  - Newly created chunks are inserted into the head of the link list.
  *    The reasoning is that we only allocate a new chunk when our MRU
  *    list is empty i.e., even the last chunk we allocated is empty.
  *    Thus, it makes good sense to keep the "hot chunk" at the head
  *    of the list to facilitate fast allocations.
+ *    head of the list.
+ *  
+ *  - Once fixed sized objects are returned back to the pool, we
+ *    keep the returned objects in a second "MRU" linked list.
  *
  *  - Requests for new fixed sized objects are satisfied in the following
  *    order:
- *      o MRU list
- *      o latest allocated chunk ("hot chunk")
- *      o newly allocated chunk
+ *      * MRU list
+ *      * latest allocated chunk ("hot chunk")
+ *      * newly allocated chunk
  *
- *  - if an state instance is initialized with a fixed amount of
- *    memory, no new requests will be made to the underlying low-level state.
+ *  - if a pool instance is initialized with a fixed amount of
+ *    memory, no new requests will be made to the underlying
+ *    low-level allocator.
  *
  * Knobs to tune
  * -------------
  *   MEMPOOL_DEBUG  - this macro controls debug features.
  *                    Additional error checking is done on pointers
- *                    that are returned back to the state.
- *
- *   NDEBUG         - This ANSI/ISO macro is not used in this
- *                    state. This controls how assert()
- *                    behaves. I generally like to leave assert()
- *                    in production code - it is meant to be a
- *                    life-saver, a sort of emergency brake.
- *                    But, if you choose to be reckless, _define_
- *                    this macro at the beginning of this file and
- *                    assert() will be compiled out.
+ *                    that are returned back to the allocator.
  */
 
 
@@ -141,7 +124,7 @@ typedef struct memchunk memchunk;
 
 
 /*
- * Each fixed sized object when it is returned to the state is linked
+ * Each fixed sized object when it is returned to the pool is linked
  * into a MRU list. This struct provides the minimum infrastructure
  * for such an MRU list.
  *
@@ -151,39 +134,8 @@ typedef struct memchunk memchunk;
 struct mru_node
 {
     DL_ENTRY(mru_node)  link;
-    //struct mru_node * next;
 };
 typedef struct mru_node mru_node;
-
-DL_HEAD_TYPEDEF(mru_head_type, mru_node);
-
-/*
- * State of the fixed-size state. Must be treated as opaque by
- * callers.
- */
-struct mempool
-{
-    /* Head of MRU block list */
-    mru_head_type         mru_head;
-
-    /* size of each block in this state */
-    uint64_t block_size;
-
-    /* Maximum number of blocks (if constrained so)  */
-    uint64_t max_blocks;
-
-    /* minimum number of units to allocate at a time */
-    uint64_t min_units;
-
-    /* list of OS allocated chunks */
-    struct memchunk    * chunks;
-
-    /* OS Traits */
-    struct memmgr traits;
-};
-typedef struct mempool state;
-
-
 
 
 /*
@@ -237,7 +189,9 @@ typedef union min_alignment min_alignment;
 
 
 
-
+/*
+ * Traits for allocating directly from the OS/Libc
+ */
 static void*
 __os_alloc(void* unused, size_t n)
 {
@@ -253,20 +207,7 @@ __os_free(void* unused, void* a)
 }
 
 
-
-/*
- * Helper functions to make life easier.
- */
-static void*
-__alloc(state* a, size_t n)
-{
-    const memmgr* tr = &a->traits;
-
-    return tr->alloc(tr->context, n);
-}
-
-
-static void
+static inline void
 __dummy_free(void* unused, void* a)
 {
     (void)unused;
@@ -278,20 +219,17 @@ __dummy_free(void* unused, void* a)
  * Allocate a new chunk from the OS
  */
 static int
-new_chunk(state * a)
+new_chunk(mempool* a)
 {
     uint64_t chunk_size = (uint64_t)a->block_size * (uint64_t)a->min_units;
     uint64_t alloc_size = sizeof(memchunk) + chunk_size + MINALIGNMENT;
-    memchunk *ch;
-    uint8_t  *ptr;
 
     /* Guard against arithmetic overflow */
     assert(chunk_size > a->block_size && chunk_size > a->min_units);
     assert(alloc_size > chunk_size);
 
-    ch = (memchunk *)__alloc(a, alloc_size);
-    if (!ch)
-        return 0;
+    memchunk *ch = (memchunk *) (*a->traits.alloc)(a->traits.context, alloc_size);
+    if (!ch) return 0;
 
     /* add this to list of chunks we already have */
     ch->next  = a->chunks;
@@ -308,7 +246,7 @@ new_chunk(state * a)
      * properly aligned.
      */
 
-    ptr           = pUCHAR(ch) + sizeof *ch;    /* start of free area */
+    uint8_t *ptr  = pUCHAR(ch) + sizeof *ch;    /* start of free area */
     ch->free_area = _Align(uint8_t *, ptr);     /* aligned start of blocks */
     ch->end       = ch->free_area + chunk_size; /* end of chunk memory */
 
@@ -322,14 +260,13 @@ new_chunk(state * a)
  * pointer to a block.  Return 0 if not possible.
  */
 static void *
-alloc_from_chunk(state * a)
+alloc_from_chunk(mempool* a)
 {
     memchunk * ch = a->chunks; /* latest chunk */
     void  * p  = 0;
 
-    if ( ch->free_area < ch->end )
-    {
-        p              = ch->free_area;
+    if (ch->free_area < ch->end) {
+                    p  = ch->free_area;
         ch->free_area += a->block_size;
     }
 
@@ -346,13 +283,12 @@ alloc_from_chunk(state * a)
 #ifdef MEMPOOL_DEBUG
 
 static int
-_valid_blk_p(state *a, uint8_t * ptr)
+_valid_blk_p(mempool* a, uint8_t * ptr)
 {
     memchunk * ch = a->chunks;
 
-    while (ch)
-    {
-        uint8_t * chunk_start = pUCHAR(ch) + sizeof *ch;
+    while (ch) {
+        uint8_t *chunk_start = pUCHAR(ch) + sizeof *ch;
 
         if (chunk_start <= ptr && ptr < ch->end)
             return 1;
@@ -363,7 +299,7 @@ _valid_blk_p(state *a, uint8_t * ptr)
     return 0;
 }
 
-/* Clear any memory that is returned back to the state */
+/* Clear any memory that is returned back to the mempool */
 #define clear_memory(a, p)  memset(p, 0x77, a->block_size)
 #define fill_memory(a, p)   (p) ? memset((p), 0xaa, a->block_size) : 0
 
@@ -377,28 +313,9 @@ _valid_blk_p(state *a, uint8_t * ptr)
 #endif /* MEMPOOL_DEBUG */
 
 
-/*
- * -- External functions --
- */
-
-
-int
-mempool_init(state *a, const memmgr* tr, uint_t block_size,
-                  uint_t max, uint_t min_alloc_units)
+static int
+__real_init(mempool *a, const memmgr *tr, uint_t block_size, uint_t max, uint_t min_alloc_units)
 {
-    if ( !a ) return -EINVAL;
-    if (!tr) {
-        static const memmgr os_traits = {
-            .alloc   = __os_alloc,
-            .free    = __os_free,
-            .context = 0
-        };
-        tr = &os_traits;
-    }
-
-    if  (!(tr->alloc && tr->free)) return -EINVAL;
-
-
     memset(a, 0, sizeof *a);
 
     /*
@@ -408,7 +325,6 @@ mempool_init(state *a, const memmgr* tr, uint_t block_size,
 
 
     block_size = _Align(uint_t, block_size);
-
 
     /*
      * If max is specified, we clamp min_alloc_units to that value.
@@ -430,13 +346,36 @@ mempool_init(state *a, const memmgr* tr, uint_t block_size,
 
 
 /*
- * Instantiate a new fixed sized obj state.
+ * Initialize mempool
  */
 int
-mempool_new(state ** p_a, const memmgr* tr, uint_t block_size,
+mempool_init(mempool* a, const memmgr* tr, uint_t block_size,
                   uint_t max, uint_t min_alloc_units)
 {
-    state* a;
+    if ( !a ) return -EINVAL;
+    if (!tr) {
+        static const memmgr os_traits = {
+            .alloc   = __os_alloc,
+            .free    = __os_free,
+            .context = 0
+        };
+        tr = &os_traits;
+    } else {
+        if  (!(tr->alloc && tr->free)) return -EINVAL;
+    }
+
+    return __real_init(a, tr, block_size, max, min_alloc_units);
+}
+
+
+/*
+ * Create & initialize a new fixed sized obj pool.
+ */
+int
+mempool_new(mempool** p_a, const memmgr* tr, uint_t block_size,
+                  uint_t max, uint_t min_alloc_units)
+{
+    mempool* a;
 
     if ( !p_a ) return -EINVAL;
 
@@ -447,22 +386,23 @@ mempool_new(state ** p_a, const memmgr* tr, uint_t block_size,
             .context = 0
         };
         tr = &os_traits;
+    } else  {
+        if  (!(tr->alloc && tr->free)) return -EINVAL;
     }
 
-    if  (!(tr->alloc && tr->free)) return -EINVAL;
-
-    a = (state *)tr->alloc(tr->context, sizeof *a);
+    a = (mempool* )tr->alloc(tr->context, sizeof *a);
     if (!a) return -ENOMEM;
 
-
     *p_a = a;
-    return mempool_init(a, tr, block_size, max, min_alloc_units);
+    return __real_init(a, tr, block_size, max, min_alloc_units);
 }
 
 
-
+/*
+ * Iniitialize a new mempool to work out of a fixed-size zone.
+ */
 int
-mempool_init_from_mem(state *a, uint_t block_size,
+mempool_init_from_mem(mempool* a, uint_t block_size,
                            void* pool, uint_t poolsz)
 {
     memchunk * ch;
@@ -519,28 +459,30 @@ mempool_init_from_mem(state *a, uint_t block_size,
     a->chunks      = ch;
     a->max_blocks  = a->min_units = nblocks;
     a->block_size  = block_size;
-    a->traits.free = __dummy_free;
+    a->traits.free = __dummy_free; // to make mempool_delete() easier
 
     return 0;
 }
 
 
+/*
+ * Create & iniitialize a new mempool to work out of a fixed-size zone.
+ */
 int
-mempool_new_from_mem(state ** p_a, uint_t block_size,
+mempool_new_from_mem(mempool** p_a, uint_t block_size,
                            void* pool, uint_t poolsize)
 {
-    state* a;
+    mempool* a;
     uint8_t* ptr;
 
     if (!(p_a && pool && poolsize)) return -EINVAL;
-
 
     /*
      * Make sure pool is aligned to begin with. Most of the time, it
      * will be.
      */
     ptr       = _Align(uint8_t *, pool);
-    a         = (state *)ptr;
+    a         = (mempool* )ptr;
     ptr      += sizeof *a;
     poolsize -= sizeof *a;
 
@@ -549,15 +491,13 @@ mempool_new_from_mem(state ** p_a, uint_t block_size,
 }
 
 
-
 /*
- * Delete an state and release all memory back to the OS.
+ * Un-initialize a mempool.
  */
 void
-mempool_delete(state* a)
+mempool_fini(mempool *a)
 {
-    if (!a)
-        goto end;
+    if (!a) return;
 
     const memmgr* tr = &a->traits;
     memchunk * ch    = a->chunks;
@@ -568,11 +508,21 @@ mempool_delete(state* a)
         (*tr->free)(tr->context, ch);
         ch = next;
     }
+}
 
-    (*tr->free)(tr->context, a);
 
-end:
-    return;
+/*
+ * Delete an state and release all memory back to the OS.
+ */
+void
+mempool_delete(mempool* a)
+{
+    if (a) {
+        const memmgr* tr = &a->traits;
+
+        mempool_fini(a);
+        (*tr->free)(tr->context, a);
+    }
 }
 
 
@@ -581,7 +531,7 @@ end:
  * Allocate a block from the state.
  */
 void *
-mempool_alloc(state* a)
+mempool_alloc(mempool* a)
 {
     mru_node * blk = 0;
     void * ptr = 0;
@@ -590,20 +540,19 @@ mempool_alloc(state* a)
 
     blk = DL_REMOVE_TAIL(&a->mru_head, link);
     if (blk) {
-        ptr         = blk;
+        ptr = blk;
         goto _end;
     }
 
 
     /*
-     * MRU list is empty. We now try the most recent hunk.
+     * MRU list is empty. We now try the most recent memchunk.
      * If this state is clamped for max number of units, we
      * won't try allocating more chunks.
      */
 
     ptr = alloc_from_chunk(a);
-    if (ptr || a->max_blocks)
-        goto _end;
+    if (ptr || a->max_blocks) goto _end;
 
 
     /*
@@ -623,7 +572,7 @@ _end:
  * Return a fixed sized obj back to the state.
  */
 void
-mempool_free(state* a, void * ptr)
+mempool_free(mempool* a, void * ptr)
 {
     mru_node * blk = (mru_node *)ptr;
 
@@ -638,18 +587,22 @@ mempool_free(state* a, void * ptr)
 
 
 /*
- * Return the block size of this state.
+ * Return the block size of this mempool.
  */
 uint_t
-mempool_block_size(state* a)
+mempool_block_size(mempool* a)
 {
     assert(a);
 
     return a->block_size;
 }
 
+/*
+ * Return the max number of blocks for this mempool.
+ * 0 => unlimited.
+ */
 uint_t
-mempool_total_blocks(state* a)
+mempool_total_blocks(mempool* a)
 {
     assert(a);
 
@@ -666,13 +619,13 @@ static void*
 _stacked_alloc(void* x, size_t n)
 {
     (void)n;
-    return mempool_alloc((state *)x);
+    return mempool_alloc((mempool* )x);
 }
 
 static void
 _stacked_free(void* x, void* ptr)
 {
-    return mempool_free((state *)x, ptr);
+    return mempool_free((mempool* )x, ptr);
 }
 
 

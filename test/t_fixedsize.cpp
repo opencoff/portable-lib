@@ -48,6 +48,10 @@ struct obj
 
 struct obj2
 {
+    obj2(char c = ' ', int n = 64)
+    {
+        for (int i = 0; i < n; i++) b[i] = c;
+    }
     char b[64];
 };
 
@@ -122,7 +126,7 @@ perf_test(int run)
     {
         tm.start();
         cy.start();
-            obj2* o = aa.Alloc();
+            obj2* o = aa.Alloc('*', 4);
         cpp_cy_a += cy.stop();
         cpp_tm_a += tm.stop();
 

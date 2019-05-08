@@ -72,29 +72,45 @@
 #include <assert.h>
 
 #include "utils/memmgr.h"
+#include "fast/list.h"
 
     /* Provide C linkage for symbols declared here .. */
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
+struct mru_node;
 
-
-
-struct mempool;
-
-
+DL_HEAD_TYPEDEF(mru_head_type, mru_node);
 /*
- * Minimum number of blocks to allocate from OS in order to satisfy
- * current and future allocation needs. Each "block" refers to one
- * fixed size.
+ * mempool state;
  */
-#ifndef MEMPOOL_MIN_ALLOC_UNITS
-#define MEMPOOL_MIN_ALLOC_UNITS   4096
-#endif
+struct mempool
+{
+    /* Head of MRU block list */
+    struct mru_head_type  mru_head;
+
+    /* size of each block in this pool */
+    uint64_t block_size;
+
+    /* Maximum number of blocks (if constrained so)  */
+    uint64_t max_blocks;
+
+    /* minimum number of units to allocate at a time */
+    uint64_t min_units;
+
+    /* list of OS allocated chunks */
+    struct memchunk  *chunks;
+
+    /* OS Traits */
+    struct memmgr traits;
+};
+typedef struct mempool mempool;
 
 
-/** Create a new small obj allocator.
+/** Create a new small obj allocator:
+ *      mempool_new() creates & initializes a new mempool instance
+ *      mempool_init() initializes a mempool instance
  *
  *  This function creates a new fixed size allocator to
  *  efficiently allocate objects of 'blksize' bytes.
@@ -137,11 +153,14 @@ int mempool_init(struct mempool* st,
                 unsigned int min_alloc_units);
 
 
-/** Create a new small obj allocator out of the pre-allocated memory.
+/** Create & initialize a new small obj allocator to work out of a
+ * preallocated chunk of raw memory. In this mode, the allocator
+ * makes ZERO calls to the underlying OS for additional memory.
  *
- *  This function creates a new fixed size allocator to
- *  efficiently allocate objects of 'blksize' bytes. New blocks are
- *  allocated from the specified memory zone.
+ *      mempool_new_from_mem() creates & initializes a new
+ *          fixed-size zone.
+ *      mempool_init_from_mem() initializes an instance of mempool
+ *          to operate out of a fixed size zone.
  *
  *
  *  @param st       Allocator state that must be initialized.
@@ -164,7 +183,9 @@ int mempool_init_from_mem(struct mempool* st,
                          unsigned int blksize, void* mem, unsigned int memsize);
 
 
-/** Delete a fixed size allocator.
+/** Delete/Finalize a fixed size allocator.
+ *      mempool_delete() cleans up the pool _and_ deletes the state memory
+ *      mempool_fini() cleans up the pool
  *
  *  This function deletes a fixed size allocator created by the
  *  previous function.
@@ -174,10 +195,11 @@ int mempool_init_from_mem(struct mempool* st,
  *  @see  mempool_new
  */
 void mempool_delete(struct mempool* a);
+void mempool_fini(struct mempool*);
 
 
 
-/** Allocate one fixed size from the allocator.
+/** Allocate one fixed size block from the allocator.
  *
  *  @param a Handle to the allocator
  *
@@ -191,7 +213,7 @@ void * mempool_alloc(struct mempool*);
 
 
 
-/** Return a fixed size back to the allocator.
+/** Return a fixed size block back to the allocator.
  *
  *  @param a    Handle to the allocator
  *  @param ptr  Pointer to fixed size that was previously
@@ -229,7 +251,7 @@ unsigned int mempool_total_blocks(struct mempool* a);
 
 
 /** Turn the mempool into a memgr interface.
- *  Basically, given a higher level of allocator, stack the mempool
+ *  Basically, given a lower level of allocator, stack the mempool
  *  interface on top of it.
  *
  *  Passing 0 to the underlying allocator (traits) will enable
@@ -253,24 +275,19 @@ template <typename T> class Mempool
 public:
     Mempool(int max = 0, int minunits=0, const memmgr* tr=0)
     {
-        int e = mempool_new(&m_pool, tr, sizeof(T), max, minunits);
-        if (e < 0)
-            throw std::bad_alloc();
-
-        assert(m_pool);
+        int e = mempool_init(&m_pool, tr, sizeof(T), max, minunits);
+        if (e < 0) throw std::bad_alloc();
     }
 
     Mempool(void* mem, unsigned int memsize)
     {
-        int e = mempool_new_from_mem(&m_pool, sizeof(T), mem, memsize);
-        if (e < 0)
-            throw std::bad_alloc();
-        assert(m_pool);
+        int e = mempool_init_from_mem(&m_pool, sizeof(T), mem, memsize);
+        if (e < 0) throw std::bad_alloc();
     }
 
     virtual ~Mempool()
     {
-        mempool_delete(m_pool);
+        mempool_fini(&m_pool);
     }
 
     // These ctors and operators are problematic for memory allocators.
@@ -290,7 +307,7 @@ public:
     // Allocate one fixed size block and construct using the right args
     template <class... Args> T* Alloc(Args&&... a)
     {
-        void *r = mempool_alloc(m_pool);
+        void *r = mempool_alloc(&m_pool);
         if (!r) throw std::bad_alloc();
 
         return new(r) T(std::forward<Args>(a)...);
@@ -301,20 +318,20 @@ public:
     {
         // Call explicitly
         ptr->~T();
-        mempool_free(m_pool, ptr);
+        mempool_free(&m_pool, ptr);
     }
 
     // Return the actual block size used by this allocator.
     // Note: The actual block size may be larger than the size
     // specified when the allocator was created.
-    unsigned int Blocksize() { return mempool_block_size(m_pool); }
+    unsigned int Blocksize() { return mempool_block_size(&m_pool); }
 
     // Return the max blocks available with this allocator.
     // 0 => infinite number of blocks
-    unsigned int Totalblocks() { return mempool_total_blocks(m_pool);}
+    unsigned int Totalblocks() { return mempool_total_blocks(&m_pool);}
 
 private:
-    mempool* m_pool;
+    mempool m_pool;
 };
 
 
