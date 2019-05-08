@@ -235,9 +235,7 @@ unsigned int mempool_total_blocks(struct mempool* a);
  *  Passing 0 to the underlying allocator (traits) will enable
  *  mempool to use malloc()/free().
  */
-int mempool_new_memmgr(struct memmgr* out, const memmgr* traits,
-                        unsigned int blksize, unsigned int maxblks,
-                        unsigned int min_alloc_units);
+struct memmgr* mempool_make_memmgr(struct memmgr* out, struct mempool* a);
 
 
 #ifdef __cplusplus
@@ -246,99 +244,80 @@ int mempool_new_memmgr(struct memmgr* out, const memmgr* traits,
 
 
 #include <new>
-#include <map>
 
 namespace putils {
 
+// Mempool creates a fixed-size allocator to hold objects of type 'T'.
 template <typename T> class Mempool
 {
 public:
     Mempool(int max = 0, int minunits=0, const memmgr* tr=0)
     {
-        int e = mempool_new(&m_allocator, tr, sizeof(T), max, minunits);
+        int e = mempool_new(&m_pool, tr, sizeof(T), max, minunits);
         if (e < 0)
             throw std::bad_alloc();
 
-        assert(m_allocator);
+        assert(m_pool);
     }
 
     Mempool(void* mem, unsigned int memsize)
     {
-        int e = mempool_new_from_mem(&m_allocator, sizeof(T), mem, memsize);
+        int e = mempool_new_from_mem(&m_pool, sizeof(T), mem, memsize);
         if (e < 0)
             throw std::bad_alloc();
-        assert(m_allocator);
+        assert(m_pool);
     }
 
     virtual ~Mempool()
     {
-        mempool_delete(m_allocator);
+        mempool_delete(m_pool);
     }
 
+    // These ctors and operators are problematic for memory allocators.
+    // It's not clear what should be the semantics when we do:
+    //   Mempool<obj> a;
+    //   Mempool<obj> b {a};
+    //
+    // Should we have two copies of the underlying pool? Create a
+    // new pool from the size/limits of 'a'?
 
-    // Allocate one fixed size
-    void * Alloc()
+    Mempool(const Mempool&) = delete;
+    Mempool(Mempool&&) = delete;
+
+    Mempool& operator=(const Mempool&) = delete;
+    Mempool& operator=(Mempool&&) = delete;
+
+    // Allocate one fixed size block and construct using the right args
+    template <class... Args> T* Alloc(Args&&... a)
     {
-        void* raw = mempool_alloc(m_allocator);
-        if (!raw)
-            throw std::bad_alloc();
+        void *r = mempool_alloc(m_pool);
+        if (!r) throw std::bad_alloc();
 
-        // XXX Eh. Will this work?
-        //T *p =  new(raw) T();
-        //return p;
-        return raw;
+        return new(r) T(std::forward<Args>(a)...);
     }
 
-    // Deallocate a fixed size
+    // Deallocate a fixed size block
     void Free(T * ptr)
     {
         // Call explicitly
         ptr->~T();
-        mempool_free(m_allocator, ptr);
+        mempool_free(m_pool, ptr);
     }
 
     // Return the actual block size used by this allocator.
     // Note: The actual block size may be larger than the size
     // specified when the allocator was created.
-    unsigned int Blocksize() { return mempool_block_size(m_allocator); }
+    unsigned int Blocksize() { return mempool_block_size(m_pool); }
 
     // Return the max blocks available with this allocator.
     // 0 => infinite number of blocks
-    unsigned int Totalblocks() { return mempool_total_blocks(m_allocator);}
+    unsigned int Totalblocks() { return mempool_total_blocks(m_pool);}
 
 private:
-    mempool* m_allocator;
+    mempool* m_pool;
 };
 
 
-#if 0
-
-// Automagic base class for use by deeply heirarchical derived
-// classes. The users of the derived classes get an automagic
-// fixed-size allocator that is tuned to their class size.
-// The only thing required to get this magic is to use
-// 'allocator_base' as the root of the class heirarchy.
-class allocator_base
-{
-public:
-    allocator_base() { }
-    virtual ~allocator_base();
-
-    // overloaded new & delete operators
-    static void * operator new(size_t n);
-    static void   operator delete(void*, size_t);
-
-protected:
-    typedef mempool<mempool> state_type;
-    typedef std::map<size_t, mempool*>    alloc_type;
-
-protected:
-    static mempool* find(size_t n, bool alloc_new=true);
-
-    static alloc_type mem;
-    static state_type state;
-};
-#endif
 
 } /* namespace putils */
 

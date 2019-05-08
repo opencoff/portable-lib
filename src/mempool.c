@@ -677,20 +677,13 @@ _stacked_free(void* x, void* ptr)
 
 
 
-int
-mempool_new_memmgr(struct memmgr* out, const memmgr* in,
-                    uint_t blksize, uint_t maxblks, uint_t minau)
+struct memmgr*
+mempool_make_memmgr(struct memmgr* out, struct mempool *a)
 {
-    state* a = 0;
-    int r = mempool_new(&a, in, blksize, maxblks, minau);
-    if (r != 0)
-        return r;
-
-
     out->alloc   = _stacked_alloc;
     out->free    = _stacked_free;
     out->context = a;
-    return 0;
+    return out;
 }
 
 /* EOF */

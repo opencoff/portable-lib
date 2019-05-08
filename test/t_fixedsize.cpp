@@ -120,20 +120,17 @@ perf_test(int run)
 
     for (int i = 0; i < N; ++i)
     {
-        obj2* o;
-        void * p;
-
         tm.start();
         cy.start();
-            p = aa.Alloc();
+            obj2* o = aa.Alloc();
         cpp_cy_a += cy.stop();
         cpp_tm_a += tm.stop();
 
-        o = new(p) obj2();
+        //o = new(p) obj2();
 
         tm.start();
         cy.start();
-            p = mempool_alloc(st);
+            void* p = mempool_alloc(st);
         c_cy_a += cy.stop();
         c_tm_a += tm.stop();
 
@@ -144,10 +141,8 @@ perf_test(int run)
     xshuffle(va);
     xshuffle(vb);
 
-    vector<obj2 *>::iterator vai = va.begin();
-    for (; vai != va.end(); ++vai)
-    {
-        obj2* o = *vai;
+    for (auto ii : va) {
+        obj2* o = ii;
 
         tm.start();
         cy.start();
@@ -156,10 +151,8 @@ perf_test(int run)
         cpp_tm_f += tm.stop();
     }
 
-    vector<void *>::iterator vbi = vb.begin();
-    for (; vbi != vb.end(); ++vbi)
-    {
-        void* o = *vbi;
+    for (auto ii: vb) {
+        void* o = ii;
 
         tm.start();
         cy.start();
