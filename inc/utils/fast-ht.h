@@ -48,7 +48,7 @@ typedef struct hn hn;
 
 
 #define FASTHT_BAGSZ       3
-#define FILLPCT            87
+#define FILLPCT            75
 
 
 #if    FASTHT_BAGSZ > 8

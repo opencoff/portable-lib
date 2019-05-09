@@ -34,7 +34,20 @@ def scan(fn):
             z = m.group(1)
             v[z] = fn
 
+    fd.close()
     return v
+
+def scantok(fn):
+    """Scan a tokenized header file"""
+    fd = open(fn, 'r')
+    r  = {}
+    for l in fd:
+        k, v = l.strip().split()
+        r[k] = v
+
+    fd.close()
+    return r
+
 
 class mpstate:
     """Multi-process enabled dir walker."""
@@ -46,6 +59,12 @@ class mpstate:
     def walk(self, dn):
         """Walk a path, scan every .h file we find 
         and return a list of identifiers"""
+
+        if os.path.isfile(dn):
+            func = scan if dn.endswith('.h') else scantok
+            x = self.m.apply_async(func, args=(dn,))
+            self.w[dn] = x
+            return
 
         if not os.path.isdir(dn):
             return
@@ -67,9 +86,13 @@ class mpstate:
         return r
 
 
-
+darwin_paths = ['/Applications/Xcode.app/Contents', '/Library/DeveloperDA' ]
 paths  = ['/usr/include', '/usr/local/include', '/opt/local/include']
-paths += sys.argv[1:]
+paths += darwin_paths
+
+# Let command line override
+if len(sys.argv[1:]) > 0:
+    paths = sys.argv[1:]
 
 ms = mpstate()
 for pp in paths:

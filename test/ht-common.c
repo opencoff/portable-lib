@@ -28,7 +28,7 @@ VECT_TYPEDEF(strvect, word);
 static void
 read_words(strvect* v, arena_t a, const char* filename)
 {
-    unsigned char buf[256];
+    unsigned char buf[1024];
     int n;
     FILE* fp = stdin;
     uint64_t salt = 0;
@@ -59,6 +59,8 @@ read_words(strvect* v, arena_t a, const char* filename)
                   };
         VECT_PUSH_BACK(v, w);
     }
+
+    printf("file %s: %zu entries\n", filename, VECT_LEN(v));
 
     if (fp != stdin) fclose(fp);
 }
