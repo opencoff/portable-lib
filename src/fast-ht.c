@@ -236,17 +236,19 @@ resize(ht* h)
  * Initialize a pre-allocated instance.
  */
 ht*
-ht_init(ht* h, uint32_t nlog2)
+ht_init(ht* h, uint32_t size, uint32_t maxfill)
 {
-    if (!nlog2) nlog2 = 10;
+    size = size == 0 ? 128 : NEXTPOW2(size);
+
+    if (!maxfill) maxfill = FILLPCT;
 
     memset(h, 0, sizeof *h);
 
-    h->n = 1 << nlog2;
+    h->n = size;
     h->b = NEWZA(hb, h->n);
+    h->maxfill = maxfill;
     arc4random_buf(&h->rand, sizeof h->rand);
 
-    //printf("ht_init: nlog2 %lu, n %llu total %llu\n", nlog2, n, m);
     return h;
 }
 
@@ -264,11 +266,11 @@ ht_fini(ht* h)
  * Allocate a new hash table instance and initialize it.
  */
 ht*
-ht_new(uint32_t nlog2)
+ht_new(uint32_t size, uint32_t maxfill)
 {
     ht* h = NEWZ(ht);
 
-    return ht_init(h, nlog2);
+    return ht_init(h, size, maxfill);
 }
 
 /*
@@ -298,9 +300,12 @@ ht_probe(ht* h, uint64_t hv, void* v)
 
     // time to split?
     if (b->nodes == 1) {
-        h->fill++;
+        uint64_t fpct = (++h->fill * 100)/h->n;
 
-        if ( ((h->fill * 100) / (1 + h->n)) > FILLPCT) {
+        //printf("fill %d/%d (%d ceil %d)%s\n", 
+        //      h->fill, h->n, fpct, h->maxfill, fpct > h->maxfill ? " +split" : "");
+
+        if (fpct > h->maxfill) {
             h->splits++;
             b = resize(h);
             b = &b[__hash(hv, h->n, h->rand)];

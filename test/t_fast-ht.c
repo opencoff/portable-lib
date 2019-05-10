@@ -135,7 +135,6 @@ perf_test(strvect* v, size_t Niters)
 
     size_t i;
     size_t n = VECT_LEN(v);
-    size_t nlog2 = (size_t) log2(n)+1;
     ht _h;
     ht* h = &_h;
     uint64_t ti  = 0,
@@ -149,7 +148,7 @@ perf_test(strvect* v, size_t Niters)
 
     VECT_SHUFFLE(v, arc4random);
     for (i = 0; i < Niters; ++i) {
-        ht_init(h, nlog2);
+        ht_init(h, n, 75);
         t0    = timenow();
         cyi  += insert_words(v, h);
         ti   += timenow() - t0;
@@ -235,7 +234,7 @@ main(int argc, char** argv)
     ht _h;
     ht *h = &_h;
 
-    ht_init(h, 2);
+    ht_init(h, 4, 90);
 
     insert_words(&v, h);
 

@@ -95,6 +95,7 @@ struct ht
 
     uint64_t nodes;     // number of nodes in the hash table
     uint64_t fill;      // number of buckets occupied.
+    uint64_t maxfill;   // maximum allowed load factor % before splitting table
 
     uint32_t splits;    // number of times HT is doubled
     uint32_t bagmax;    // max number of bags in a bucket
@@ -105,10 +106,11 @@ typedef struct ht ht;
 
 /*
  * Initialize a hash table and return it.
- * 'nlog2' is a size hint; it is log2() of the number of expected
- * nodes.
+ * 'size' is a size hint for initial number of buckets. The table
+ * will grow dynamically if the fill percent is larger than
+ * 'maxfill'.
  */
-ht* ht_init(ht*, uint32_t nlog2);
+ht* ht_init(ht*, uint32_t size, uint32_t maxfill);
 
 
 /*
@@ -118,9 +120,12 @@ void ht_fini(ht*);
 
 
 /*
- * Create and initialize a new hash table.
+ * Create and Initialize a hash table and return it.
+ * 'size' is a size hint for initial number of buckets. The table
+ * will grow dynamically if the fill percent is larger than
+ * 'maxfill'.
  */
-ht* ht_new(uint32_t nlog2);
+ht* ht_new(uint32_t size, uint32_t maxfill);
 
 
 /*
