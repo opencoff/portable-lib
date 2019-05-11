@@ -238,7 +238,8 @@ resize(ht* h)
 ht*
 ht_init(ht* h, uint32_t size, uint32_t maxfill)
 {
-    size = size == 0 ? 128 : NEXTPOW2(size);
+    if (!size) size = 128;
+    else if (size & (size-1)) size = NEXTPOW2(size);
 
     if (!maxfill) maxfill = FILLPCT;
 

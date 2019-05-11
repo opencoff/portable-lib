@@ -101,28 +101,26 @@ find_all(strvect* v, ht* h, int exp)
     size_t i;
     word* w;
     uint64_t tot     = 0;
-    uint64_t perturb = 0;
-
-    if (!exp) arc4random_buf(&perturb, sizeof perturb);
+    uint64_t perturb = !exp;
 
     VECT_FOR_EACHi(v, i, w) {
         uint64_t t0 = now();
-        auto r = h->find(w->h + perturb);
+        auto r = h->find(w->h >> perturb);
         tot += now() - t0;
         if (exp) {
             if (!r.first) {
-                printf("** I-MISS %s\n", w->w);
+                printf("** exp to find %s\n", w->w);
                 continue;
             }
 
             if (0 != strcmp(*r.second, w->w)) {
-                printf(" word-missed: exp %s, saw %s\n", w->w, *r.second);
+                printf(" find word-missed: exp %s, saw %s\n", w->w, *r.second);
                 continue;
             }
 
         } else {
             if (r.first) {
-                printf("** I-MISS-X %s\n", w->w);
+                printf("** didn't exp to find %s\n", w->w);
                 continue;
             }
         }
@@ -174,16 +172,24 @@ del_all(strvect* v, ht* h, int exp)
 {
     word* w;
     uint64_t tot = 0;
-    bool pexp = !!exp;
+    uint64_t perturb = !exp;
 
     VECT_FOR_EACH(v, w) {
         uint64_t t0 = now();
-        auto r = h->remove(w->h);
+        auto r = h->remove(w->h >> perturb);
         tot += now() - t0;
 
-        if (r != pexp) {
-            printf("** DEL MISS %s\n", w->w);
-            continue;
+        if (exp) {
+            if (!r) {
+                printf("** exp to del %s\n", w->w);
+                continue;
+            }
+
+        } else {
+            if (r) {
+                printf("** didn't exp to del %s\n", w->w);
+                continue;
+            }
         }
     }
     return tot;
@@ -233,9 +239,11 @@ perf_test(strvect* v, size_t Niters)
         cyd  += del_all(v, &h, 1);
         td   += timenow() - t0;
 
+        // Re-populate the table so we can probe for non-existent
+        // entries
+        insert_words(v, &h);
 
-        // Finally, delete it again -- this will give us delete for
-        // non existing
+        // delete it again
         t0    = timenow();
         cyx  += del_all(v, &h, 0);
         tx   += timenow() - t0;

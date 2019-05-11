@@ -40,12 +40,12 @@ find_all(strvect* v, ht* h, int exp)
         tot += now() - t0;
         if (exp) {
             if (!r) {
-                printf("** I-MISS %s\n", w->w);
+                printf("** expected to find %s\n", w->w);
                 continue;
             }
         } else {
             if (r) {
-                printf("** I-MISS-X %s\n", w->w);
+                printf("** didn't expect to find %s\n", w->w);
                 continue;
             }
         }
@@ -110,16 +110,24 @@ del_all(strvect* v, ht* h, int exp)
     word* w;
     uint64_t tot = 0;
     int r;
+    uint64_t perturb = !exp;
 
     VECT_FOR_EACH(v, w) {
         void *x = 0;
         uint64_t t0 = now();
-        r = ht_remove(h, w->h, &x);
+        r = ht_remove(h, w->h >> perturb, &x);
         tot += now() - t0;
 
-        if (r != exp) {
-            printf("** DEL MISS %s\n", w->w);
-            continue;
+        if (exp) {
+            if (!r) {
+                printf("** expected to del %s\n", w->w);
+                continue;
+            }
+        } else {
+            if (r) {
+                printf("** didn't expect to del %s\n", w->w);
+                continue;
+            }
         }
     }
     return tot;
@@ -166,9 +174,11 @@ perf_test(strvect* v, size_t Niters)
         cyd  += del_all(v, h, 1);
         td   += timenow() - t0;
 
+        // Re-populate the table so we can probe for non-existent
+        // entries
+        insert_words(v, h);
 
-        // Finally, delete it again -- this will give us delete for
-        // non existing
+        // delete it again
         t0    = timenow();
         cyx  += del_all(v, h, 0);
         tx   += timenow() - t0;
