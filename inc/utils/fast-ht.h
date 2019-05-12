@@ -34,21 +34,9 @@ extern "C" {
 #include "fast/list.h"
 
 
-/*
- * Hash node.
- *
- * For BAGSZ == 4, these nodes will occupy a full cache-line.
- */
-struct hn
-{
-    uint64_t  h;    // hash
-    void *    v;    // value
-};
-typedef struct hn hn;
-
 
 #define FASTHT_BAGSZ       3
-#define FILLPCT            75
+#define FILLPCT            85
 
 
 #if    FASTHT_BAGSZ > 8
@@ -60,13 +48,18 @@ typedef struct hn hn;
 #endif
 
 /*
- * Bucket
+ * Hash Bucket: holds keys and values as separate arrays.
+ *
+ * with BAGZ==3, it occupies exactly _one_ cacheline.
+ * with BAGSZ==7, it occupies two cachlines.
  */
 struct bag
 {
-    hn         a[FASTHT_BAGSZ];
     SL_ENTRY(bag) link;
-    //uint64_t __pad0; // cache-line aligned for BAGSZ==3
+    uint64_t   hk[FASTHT_BAGSZ];
+
+    void*      hv[FASTHT_BAGSZ];
+    uint64_t __pad0;    // cache line pad
 };
 typedef struct bag bag;
 
@@ -90,8 +83,8 @@ typedef struct hb hb;
 struct ht
 {
     uint64_t n;         // number of buckets
-    uint64_t rand;      // random seed
-    hb      * b;        // array of buckets
+    uint64_t salt;      // random seed
+    hb      *b;         // array of buckets
 
     uint64_t nodes;     // number of nodes in the hash table
     uint64_t fill;      // number of buckets occupied.

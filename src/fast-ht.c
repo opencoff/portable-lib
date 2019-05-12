@@ -32,11 +32,21 @@
 #include "utils/utils.h"
 #include "utils/fast-ht.h"
 
+// Return value from an internal function
+struct tuple
+{
+    bag *g;
+    int  i;
+};
+typedef struct tuple tuple;
 
 #define _d(z)       ((double)(z))
 
 extern void arc4random_buf(void *, size_t);
 
+/*
+ * XXX Do we need anything more complex than this?
+ */
 static uint64_t
 __hash(uint64_t hv, uint64_t n, uint64_t salt)
 {
@@ -44,38 +54,31 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
 }
 
 
+// Given a ptr to key array and the corresponding bag,return the
+// index for the key (also is the index for value) array.
+#define _i(x, g)    (x - &(g)->hk[0])
 
-static void
-free_nodes(hb * b, uint64_t n)
-{
-    hb *e = b + n;
 
-    for (; b < e; b++) {
-        bag *g, *next;
-        SL_FOREACH_SAFE(g, &b->head, link, next) {
-            DEL(g);
-        }
-    }
-}
-
-// Insert node 'p' into bucket 'b' - but only if 'p' doesn't already
+// Insert (k, v) into bucket 'b' - but only if 'k' doesn't already
 // exist in the bucket.
 static int
-__insert(hb *b, hn *p)
+__insert(hb *b, uint64_t k, void *v)
 {
     bag *g;
-    hn  *pos = 0;
+    void    **hv = 0;
+    uint64_t *hk = 0;
 
 #define FIND(x) do { \
-                    if (x->h == p->h) { return 1; } \
-                    if (!pos) {                 \
-                        if (x->h == 0) pos = x; \
+                    if (*x == k) { return 1; }  \
+                    if (0 == *x && !hk) {       \
+                        hv = &g->hv[_i(x,g)];   \
+                        hk = x;                 \
                     }                           \
                     x++;                        \
                 } while (0)
 
     SL_FOREACH(g, &b->head, link) {
-        hn *x = &g->a[0];
+        uint64_t *x = &g->hk[0];
 
         switch (FASTHT_BAGSZ) {
             default:                // fallthrough
@@ -90,33 +93,43 @@ __insert(hb *b, hn *p)
         }
     }
 
-    if (!pos) {
-        g   = NEWZ(bag);
-        pos = &g->a[0];
-        SL_INSERT_HEAD(&b->head, g, link);
+    if (!hk) {
+        g  = NEWZ(bag);
+        hk = &g->hk[0];
+        hv = &g->hv[0];
         b->bags++;
+        SL_INSERT_HEAD(&b->head, g, link);
     }
 
-    *pos = *p;
+    *hk = k;
+    *hv = v;
     b->nodes++;
     return 0;
 }
 
 
-// Insert 'p' into bucket 'b' quickly.
+// Insert (k, v) into bucket 'b' quickly. In this case, we _know_
+// that we are being called when we are re-sized. So, the items
+// naturally don't exist in the new bucket. So, all we have to do is
+// find the first free slot.
 static int
-__insert_quick(hb *b, hn *p)
+__insert_quick(hb *b, uint64_t k, void *v)
 {
     bag *g;
-    hn  *pos = 0;
+    void    **hv = 0;
+    uint64_t *hk = 0;
 
 #define PUT(x) do {     \
-                    if (x->h == 0) { pos = x; goto done; } \
+                    if (*x == 0) {  \
+                        hk = x;     \
+                        hv = &g->hv[_i(x,g)]; \
+                        goto done;  \
+                    }               \
                     x++; \
                } while(0)
 
     SL_FOREACH(g, &b->head, link) {
-        hn *x = &g->a[0];
+        uint64_t *x = &g->hk[0];
 
         switch (FASTHT_BAGSZ) {
             default:            // fallthrough
@@ -133,30 +146,36 @@ __insert_quick(hb *b, hn *p)
 
     // Make a new bag and put our element there.
     g   = NEWZ(bag);
-    pos = &g->a[0];
-    SL_INSERT_HEAD(&b->head, g, link);
+    hk = &g->hk[0];
+    hv = &g->hv[0];
     b->bags++;
+    SL_INSERT_HEAD(&b->head, g, link);
 
 done:
-    *pos = *p;
+    *hk = k;
+    *hv = v;
     b->nodes++;
     return 0;
 }
 
-// Find hv in 'h'; return the value in p_ret. If zero is true, also
-// clear the node.
-static hn *
-__findx(hb *b, uint64_t hv)
+// Find key 'hv' in 'h'; return the value in 't'.
+// Return 1 if key is found, 0 otherwise.
+static int
+__findx(tuple *t, hb *b, uint64_t hv)
 {
     bag *g;
 
 #define SRCH(x) do { \
-                    if (likely(x->h == hv)) return x;\
-                    x++;                            \
+                    if (likely(*x == hv)) { \
+                        t->g = g;           \
+                        t->i = _i(x,g);     \
+                        return 1;           \
+                    }                       \
+                    x++;                    \
                 } while(0)
 
     SL_FOREACH(g, &b->head, link) {
-        hn *x = &g->a[0];
+        uint64_t *x = &g->hk[0];
 
         switch (FASTHT_BAGSZ) {
             default:            // fallthrough
@@ -170,6 +189,7 @@ __findx(hb *b, uint64_t hv)
             case 1: SRCH(x);    // fallthrough
         }
     }
+
     return 0;
 }
 
@@ -198,13 +218,13 @@ resize(ht* h)
 
         SL_FOREACH_SAFE(g, &o->head, link, tmp) {
             for (i = 0; i < FASTHT_BAGSZ; i++) {
-                hn *p = &g->a[i];
+                uint64_t p = g->hk[i];
 
-                if (p->h) {
-                    uint64_t j = __hash(p->h, n, salt);
+                if (p) {
+                    uint64_t j = __hash(p, n, salt);
                     hb *x      = b+j;
 
-                    __insert_quick(x, p);
+                    __insert_quick(x, p, g->hv[i]);
                     if (x->bags > maxbags) maxbags = x->bags;
                     if (x->nodes > maxn)   maxn    = x->nodes;
                     if (x->nodes == 1)     fill++;
@@ -217,7 +237,7 @@ resize(ht* h)
 
     DEL(h->b);
 
-    h->rand   = salt;
+    h->salt   = salt;
     h->n      = n;
     h->b      = b;
     h->bagmax = maxbags;
@@ -248,7 +268,7 @@ ht_init(ht* h, uint32_t size, uint32_t maxfill)
     h->n = size;
     h->b = NEWZA(hb, h->n);
     h->maxfill = maxfill;
-    arc4random_buf(&h->rand, sizeof h->rand);
+    arc4random_buf(&h->salt, sizeof h->salt);
 
     return h;
 }
@@ -259,7 +279,18 @@ ht_init(ht* h, uint32_t size, uint32_t maxfill)
 void
 ht_fini(ht* h)
 {
-    free_nodes(h->b, h->n);
+    hb *b = h->b,
+       *e = b + h->n;
+
+    for (; b < e; b++) {
+        bag *g, *next;
+        SL_FOREACH_SAFE(g, &b->head, link, next) {
+            DEL(g);
+        }
+    }
+
+    DEL(h->b);
+    memset(h, 0, sizeof *h);
 }
 
 
@@ -287,15 +318,14 @@ ht_del(ht* h)
 
 
 /*
- * Insert if not already present.
+ * Insert if not already present; return true if present, false otherwise.
  */
 int
-ht_probe(ht* h, uint64_t hv, void* v)
+ht_probe(ht* h, uint64_t k, void* v)
 {
-    hb *b = &h->b[__hash(hv, h->n, h->rand)];
-    hn x  = { .h = hv, .v = v };
+    hb *b = &h->b[__hash(k, h->n, h->salt)];
 
-    if (__insert(b, &x)) return 1;
+    if (__insert(b, k, v)) return 1;
 
     h->nodes++;
 
@@ -309,7 +339,7 @@ ht_probe(ht* h, uint64_t hv, void* v)
         if (fpct > h->maxfill) {
             h->splits++;
             b = resize(h);
-            b = &b[__hash(hv, h->n, h->rand)];
+            b = &b[__hash(k, h->n, h->salt)];
         }
     }
 
@@ -322,16 +352,20 @@ ht_probe(ht* h, uint64_t hv, void* v)
 
 
 /*
- * Find hash value 'hv'; return True if found, False otherwise
+ * Find hash value 'k'; return True if found, False otherwise
+ *
+ * If found, optionally return the value in 'p_ret'
  */
 int
-ht_find(ht* h, uint64_t hv, void** p_ret)
+ht_find(ht* h, uint64_t k, void** p_ret)
 {
-    hb *b = &h->b[__hash(hv, h->n, h->rand)];
-    hn *x = __findx(b, hv);
+    tuple x;
+    hb *b = &h->b[__hash(k, h->n, h->salt)];
 
-    if (x) {
-        if (p_ret) *p_ret = x->v;
+    if (__findx(&x, b, k)) {
+        bag *g = x.g;
+
+        if (p_ret) *p_ret = g->hv[x.i];
         return 1;
     }
 
@@ -340,18 +374,25 @@ ht_find(ht* h, uint64_t hv, void** p_ret)
 
 
 /*
- * Remove hash value 'hv'; return True if found, False otherwise
+ * Remove hash value 'k'; return True if found, False otherwise
+ * If found, optionally return the value in 'p_ret'
  */
 int
-ht_remove(ht* h, uint64_t hv, void** p_ret)
+ht_remove(ht* h, uint64_t k, void** p_ret)
 {
-    static const hn zn = { .h = 0, .v = 0 };
-    hb *b = &h->b[__hash(hv, h->n, h->rand)];
-    hn *x = __findx(b, hv);
+    tuple x;
+    hb *b = &h->b[__hash(k, h->n, h->salt)];
 
-    if (x) {
-        if (p_ret) *p_ret = x->v;
-        *x = zn;
+    if (__findx(&x, b, k)) {
+        bag *g = x.g;
+
+        if (p_ret) *p_ret = g->hv[x.i];
+
+        g->hk[x.i] = 0;
+        g->hv[x.i] = 0;
+
+        b->nodes--;
+        h->nodes--;
         return 1;
     }
 
