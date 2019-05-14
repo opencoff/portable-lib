@@ -9,6 +9,7 @@
 #include <inttypes.h>
 
 #include "error.h"
+#include "getopt_long.h"
 #include "utils/utils.h"
 #include "utils/arena.h"
 #include "fast/vect.h"
@@ -21,9 +22,21 @@
 #define now()   sys_cpu_timestamp()
 #define _d(x)   ((double)(x))
 
+static const struct option Long_options[] =
+{
+      {"help",                            no_argument,       0, 300}
+    , {"machine-output",                  no_argument,       0, 302}
+
+    , {0, 0, 0, 0}
+};
+
+static const char Short_options[] = "hm";
+
+static int Machine_output = 0;
 
 extern uint32_t arc4random(void);
 extern void     arc4random_buf(void *, size_t);
+
 
 static uint64_t
 find_all(strvect* v, ht* h, int exp)
@@ -92,6 +105,8 @@ insert_words(strvect* v, ht* h)
 static void
 print_ht(ht* h)
 {
+    if (Machine_output) return;
+
     printf("stats: %d items/bag; %" PRIu64 "%% max fill\n"
            "  %" PRIu64 " buckets; %" PRIu64 " nodes, fill %4.2f%% density %4.2f (exp %4.2f)\n"
            "  max-bags %u, max-nodes-per-bucket %u, splits %u\n",
@@ -151,7 +166,8 @@ perf_test(strvect* v, size_t Niters)
              ts  = 0;
     uint64_t t0;
 
-    printf("--- Perf Test [%zu iters] --\n", Niters);
+    if (!Machine_output)
+        printf("--- Perf Test [%zu iters] --\n", Niters);
 
     VECT_SHUFFLE(v, arc4random);
     for (i = 0; i < Niters; ++i) {
@@ -201,18 +217,26 @@ perf_test(strvect* v, size_t Niters)
     double cy     = _d(cyy)  / tot;
     double cs     = _d(cys)  / tot;
 
-    
-    printf("Add-empty:      %4.1f cy/add   %8.2f M ops/sec\n"
-           "Find-existing:  %4.1f cy/find  %8.2f M ops/sec\n"
-           "Find-non-exist: %4.1f cy/find  %8.2f M ops/sec\n"
-           "Del-existing:   %4.1f cy/find  %8.2f M ops/sec\n"
-           "Del-non-exist:  %4.1f cy/find  %8.2f M ops/sec\n",
-           ci, ispd,
-           cs, sspd,
-           cy, yspd,
-           cd, dspd,
-           cx, xspd
-           );
+    if (Machine_output) {
+        printf("add %4.1f cy %4.2f M ops/s, find %4.1f cy %4.2f M ops/s,"
+               "findx %4.1f cy %4.2f M ops/s, del %4.1f cy %4.2f M ops/s,"
+               "delx %4.1f cy %4.2f M ops/s\n",
+               ci, ispd, cs, sspd,
+               cy, yspd, cd, dspd,
+               cx, xspd);
+    } else {
+        printf("Add-empty:      %4.1f cy/add   %8.2f M ops/sec\n"
+               "Find-existing:  %4.1f cy/find  %8.2f M ops/sec\n"
+               "Find-non-exist: %4.1f cy/find  %8.2f M ops/sec\n"
+               "Del-existing:   %4.1f cy/find  %8.2f M ops/sec\n"
+               "Del-non-exist:  %4.1f cy/find  %8.2f M ops/sec\n",
+               ci, ispd,
+               cs, sspd,
+               cy, yspd,
+               cd, dspd,
+               cx, xspd
+               );
+    }
 
 }
 #endif // __MAKE_OPTIMIZE__
@@ -222,20 +246,44 @@ int
 main(int argc, char** argv)
 {
     program_name  = argv[0];
-    char* args[3] = { argv[0], "-", 0 };
     arena_t a;
     strvect v;
     int i;
+    int c;
 
-    if (argc < 2) {
+    while ((c = getopt_long(argc, argv, Short_options, Long_options, 0)) != EOF) {
+        switch (c) {
+        case 300:  /* help */
+        case 'h':  /* help */
+            printf("Usage: %s [--machine-output|-m] [inputfile ...]\n", program_name);
+            exit(0);
+            break;
+
+        case 302:  /* machine-output */
+        case 'm':
+            Machine_output = 1;
+            break;
+
+
+        default:
+            die("Unknown option '%c'", c);
+            break;
+        }
+    }
+
+    argv = &argv[optind];
+    argc = argc - optind;
+
+    if (argc < 1) {
+        static char *args[] = {"-", 0};
         argv = args;
-        argc = 2;
+        argc = 1;
     }
 
     VECT_INIT(&v, 256*1024);
     arena_new(&a, 1048576);
 
-    for (i = 1; i < argc; ++i) {
+    for (i = 0; i < argc; ++i) {
         read_words(&v, a, argv[i]);
     }
 
