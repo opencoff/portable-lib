@@ -67,11 +67,10 @@ insert_words(strvect* v, ht* h)
 {
     word* w;
     uint64_t tot = 0;
-    int r;
 
     VECT_FOR_EACH(v, w) {
         uint64_t t0 = now();
-        r = ht_probe(h, w->h, w->w);
+        void *r = ht_probe(h, w->h, w->w);
         tot += now() - t0;
 
         assert(!r);

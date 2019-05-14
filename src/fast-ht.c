@@ -61,7 +61,7 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
 
 // Insert (k, v) into bucket 'b' - but only if 'k' doesn't already
 // exist in the bucket.
-static int
+static void*
 __insert(hb *b, uint64_t k, void *v)
 {
     bag *g;
@@ -69,7 +69,9 @@ __insert(hb *b, uint64_t k, void *v)
     uint64_t *hk = 0;
 
 #define FIND(x) do { \
-                    if (*x == k) { return 1; }  \
+                    if (*x == k) {              \
+                        return g->hv[_i(x,g)];  \
+                    }                           \
                     if (0 == *x && !hk) {       \
                         hv = &g->hv[_i(x,g)];   \
                         hk = x;                 \
@@ -305,6 +307,7 @@ ht_new(uint32_t size, uint32_t maxfill)
     return ht_init(h, size, maxfill);
 }
 
+
 /*
  * Finalize a dynamically allocated hash table instance and free
  * memory.
@@ -318,14 +321,17 @@ ht_del(ht* h)
 
 
 /*
- * Insert if not already present; return true if present, false otherwise.
+ * Insert if not already present.
+ *
+ * Return existing value if present, 0 otherwise.
  */
-int
+void*
 ht_probe(ht* h, uint64_t k, void* v)
 {
-    hb *b = &h->b[__hash(k, h->n, h->salt)];
+    hb   *b  = &h->b[__hash(k, h->n, h->salt)];
+    void *nv = __insert(b, k, v);
 
-    if (__insert(b, k, v)) return 1;
+    if (nv) return nv;
 
     h->nodes++;
 
@@ -350,7 +356,6 @@ ht_probe(ht* h, uint64_t k, void* v)
 }
 
 
-
 /*
  * Find hash value 'k'; return True if found, False otherwise
  *
@@ -366,6 +371,28 @@ ht_find(ht* h, uint64_t k, void** p_ret)
         bag *g = x.g;
 
         if (p_ret) *p_ret = g->hv[x.i];
+        return 1;
+    }
+
+    return 0;
+}
+
+
+/*
+ * Replace an existing value.
+ *
+ * Return true if found, false otherwise.
+ */
+int
+ht_replace(ht* h, uint64_t k, void* val)
+{
+    tuple x;
+    hb *b = &h->b[__hash(k, h->n, h->salt)];
+
+    if (__findx(&x, b, k)) {
+        bag *g = x.g;
+
+        g->hv[x.i] = val;
         return 1;
     }
 
@@ -398,6 +425,5 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
 
     return 0;
 }
-
 
 /* EOF */

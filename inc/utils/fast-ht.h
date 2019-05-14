@@ -133,10 +133,16 @@ void ht_del(ht*);
  * This is the main interface to adding new elements. The key is
  * 'hv' - an already hashed quantity.
  *
- * Return True if element exists, False otherwise.
+ * Return ptr to existing "val" if it exists, 0 if newly inserted.
  */
-int  ht_probe(ht*, uint64_t hv, void*);
+void* ht_probe(ht*, uint64_t hv, void *val);
 
+
+/*
+ * Replace an existing entry with a new "val".
+ * Return true if replaced, false if 'hv' is not in the hash table.
+ */
+int ht_replace(ht*, uint64_t hv, void *val);
 
 
 /*
