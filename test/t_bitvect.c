@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <inttypes.h>
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
@@ -9,17 +10,49 @@
 int
 main()
 {
-    bitset *bb = BITSET_NEW(100);
+    bitset *bb = bitset_new(100);
 
-    int i;
-    for (i = 0; i < 100; ++i) {
-        BITSET_SET(bb, i);
-        assert(BITSET_IS_SET(bb, i));
+    assert(bb->n == 2);
+    for (int i = 0; i < 100; ++i) {
+        bitset_set(bb, i);
+        assert(bitset_isset(bb, i));
 
-        BITSET_CLR(bb, i);
-        assert(!BITSET_IS_SET(bb, i));
+        bitset_clr(bb, i);
+        assert(!bitset_isset(bb, i));
     }
 
+    bitset *aa = bitset_alloca(75);
+    assert(aa->n == 2);
+
+    for (int i = 0; i < 75; i++) {
+        size_t n = arc4random_uniform(75);
+        size_t m = arc4random_uniform(~0);
+
+        bitset_set(aa, n);
+        if (m & 1) bitset_set(bb, (m % 75));
+    }
+
+    // keep a copy of 'a' around
+    bitset *xx = bitset_dup_alloca(aa);
+
+    // verify xx = aa
+    assert(aa->n == xx->n);
+    for (size_t j = 0; j < aa->n; j++) assert(aa->w[j] == xx->w[j]);
+
+    for (int i = 0; i < 75; i++) {
+        assert(bitset_value(aa, i) == bitset_value(xx, i));
+    }
+
+
+    bitset_or(aa, bb);
+
+    // verify aa |= b
+    for (int i = 0; i < 75; i++) {
+        if (bitset_isset(bb, i)) assert(bitset_isset(aa, i));
+        if (bitset_isset(xx, i)) assert(bitset_isset(aa, i));
+    }
+
+    bitset_del(bb);
     return 0;
 }
 
