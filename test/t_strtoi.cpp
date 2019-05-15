@@ -36,6 +36,11 @@ static const testcase Tests [] =
 
 #define NTESTS (sizeof Tests/ sizeof Tests[0])
 
+static const char*
+boolstr(bool v) {
+    return v ? "true" : "false";
+}
+
 int
 main ()
 {
@@ -44,11 +49,13 @@ main ()
         const testcase * t = &Tests[i];
         std::string s(t->str);
 
-        std::pair<bool, unsigned long long> r = strtoi<unsigned long long>(s, t->base);
+        auto r = strtoi<unsigned long long>(s, t->base);
 
-        if ( r.first != t->result || r.second != t->val )
-        {
-            printf ("** %zu: exp %llu, saw %llu\n", i, t->val, r.second);
+        if (r.second != t->result) {
+            printf("%zu: <%s> status exp %s, saw %s\n", i, t->str, boolstr(t->result), boolstr(r.second));
+            continue;
+        } else if (r.first != t->val) {
+            printf ("%zu: value exp %llu, saw %llu\n", i, t->val, r.first);
         }
     }
     return 0;

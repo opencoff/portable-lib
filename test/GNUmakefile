@@ -31,13 +31,13 @@ posix_tests +=
 Linux_tests  = $(posix_tests) mt-dd-wipe
 Darwin_tests = $(posix_tests) mt-dd-wipe
 win32_tests += mmap_win32 t_socketpair
- 
+
 #posix_tests += t_resolve
 posix_tests += t_cresolve
 
 # What tests to build
-autotests = strmatch t_strtoi t_arena t_str2hex \
-		t_ipaddr t_strcopy \
+autotests = strmatch t_arena t_str2hex \
+		t_ipaddr t_strcopy t_strtoi \
 		t_pack t_strsplit_csv \
 		t_strsplit t_gvarexp t_dirname t_uuid \
 		t_frand t_ulid \
@@ -85,7 +85,7 @@ include $(PORTABLE)/portablelib.mk
 #CFLAGS += -pg -no-pie
 #LDFLAGS += -pg -no-pie
 
-# Include 
+# Include
 include $(PORTABLE)/tools.mk
 
 test:

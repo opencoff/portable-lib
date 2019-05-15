@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -112,8 +112,8 @@ public:
         }
 
 
-        template <typename T> T as()       { return strtoi<T>(m_str).second; }
-        template <bool> bool as()          { return  string_to_bool(m_str);  }
+        //template <typename T> T as()       { return strtoi<T>(m_str).second; }
+        //template <bool> bool as()          { return  string_to_bool(m_str);  }
 
         operator bool() const              { return m_set; }
         bool is_set() const                { return m_set; }

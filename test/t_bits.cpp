@@ -11,7 +11,7 @@
  *    3. By using this software in commercial OR non-commercial
  *       projects, you agree to send me any and all changes, bug-fixes
  *       or enhancements you make to this software.
- * 
+ *
  * This software does not come with any express or implied
  * warranty; it is provided "as is". No claim  is made to its
  * suitability for any purpose.
@@ -37,13 +37,13 @@ main(int argc, char* argv[])
     for (int i = 1; i < argc; ++i)
     {
         char* str = argv[i];
-        pair<bool, unsigned long long> p = strtoi<unsigned long long>(str);
-        if (!p.first)
+        auto p = strtoi<unsigned long long>(str);
+        if (!p.second)
         {
             printf("Invalid number %s; ignoring ..\n", str);
             continue;
         }
-        uint32_t ul = p.second & 0xffffffff;
+        uint32_t ul = p.first & 0xffffffff;
         uint32_t up = align_up<uint32_t>(ul, 8192);
         uint32_t dn = align_down<uint32_t>(ul, 8192);
         uint64_t pow2 = round_up_pow2<uint64_t>(ul);

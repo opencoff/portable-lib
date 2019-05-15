@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.

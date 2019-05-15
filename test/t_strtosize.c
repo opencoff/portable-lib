@@ -23,7 +23,8 @@ typedef struct test test;
 #define _G1(s, v, base, ch)   {#s, v, base, 0, ch}
 #define _RNG(s, base, ch)     {#s, 0, base, -ERANGE, ch}
 static const test T[] = {
-      _G0(1234567890, 0, 0)
+      _G0(0, 0, 0)
+    , _G0(1234567890, 0, 0)
     , _G0(0755, 0, 0)
     , _G0(0x589, 0, 0)
     , _G1(123xyz, 123, 0, 'x')

@@ -38,7 +38,7 @@ strtou64(const char *str, const char **endptr, int base, uint64_t *p_ret)
 
     assert(str);
     if (base < 0 || base > 36 || base == 1) return -EINVAL;
-    
+
     /* skip leading whitespace */
     for (; (c = *s); s++) {
         if (!isspace(c)) goto start;
@@ -75,7 +75,7 @@ start:
      * tells us the character beyond which the value will overflow.
      *
      * For example, let us suppose we are doing base 10:
-     *   max = 18446744073709551615 
+     *   max = 18446744073709551615
      *
      *   cutoff = 1844674407370955161 (max / 10)
      *   cutchar = 5 (the last digit of max)
@@ -135,7 +135,7 @@ strtosize(const char* str, int base, uint64_t* ret)
 #define EB_  (PB_ * 1024)
 
 
-    if ( endptr && *endptr ) {
+    if (endptr && *endptr) {
         switch (*endptr++) {
             case ' ':
                 break;
@@ -167,7 +167,7 @@ strtosize(const char* str, int base, uint64_t* ret)
             default:
                 return -EINVAL;
         }
-        
+
         switch (*endptr) {
             case 0:
             case 'B':
@@ -182,7 +182,7 @@ strtosize(const char* str, int base, uint64_t* ret)
 
     uint64_t res = v * mult;
 
-    if (res < v || res < mult) return -ERANGE;
+    if (v > 0 && (res < v || res < mult)) return -ERANGE;
 
     if (ret) *ret = res;
     return 0;

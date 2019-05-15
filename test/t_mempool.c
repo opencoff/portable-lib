@@ -11,7 +11,7 @@
  *    3. By using this software in commercial OR non-commercial
  *       projects, you agree to send me any and all changes, bug-fixes
  *       or enhancements you make to this software.
- * 
+ *
  * This software does not come with any express or implied
  * warranty; it is provided "as is". No claim  is made to its
  * suitability for any purpose.
@@ -27,8 +27,9 @@
 #include <sys/time.h>
 
 #include "utils/mempool.h"
-#include "error.h"
 #include "fast/vect.h"
+#include "utils/utils.h"
+#include "error.h"
 
 
 struct obj

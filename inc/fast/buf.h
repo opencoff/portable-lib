@@ -1,10 +1,10 @@
 /* :vi:ts=4:sw=4:
- * 
+ *
  * buf.h    - a growable fast buffer.
  *
  * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -21,32 +21,34 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-    
-#include <stdlib.h>
-#include "utils/utils.h"
-    
 
-typedef struct fast_buf fast_buf;
+#include <stdlib.h>
+#include <stdint.h>
+#include "utils/new.h"
+
+
 struct fast_buf
 {
-    unsigned char * buf;
-    int size;
-    int capacity;
+    uint8_t *buf;
+    size_t size;
+    size_t cap;
 };
-
+typedef struct fast_buf fast_buf;
 
 
 /*
  * Initialize the fast buffer with an initial size of 'sz'.
  */
-#define fast_buf_init(b,sz)   do { \
-    fast_buf * b_ = (b); \
-    int sz_ = (sz); \
-    memset (b_, 0, sizeof(*b_)); \
-    b_->capacity = sz_; \
-    b_->buf      = NEWA(unsigned char, sz_); \
-} while (0)
+static inline fast_buf*
+fast_buf_init(fast_buf *b, size_t sz)
+{
+    if (sz == 0) sz = 128;
 
+    b->buf  = NEWA(uint8_t, sz);
+    b->size = 0;
+    b->cap  = sz;
+    return b;
+}
 
 
 
@@ -54,102 +56,117 @@ struct fast_buf
  * Finalize the fastbuf and free any storage that was
  * allocated.
  */
-#define fast_buf_fini(b)      do { \
-    DEL ((b)->buf);       \
-} while (0)
+static inline void
+fast_buf_fini(fast_buf *b)
+{
+    if (b->buf) {
+        DEL(b->buf);
+        b->buf  = 0;
+        b->cap  = 0;
+        b->size = 0;
+    }
+}
 
+/*
+ * Ensure that fast_buf has capacity of at least 'n' bytes
+ */
+static inline void
+fast_buf_reserve(fast_buf *b, size_t want)
+{
+    if (want >= b->cap) {
+        do { b->cap *= 2; } while (b->cap < want);
+
+        b->buf = RENEW(uint8_t, b->buf, b->cap);
+    }
+}
 
 
 /*
- * Internal macro to grow the buffer on demand.
+ * Grow the fast buf by 'n' bytes.
  */
-#define _fast_buf_expand(b,req) do { \
-        fast_buf * b__ = (b); \
-        int n__ = b__->capacity;     \
-        int want__ = (req) + b__->size; \
-        if  ( want__ >= n__ ) {       \
-            do { n__ *= 2; } while (n__ < want__); \
-            b__->buf = RENEWA(unsigned char, b__->buf, n__);\
-            b__->capacity = n__;     \
-        }                           \
-    } while (0)
-
-
+static inline void
+fast_buf_grow(fast_buf *b, size_t n)
+{
+    fast_buf_reserve(b, b->size + n);
+}
 
 
 /*
- * Push a sequence of bytes to the end of the buffer.
+ * Append 'n' bytes from 'buf' to fast_buf 'b'
  */
-#define fast_buf_push(b,d,l)    do { \
-    fast_buf * b_ = (b); \
-    int l_ = (l); \
-    _fast_buf_expand(b_,l_);      \
-    memcpy (b_->buf+b_->size, (d), l_); \
-    b_->size += l_; \
-} while (0)
-
+static inline fast_buf*
+fast_buf_append_buf(fast_buf *b, uint8_t *buf, size_t n)
+{
+    fast_buf_grow(b, n);
+    memcpy(b->buf+b->size, buf, n);
+    b->size += n;
+    return b;
+}
 
 
 /*
- * Ensure that the buffer has atleast 'n' bytes of space.
+ * Append 1 bytes to fast_buf 'b'
  */
-#define fast_buf_ensure(b,l)    _fast_buf_expand(b,l)
-
-
-
-/*
- * Append one byte to the fastbuf.
- */
-#define fast_buf_append(b,c)    do { \
-    fast_buf * b_ = (b); \
-    _fast_buf_expand(b_,1);      \
-    b_->buf[b_->size++] = (c);  \
-} while (0)
-
+static inline fast_buf*
+fast_buf_append_byte(fast_buf *b, uint8_t c)
+{
+    fast_buf_grow(b, 1);
+    b->buf[b->size++] = c;
+    return b;
+}
 
 
 /*
  * Reset a fast buf to initial conditions.
  */
-#define fast_buf_reset(b)       do { \
-    (b)->size = 0;\
-} while (0)
+static inline fast_buf*
+fast_buf_reset(fast_buf *b)
+{
+    b->size = 0;
+    return b;
+}
 
 
 
 /*
  * Advance a fast buf ptr by 'n' bytes.
  */
-#define fast_buf_advance(b,n)   do { \
-    (b)->size += (n); \
-} while (0)
-
-
-
-
-/*
- * Return a pointer to the beginning of the fast buffer.
- */
-#define fast_buf_ptr(b)     (b)->buf
+static inline fast_buf*
+fast_buf_advance(fast_buf *b, size_t n)
+{
+    b->size += n;
+    return b;
+}
 
 
 /*
- * Return a pointer to the end of the fast buffer.
+ * Return pointer to start of buffer
  */
-#define fast_buf_endptr(b)  ((b)->buf+(b)->size)
+static inline uint8_t*
+fast_buf_ptr(fast_buf *b)
+{
+    return b->buf;
+}
+
+/*
+ * Return size (length) of the buffer
+ */
+static inline size_t
+fast_buf_len(fast_buf *b)
+{
+    return b->size;
+}
 
 
 /*
- * Return available capacity in the fast buffer.
+ * Return the capacity of the buffer
  */
-#define fast_buf_capacity(b)  (b)->capacity
-#define fast_buf_avail(b)     (b)->capacity
+static inline size_t
+fast_buf_cap(fast_buf *b)
+{
+    return b->cap;
+}
 
-
-/*
- * Return the size of the fast buffer.
- */
-#define fast_buf_size(b)    (b)->size
 
 
 

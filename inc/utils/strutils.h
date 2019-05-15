@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2005-2008 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -17,44 +17,205 @@
 #ifndef __STRUTILS_H_1111690568__
 #define __STRUTILS_H_1111690568__ 1
 
-#include <ctype.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <stdio.h>
 #include <stdint.h>
-//#include <type_traits>
+#include <sys/types.h>
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+/**
+ * Trim a string by removing all leading and trailing white-spaces.
+ */
+extern char* strtrim(char* s);
+
+
+
+
+/**
+ * Split a string delimited by "tokens" into its constituent parts.
+ * Returns a newly allocated array of strings - each of which point
+ * into the original string. It is the caller's responsibility to
+ * free this new array.
+ *
+ * NB: 'str' - the input string needs to be WRITABLE. The delimiters
+ *     are replaced by '\0'. i.e., the array of strings point to
+ *     places inside 'str' where the substrings begin.
+ */
+extern char** strsplit(int *strv_size, char* str, const char* tok, int sqz_consec);
+
+
+/**
+ * Split a string delimited by "tokens" into its constituent parts.
+ * Fills the array 'strv' with pointers into the input string 'str'.
+ * Returns:
+ *
+ *      < 0: if the array size was insufficient to hold all the
+ *           constituent parts
+ *      >=0: Number of split tokens in the original string; this
+ *           number is necessarily <= n.
+ *
+ * NB: 'str' - the input string needs to be WRITABLE. The delimiters
+ *     are replaced by '\0'.
+ */
+extern int  strsplit_quick(char** strv, int n, char* str, const char* tok, int sqz_consec);
+
+
+/**
+ * Split a Comma separated string, handle quoted strings and
+ * escaped quotes.
+ *
+ * The separator can be any of characters in 'sep'. A nil ptr
+ * indicates the _default_ of ','.  If 'sep' contains more than
+ * one character, then any of them can be a valid separator.
+ * e.g., ",;" indicates that ',' or ';' can be a field separator.
+ *
+ * Fills the array 'strv' with pointers into the input string 'str'.
+ * Returns:
+ *
+ *      < 0: -ENOSPC if array is too small to hold the delimited parts
+ *      >=0: Number of split tokens in the original string; this
+ *           number is necessarily <= n.
+ *
+ * NB: 'str' - the input string needs to be WRITABLE. The delimiters
+ *     are replaced by '\0'.
+ */
+extern int  strsplit_csv(char** strv, int n, char* str, const char *sep);
+
+
+/**
+ * Split a string into tokens just as shell would; handle quoted
+ * words as a single word. Uses whitespace (' ', '\t') as delimiter
+ * tokens. Delimited tokens are stuffed in 'args'.
+ *
+ * Returns:
+ *
+ *    >= 0  number of parsed tokens
+ *    < 0   on error:
+ *          -ENOSPC if array is too small
+ *          -EINVAL if ending quote is missing
+ */
+extern int strsplitargs(char **args, size_t n, char *s);
+
+
+/**
+ * Convert a string 's' to a uint64_t and detect overflows.
+ * Set '*endptr' to the last unconverted character. The converted
+ * uint64_t is in 'p_ret'. If 'base' is 0, then auto-detect the
+ * conversion base; else use what is provided.
+ *
+ * Returns:
+ *      0   No error
+ *    < 0   errno
+ *          -ERANGE if string is too long and overflows uint64_t
+ *          -EINVAL if string has invalid characters for the given base
+ *                  or if the base is invalid (> 36).
+ */
+extern int strtou64(const char *s, const char **endptr, int base, uint64_t *p_ret);
+
+
+/**
+ * Parse a string 'str' containing a size suffix. The suffix has the
+ * following meaning:
+ *      B       bytes
+ *      k, K    Kilobyte (1024)
+ *      M       Megabyte (1024 * K)
+ *      G       Gigabyte (1024 * M)
+ *      T       Terabyte (1024 * G)
+ *      P       Petabyte (1024 * T)
+ *      E       Exabyte  (1024 * E)
+ *
+ * If the size suffix is followed by a lower case 'b', then it is
+ * the suffix multiplier is treated as "bits". e.g., "Kb" is parsed
+ * as "Kilo bit". Similarly, an upper case 'B' is treated as "byte".
+ * This is the default interepretation. e.g., "1000M" is interpreted as
+ * "1000 Mega bytes".
+ *
+ * Returns the parsed string in 'p_val'
+ *
+ * Returns:
+ *      == 0: If parsing is successful
+ *      <  0: -Errno on error
+ */
+extern int strtosize(const char* str, int base, uint64_t* val);
+
+
+
+/**
+ * Remove leading & trailing quote chars from the string.
+ * If 'p_ret' is non-Null, return the resulting substring in
+ * '*p_ret'.
+ *
+ * Return:
+ *    0     No quote found
+ *    > 0   Quote char that was removed (either '"' or '\'')
+ *    < 0   No ending quote found
+ *
+ * NB: This function expects the caller to have already trimmed
+ *     leading/trailing white spaces.
+ */
+extern int strunquote(char* s, char **p_ret);
+
+
+/**
+ * Robust readline() that handles CR, LF, CRLF line break
+ * characters.
+ * Returns:
+ *    > 0: Length of the string
+ *    0:   EOF
+ *    -ENOSPC: Input buffer too small
+ *    < 0: -errno for all other errors
+ */
+extern int freadline(FILE* fp, unsigned char * str, int n);
+
+
+
+/**
+ * Print 'n' in human readable units (understands upto EB).
+ * Returns:
+ *    original output buffer 'buf'
+ */
+extern char* humanize_size(char * buf, size_t bufsize, uint64_t n);
+
+
+
+/**
+ * Safe strcopy():
+ *   - doesn't write more than 'sz' bytes into 'dest'
+ *   - null terminates at all times
+ *
+ * Returns:
+ *   >= 0  number of bytes copied
+ *   < 0   truncated
+ */
+extern ssize_t strcopy(char* dest, size_t sz, const char* src);
+
+
+/**
+ * Decode hex chars in string 'str' and put them into 'out'.
+ *
+ * Return:
+ *    < 0   -EINVAL Invalid hex chars in string
+ *          -ENOMEM If out is too small to hold decoded string
+ *    > 0   Number of decoded bytes.
+ */
+extern ssize_t str2hex(uint8_t* out, size_t outlen, const char* str);
+
+
+#ifdef __cplusplus
+}
+#endif // cplusplus
+
+
+#ifdef __cplusplus
+
 #include <vector>
 #include <string>
 
 namespace putils {
-
-
-/**
- * Trim whitespaces from both sides of the string 'str'.
- *
- * @return The modified string with whitespaces removed.
- */
-std::string string_trim(const std::string& str);
-
-
-
-/**
- * Split a string 'str' into constituent parts delimited by one or more
- * characters in 'delim'. If 'sqz' is false, then consecutive
- * delimiter characters are considered to delimit separate fields.
- *
- * @return vector of strings separated by the delimiter.
- */
-std::vector<std::string> string_split(const std::string& str,
-                                  const std::string &delim, bool sqz=true, int maxsplits=-1);
-
-/**
- * Split a comma separated string 'str' into constituent parts.
- *
- * @return vector of strings separated by ','
- */
-std::vector<std::string> string_split_csv(const std::string& str);
-
-
 
 /**
  * Add escape sequences to characters in 'str' if they contain chars
@@ -76,158 +237,17 @@ std::string string_escape(const std::string& str, const std::string& escset,
 std::string string_unescape(const std::string& str, char esc_char = '\\');
 
 
-
-/**
- * Convert string to lowercase
- */
-inline std::string string_tolower(const std::string& s)
+template<typename T> std::pair<T, bool> strtoi(const std::string& s, int base=0)
 {
-    std::string x(s);
-    for(size_t i = 0; i < x.length(); ++i)
-        x[i] = char(tolower(x[i]));
+    uint64_t v = 0;
+    int      r = strtosize(s.c_str(), base, &v);
 
-    return x;
-}
-
-
-
-/**
- * Convert string to lowercase
- */
-inline std::string string_toupper(const std::string& s)
-{
-    std::string x(s);
-    for(size_t i = 0; i < x.length(); ++i)
-        x[i] = char(toupper(x[i]));
-
-    return x;
-}
-
-
-
-/**
- * Convert string 's' to an equivalent boolean.
- * i.e., map "true", "yes", "1" to true
- *       others to false
- */
-inline bool string_to_bool(const std::string& s)
-{
-    std::string x(string_tolower(s));
-    return s == "yes" || s == "true" || s == "1" ? true : false;
-}
-
-
-/**
- * Convert an integer represented in string 's' into its value.
- * 
- * @param s     string to be converted into integer
- * @param base  force the use of a particular base for conversion
- *
- * @return  std::pair<bool, T> - a pair of values -- boolean status
- *          indicating success/failure of conversion and the value if
- *          successful.
- */
-template<typename T> std::pair<bool, T> strtoi(const std::string& s, int base=0)
-{
-    std::pair<bool, T> ret (false, 0);
-    const char * str = s.c_str ();
-    char * endptr    = 0;
-
-#ifdef _MSC_VER
-// MS is weird. They deliberately choose NOT to use function names that
-// the rest of the world uses.
-#define strtoull(a,b,c)  _strtoui64(a,b,c)
-#define _ULLCONST(n) n##ui64
-#else
-
-#define _ULLCONST(n) n##ULL
-
-#endif
-#define UL_MAX__   _ULLCONST(18446744073709551615)
-
-    uint64_t v    = strtoull(str, &endptr, base);
-
-    if (endptr && *endptr)
-        return ret;
-
-    if (v == UL_MAX__ && errno == ERANGE)
-        return ret;
-
-    ret.first  = true;
-    ret.second = T(v);
-    return ret;
-}
-
-/**
- * Convert an size represented in string 's' into its value.
- * The function can grok the following suffixes:
- *  - k,K: kilo bytes (1024)
- *  - M:   Mega bytes
- *  - G:   Giga bytes
- *  - T:   Tera bytes
- *  - P:   Peta bytes
- * 
- * @param s     string to be converted into integer
- * @param base  force the use of a particular base for conversion
- *
- * @return  std::pair<bool, T> - a pair of values -- boolean status
- *          indicating success/failure of conversion and the value if
- *          successful.
- */
-inline std::pair<bool, uint64_t> strsizetoi(const std::string& s, int base=0)
-{
-    std::pair<bool, uint64_t> ret(false, 0);
-    const char * str = s.c_str();
-    char * endptr    = 0;
-
-#define KB_  _ULLCONST(1024)
-#define MB_  (KB_ * 1024)
-#define GB_  (MB_ * 1024)
-#define TB_  (GB_ * 1024)
-#define PB_  (TB_ * 1024)
-
-
-    uint64_t v    = strtoull(str, &endptr, base);
-    uint64_t mult = 1;
-
-    if ( endptr && *endptr )
-    {
-        switch (*endptr)
-        {
-            case 'k': case 'K':
-                mult = KB_;
-                break;
-
-            case 'M':
-                mult = MB_;
-                break;
-
-            case 'G':
-                mult = GB_;
-                break;
-
-            case 'T':
-                mult = TB_;
-                break;
-
-            case 'P':
-                mult = PB_;
-                break;
-
-            default:
-                return ret;
-        }
-    }
-
-    if ( v == UL_MAX__ && errno == ERANGE )
-        return ret;
-
-    ret.first  = true;
-    ret.second = uint64_t(v * mult);
-    return ret;
+    return std::pair<T, bool>{T(v), r == 0 ? true : false};
 }
 
 } // namespace putils
+
+#endif // __cplusplus
 
 #endif /* ! __STRUTILS_H_1111690568__ */
 

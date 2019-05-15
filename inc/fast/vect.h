@@ -25,14 +25,14 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
-#include "utils/utils.h"
+#include "utils/new.h"
 
 
 #ifdef __cplusplus
 #ifndef typeof
 #define typeof(a)   __typeof__(a)
 #endif
-#endif
+#endif // __cplusplus
 
 /*
  * Define a vector of type 'type'
