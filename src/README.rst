@@ -9,10 +9,25 @@ Bloom Filter:
     - bloom.c: Core bloom filter code (standard, counting, scalable)
     - bloom_marshal.c: Marshal, Unmarshal of bloom filters
 
+    Performance numbers on MacBook Pro 15,1 (Late 2018):
+
+    Standard Bloom filter: 155 cycles/add, 148 cycles/search
+    Counting Bloom filter: 157 cycles/add, 150 cycles/search
+    Scalable Bloom filter: 716 cycles/add, 770 cycles/search
+
 
 Fast hash table:
 
-    - fast-ht.c: Fast hash table with chunked array of buckets
+    fast-ht.c: Fast hash table with chunked array of buckets.
+    Takes full advantage of cacheline alignment: keys are
+    `uint64_t` and values are `void*`. Some perf numbers on a
+    MacBook Pro 15,1 (Late 2018) [6 Core i9 at 2.9GHz, 32GB of RAM]
+
+    insert: 148 cycles (~16M inserts/sec)
+    find: 41 cycles    (~41M searches/sec)
+    find non existant entry: 39 cycles (~40M searches/sec)
+    delete: 42 cycles  (~38M deletes/sec)
+
 
 Policy based hash table:
 
@@ -57,6 +72,7 @@ Memory Allocators:
     - mempool.c: Fixed size memory allocator
     - memmgr.c: Memory management policy wrapper (used by hash
       tables above).
+
 
 Utility String functions:
 

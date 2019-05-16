@@ -5,6 +5,7 @@
  */
 
 #include <stdint.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -89,7 +90,7 @@ print_results(const char* prefix, result* rr, Bloom* b)
 static void
 read_words(strvect* v, arena_t a, const char* filename)
 {
-    unsigned char buf[256];
+    unsigned char buf[1024];
     int n;
     FILE* fp = stdin;
 
@@ -101,6 +102,16 @@ read_words(strvect* v, arena_t a, const char* filename)
     while ((n = freadline(fp, buf, sizeof buf)) > 0) {
         if (n < 4) continue;
 
+        // split on white space.
+        unsigned char *x;
+        for (x=buf; *x; x++) {
+            if (isspace(*x)) {
+                *x = 0;
+                n  = x-buf;
+                break;
+            }
+        }
+
         char* z = (char *)arena_alloc(a, n+1);
         memcpy(z, buf, n+1);
 
@@ -110,6 +121,7 @@ read_words(strvect* v, arena_t a, const char* filename)
         VECT_PUSH_BACK(v, w);
     }
 
+    printf("%s: %zu entries\n", filename, VECT_LEN(v));
     if (fp != stdin) fclose(fp);
 }
 

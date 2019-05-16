@@ -37,12 +37,6 @@ What is available in this code base?
   The filters share a common interface for add, query and destructor.
   A filter specific constructor returns an opaque pointer.
 
-  Performance on a late 2013 13" MBP (Core i7, 2.8GHz):
-
-    * Standard Bloom filter: 227 cyc/add, 201 cyc/search
-    * Counting Bloom filter: 220 cyc/add, 205 cyc/search
-    * Scalable Bloom filter: 224 cyc/add, 206 cyc/search
-
   All the tests were done with false-positive rate of 0.005.
 
 - Multiple implementation of hash tables:
@@ -50,54 +44,16 @@ What is available in this code base?
     * Scalable hash table with policy based memory management and
       locking. It resizes dynamically based on load-factor. It has
       several iterators to safely traverse the hash-table. This uses
-      a doubly linked list for collision resolution. Performance on a
-      late 2013 MBP (Core i7, 2.8GHz):
-
-        - Insert: 611 cyc/add,    4.5 M ops/sec
-        - Find:   422 cyc/search, 6.5 M ops/sec
-        - Remove: 591 cyc/del,    4.7 M ops/sec
+      a doubly linked list for collision resolution.
 
     * A very fast hash table that uses "linked list of arrays" for
       collision resolution. Each such array has 8 elements. The idea
       is to exploit cache-locality when searching for nodes in the
       same bucket. If the collision chain is more than 8 elements, a
-      new array of 8 elements is allocated. Performance on a late
-      2013 MBP (Core i7, 2.8GHz):
-
-        - Add-empty:      251.5 cy/add      9.47 M/sec
-        - Find-existing:  53.2 cy/find     28.38 M/sec
-        - Find-non-exist: 53.3 cy/find     27.39 M/sec
-        - Del-existing:   53.6 cy/find     28.54 M/sec
-        - Del-non-exist:  30.2 cy/find     29.52 M/sec
+      new array of 8 elements is allocated.
 
     * Open addressed hash table that uses a power-of-2 sized bucket
       list and a smaller power-of-2 sized bucket list for overflow.
-
-- Templates in "C" -- these leverage the CPP to create type-safe
-  containers for several common data structures:
-
-    * list.h: Single and Doubly linked list (BSD inspired)
-    * vect.h: Dynamically growable type-safe "vector" (array)
-    * queue.h: Fast, bounded FIFO that uses separate read/write
-      pointers
-    * stack.h: Fast, bounded LIFO
-    * syncq.h: Type-safe, bounded producer/consumer queue. Uses
-      POSIX semaphores and mutexes.
-    * spsc_bounded_queue.h: A single-producer, single-consumer,
-      lock-free queue. Requires C11 (stdatomic.h). Performance on
-      late 2013 13" MBP (Core i7, 2.8GHz): ~55 cyc/producer,
-      ~ 40 cyc/consumer.
-    * mpmc_bounded_queue.h: Templatized version of Dmitry Vyukov's
-      excellent lock-free algorithm for bounded multiple-producer,
-      multiple-consumer queue. Requires C11 (stdatomic.h).
-      Performance on late 2013 13" MBP (Core i7, 2.8GHz) with 4
-      Producers and 4 Consumers: 236 cyc/producer, 727 cyc/consumer.
-
-- Portable, inline little-endian/big-endian encode and decode functions
-  for fixed-width ordinal types (u16, u32, u64).
-
-- Arbitrary sized bitset (uses largest available wordsize on the
-  platform).
 
 - A collection of hash functions for use in hash-tables and other
   places:
@@ -116,13 +72,15 @@ What is available in this code base?
 
   If you are going to pick a hash function for use in a hash-table,
   pick one that uses a seed as initializer. This ensures that your
-  hash table doesn't suffer DoS attacks.
+  hash table doesn't suffer DoS attacks. All the code I write uses
+  Zilong Tan's superfast hash (*fasthash.c*).
 
 - A portable, thread-safe, user-space implementation of OpenBSD's
   arc4random(3). This uses per-thread random state to ensure that
   there are no locks when reading random data.
 
-- Implementation of Xorshift+ PRNG: XS64-Star, XS128+, XS1024-Star
+- Implementation of Xoroshiro, Xorshift+ PRNG (XS64-Star, XS128+,
+  XS1024-Star)
 
 - Wrappers for process and thread affinity -- provides
   implementations for Linux, OpenBSD and Darwin.
@@ -145,19 +103,14 @@ What is available in this code base?
     * arena.h: Object lifetime based memory allocator. Allocate
       frequently in different sizes, free the entire allocator once.
 
-    * mempool.h: Very fast, fixed size memory allocator; Performance
-      on a late 2013 MBP (Core i7, 2.8GHz) is:
-
-        - 55 cyc/alloc, 18M allocs/sec
-        - 55 cyc/free,  18M frees/sec
+    * mempool.h: Very fast, fixed size memory allocator
 
 - OSX Darwin specific code:
 
-    * POSIX un-named semaphores
-    * C11 stdatomic.h
+    * POSIX un-named semaphores (`sem_init(3)`, `sem_wait(3)`, `sem_post(3)`)
     * Replacement for <time.h> to include POSIX clock_gettime().
-      This is implemented using Mach APIs.
-
+      This is implemented using Mach APIs (May not be needed post MacOS
+      Sierra).
 
 - Portable routines to read password (POSIX and Win32)
 
@@ -165,6 +118,71 @@ What is available in this code base?
   opendir(3), inet_pton(3) and inet_ntop(3), sys/time.h
 
 - Portable implementation of getopt_long(3).
+
+Single Header Utilities
+-----------------------
+- Templates in "C" -- these leverage the pre-processor to create type-safe
+  containers for several common data structures:
+
+    * list.h: Single and Doubly linked list (BSD inspired)
+    * vect.h: Dynamically growable type-safe "vector" (array)
+    * queue.h: Fast, bounded FIFO that uses separate read/write
+      pointers
+    * syncq.h: Type-safe, bounded producer/consumer queue. Uses
+      POSIX semaphores and mutexes.
+    * spsc_bounded_queue.h: A single-producer, single-consumer,
+      lock-free queue. Requires C11 (stdatomic.h).
+    * mpmc_bounded_queue.h: Templatized version of Dmitry Vyukov's
+      excellent lock-free algorithm for bounded multiple-producer,
+      multiple-consumer queue. Requires C11 (stdatomic.h).
+      Performance on late 2013 13" MBP (Core i7, 2.8GHz) with 4
+      Producers and 4 Consumers: 236 cyc/producer, 727 cyc/consumer.
+
+- Portable, inline little-endian/big-endian encode and decode functions
+  for fixed-width ordinal types (u16, u32, u64).
+
+- Arbitrary sized bitset (uses largest available wordsize on the
+  platform).
+
+
+Performance Measurements
+========================
+SPSC Lock-free Bounded Queue
+----------------------------
+Performance on a late 2018 15" MBP (6-Core i9, 2.9GHz):
+    * Q size 1048576: ~120 cyc/producer, ~80 cyc/consumer
+    * Q size 128: ~30 cyc/producer, ~ 29 cyc/consumer
+
+MPMC Lock-free bounded Queue
+----------------------------
+Performance on a late 2018 15" MBP (6-Core i9, 2.9GHz):
+    * 6 producers and 6 consumers: ~2300 cyc/producer, ~2400 cyc/consumer
+    * 2 producers and 2 consumer: ~515 cyc/producer, ~550 cyc/consumer
+
+Bloom Filters
+-------------
+Performance on a late 2018 15" MBP (6-Core i9, 2.9GHz):
+
+    * Standard Bloom filter: 155 cycles/add, 148 cycles/search
+    * Counting Bloom filter: 157 cycles/add, 150 cycles/search
+    * Scalable Bloom filter: 716 cycles/add, 770 cycles/search
+
+
+Fast Hash Table
+---------------
+Performance on a late 2018 15" MBP (6-Core i9, 2.8GHz):
+
+    * insert: 148 cycles (~16M inserts/sec)
+    * find: 41 cycles    (~41M searches/sec)
+    * find non existant entry: 39 cycles (~40M searches/sec)
+    * delete: 42 cycles  (~38M deletes/sec)
+
+
+Memory Allocators
+-----------------
+Performance on a late 2018 15" MBP (6-Core i9, 2.8GHz):
+    * Arena: ~5700 cycles/alloc
+    * Mempool: 20 cycles/alloc 33M alloc/sec, 19 cycles/free (27M free/sec)
 
 How is portability achieved?
 ============================

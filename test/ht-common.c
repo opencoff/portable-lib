@@ -60,8 +60,6 @@ read_words(strvect* v, arena_t a, const char* filename)
         VECT_PUSH_BACK(v, w);
     }
 
-    //printf("file %s: %zu entries\n", filename, VECT_LEN(v));
-
     if (fp != stdin) fclose(fp);
 }
 

@@ -287,6 +287,7 @@ main(int argc, char** argv)
         read_words(&v, a, argv[i]);
     }
 
+    if (!Machine_output) printf("Total input: %zu words\n", VECT_LEN(&v));
 
     ht _h;
     ht *h = &_h;
