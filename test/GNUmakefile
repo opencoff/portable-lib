@@ -46,11 +46,11 @@ autotests = strmatch t_arena t_str2hex \
 		t_xorrand  t_strtosize \
 		t_bits t_siphash24 \
 		t_spscq t_bitvect t_fts t_hashspeed \
-		t_prodcons
+		t_prodcons t_mpmcq t_ringbuf
 
 
 tests_with_input = mmaptest t_mkdirhier  \
-                   t_readpass t_rotatefile  t_mpmcq
+                   t_readpass t_rotatefile
 
 hash-input = $(wildcard ./in) # input for all the tests below
 hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_fastht

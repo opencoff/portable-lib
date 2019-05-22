@@ -33,6 +33,28 @@ extern "C" {
 #include <stdint.h>
 #include "fast/list.h"
 
+/*
+ * Sensible default for modern 64-bit processors.
+ *
+ * No compiler provides us with a pragma or CPP macro for the cache
+ * line size. Boo.
+ *
+ * If your CPU has a different cache line size, define this macro on
+ * the command line (-DCACHELINE_SIZE=xxx).
+ */
+#ifndef CACHELINE_SIZE
+#define CACHELINE_SIZE      64
+#endif
+
+
+#ifdef __GNUC__
+#define __CACHELINE_ALIGNED __attribute__((aligned(CACHELINE_SIZE)))
+#elif defined(_MSC_VER)
+#define __CACHELINE_ALIGNED __declspec(align(CACHELINE_SIZE))
+#else
+#error "Can't define __CACHELINE_ALIGNED for your compiler/machine"
+#endif /* __CACHELINE_ALIGNED */
+
 
 
 #define FASTHT_BAGSZ       3
@@ -55,10 +77,12 @@ extern "C" {
  */
 struct bag
 {
+    uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
+
     SL_ENTRY(bag) link;
-    uint64_t   hk[FASTHT_BAGSZ];
 
     void*      hv[FASTHT_BAGSZ];
+
     uint64_t __pad0;    // cache line pad
 };
 typedef struct bag bag;
