@@ -40,8 +40,8 @@
 #include "fast/ringbuf.h"
 
 
-#define QSIZ        1024
-#define NITER       4096
+#define QSIZ        2048
+#define NITER       8192
 
 
 typedef struct rte_ring pcq;
@@ -374,10 +374,23 @@ perf_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
             p70 = 70 * tot / 100,
             p50 = 70 * tot / 100;
 
-    printf("# Latencies: (percentiles)\n"
+    uint64_t median = 0;
+
+    if (VECT_LEN(&pctile) & 1) {
+        int x  = VECT_LEN(&pctile)/2;
+        median = VECT_ELEM(&pctile, x).v;
+    } else {
+        int a  = VECT_LEN(&pctile)/2;
+        int b  = a-1;
+        median = (VECT_ELEM(&pctile, a).v + VECT_ELEM(&pctile, b).v)/2;
+    }
+
+
+    printf("# Latencies: median %" PRIu64 " ns. Percentiles:\n"
            "#     99th: %" PRIu64 "\n"
            "#     70th: %" PRIu64 "\n"
            "#     50th: %" PRIu64 "\n",
+           median,
            VECT_ELEM(&pctile, p99).v,
            VECT_ELEM(&pctile, p70).v,
            VECT_ELEM(&pctile, p50).v);

@@ -86,14 +86,22 @@ perf_test(int run)
         VECT_PUSH_BACK(&pv, p);
     }
 
-    // Now, randomize the elements
-    VECT_SHUFFLE(&pv, arc4random);
+    /*
+     * Randomize the order and then free.
+     * This causes severe cache hit and the rate of frees/sec goes
+     * down. 
+     *
+     * The actual cycle count stays roughly the same with/without
+     * this randomization. i.e., the CPU is stalling while
+     * filling ((mru_node *)*x)
+     */
+    //VECT_SHUFFLE(&pv, arc4random);
 
 
     void** x;
     VECT_FOR_EACH(&pv, x) {
-        uint64_t t0 = timenow(),
-                 c0 = sys_cpu_timestamp();
+        volatile uint64_t t0 = timenow(),
+                          c0 = sys_cpu_timestamp();
 
         mempool_free(pool, *x);
 
@@ -101,7 +109,7 @@ perf_test(int run)
         tm_f  += (timenow() - t0);
     }
 
-#define _ops_per_sec(a) (((double)N) / (double)(a))
+#define _ops_per_sec(a) (1000.0 * ((double)N) / (double)(a))
 #define _us_per_op(a)   ((double)(a) / (double)N)
 
     printf("%2d: %6.2f M allocs/sec (%6.4f cyc/alloc)  %6.2f M free/sec (%6.4f cyc/free)\n",

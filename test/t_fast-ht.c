@@ -205,11 +205,13 @@ perf_test(strvect* v, size_t Niters)
 
     double tot    = _d(n) * _d(Niters);
 
-    double ispd   = tot / _d(ti);
-    double dspd   = tot / _d(td);
-    double xspd   = tot / _d(tx);
-    double yspd   = tot / _d(ty);
-    double sspd   = tot / _d(ts);
+    // timenow() returns time in nanoseconds. So, to get in units of
+    // "Million ops/sec", we multiply by 1000.
+    double ispd   = 1000 * tot / _d(ti);
+    double dspd   = 1000 * tot / _d(td);
+    double xspd   = 1000 * tot / _d(tx);
+    double yspd   = 1000 * tot / _d(ty);
+    double sspd   = 1000 * tot / _d(ts);
 
     double ci     = _d(cyi)  / tot;
     double cd     = _d(cyd)  / tot;

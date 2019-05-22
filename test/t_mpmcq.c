@@ -228,7 +228,7 @@ perf_producer(void* v)
         uint64_t nn = timenow();
         uint64_t t0 = sys_cpu_timestamp();
         if(!MPMCQ_ENQ(q, nn)) {
-            upause(100);
+            upause(10);
             continue;
         }
         c->cycles += (sys_cpu_timestamp() - t0);
@@ -251,7 +251,7 @@ perf_drain(ctx* c)
     do {
         uint64_t t0 = sys_cpu_timestamp();
         if (!MPMCQ_DEQ(q, j)) {
-            upause(100);
+            upause(10);
             break;
         }
 
@@ -378,10 +378,22 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
             p70 = 70 * tot / 100,
             p50 = 70 * tot / 100;
 
-    printf("# Latencies: (percentiles)\n"
+    uint64_t median = 0;
+
+    if (VECT_LEN(&pctile) & 1) {
+        int x  = VECT_LEN(&pctile)/2;
+        median = VECT_ELEM(&pctile, x).v;
+    } else {
+        int a  = VECT_LEN(&pctile)/2;
+        int b  = a-1;
+        median = (VECT_ELEM(&pctile, a).v + VECT_ELEM(&pctile, b).v)/2;
+    }
+
+    printf("# Latencies: median %" PRIu64 " ns. Percentiles:\n"
            "#     99th: %" PRIu64 "\n"
            "#     70th: %" PRIu64 "\n"
            "#     50th: %" PRIu64 "\n",
+           median,
            VECT_ELEM(&pctile, p99).v,
            VECT_ELEM(&pctile, p70).v,
            VECT_ELEM(&pctile, p50).v);

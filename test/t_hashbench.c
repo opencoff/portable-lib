@@ -116,8 +116,7 @@ benchmark(const token_array* tok, const hashfunc* hf)
     perbyte = (double)tn / (double)nbytes;
 
     // this is speed: hashing bytes per sec
-    //speed   = (60.0 * 1.0e6 * (double)nbytes) / (((double)tm) * 1048576.0);
-    speed = ((double)nbytes) / ((double)tm);
+    speed = 1000.0 * ((double)nbytes) / ((double)tm);
 
     printf("%9s: %8.2f MB/sec %5.4f cyc/byte\n", 
             hf->name, speed, perbyte);

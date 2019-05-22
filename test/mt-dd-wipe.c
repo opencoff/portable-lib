@@ -140,7 +140,7 @@ speedo_show(speedo* sp, int cpu, uint64_t done, uint64_t tot)
             av = sizeof buf;
 
 #define dd(x)       ((double)(x))
-#define rate(a,b)   ((b) > 0 ? (100.0 * dd(a)) / dd(b) : 0.0)
+#define rate(a,b)   ((b) > 0 ? (1000.0 * 100.0 * dd(a)) / dd(b) : 0.0)
 
     uint64_t td = 0;
     for (i = 0; i < sp->ncpu; ++i) {

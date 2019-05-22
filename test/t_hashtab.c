@@ -359,7 +359,7 @@ static void
 show_timing(const char* prefix, uint64_t n, perf* p)
 {
     double ave   = _d(p->c) / _d(n);
-    double speed = _d(n) / _d(p->t);
+    double speed = 1000.0 * _d(n) / _d(p->t);
 
 
     fprintf(stderr, "%s %" PRIu64 " records; %7.3f cy/op %6.2f M ops/sec\n",

@@ -166,7 +166,7 @@ perf_test(int run)
     }
 
 #define _speed(x)     (double(x)/double(N))
-#define _rate(x)      (double(N)/double(x))
+#define _rate(x)      (1000.0 * (double(N)/double(x)))
 
     printf("%2d: C++ %4.2f M alloc/s %4.2f cy/alloc %4.2f M free/s %4.2f cy/free"
                 "  C %4.2f M alloc/s %4.2f cy/alloc %4.2f M free/s %4.2f cy/free\n",

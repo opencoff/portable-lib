@@ -136,15 +136,29 @@ extern void hex_dump_bytes_file(const void* inbuf, int buflen, FILE* fp, const c
 
 
 
+/*
+ * Return time in microseconds
+ */
 static inline uint64_t
-timenow()
+timenow_us(void)
 {
-    struct timeval tv;
-    gettimeofday(&tv, 0);
+    struct timeval tv = {0, 0};
 
+    gettimeofday(&tv, 0);
     return tv.tv_usec + (1000000 * tv.tv_sec);
 }
 
+/*
+ * Return time in nanoseconds
+ */
+static inline uint64_t
+timenow(void)
+{
+    struct timespec tv = {0, 0};
+
+    clock_gettime(CLOCK_MONOTONIC, &tv);
+    return tv.tv_nsec + (1000000000 * tv.tv_sec);
+}
 
 
 /*

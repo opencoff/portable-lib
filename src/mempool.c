@@ -577,9 +577,9 @@ mempool_free(mempool* a, void * ptr)
     mru_node * blk = (mru_node *)ptr;
 
     assert(a);
-    assert(_valid_blk_p(a, pUCHAR(ptr)));
+    //assert(_valid_blk_p(a, pUCHAR(ptr)));
 
-    clear_memory(a, ptr);
+    //clear_memory(a, ptr);
 
     DL_INSERT_HEAD(&a->mru_head, blk, link);
 }

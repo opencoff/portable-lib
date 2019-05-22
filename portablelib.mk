@@ -62,8 +62,7 @@ endif
 # Default objs for linux 
 Linux_defobjs     = $(all_posix_objs) linux_cpu.o \
 					arc4random.o posix_entropy.o
-Darwin_defobjs    = $(all_posix_objs) darwin_cpu.o darwin_sem.o \
-					darwin_clock.o
+Darwin_defobjs    = $(all_posix_objs) darwin_cpu.o darwin_sem.o
 win32_defobjs     = $(all_win32_objs) win32_rand.o
 OpenBSD_defobjs   = $(all_posix_objs) openbsd_cpu.o
 

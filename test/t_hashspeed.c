@@ -111,7 +111,7 @@ benchmark(const void* buf, int buflen, const hashfunc* hf)
     cy_speed   = _d(tot)  / _d(n);
     cy_perbyte = cy_speed / _d(buflen);
 
-    tm_speed   = (_d(buflen) * _d(n)) / _d(tmtot);
+    tm_speed   = 1000.0 * (_d(buflen) * _d(n)) / _d(tmtot);
 
     hresult hr = { .speed = tm_speed };
 
