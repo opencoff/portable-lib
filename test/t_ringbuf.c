@@ -40,7 +40,7 @@
 #include "fast/ringbuf.h"
 
 
-#define QSIZ        2048
+#define QSIZ        8192
 #define NITER       8192
 
 
@@ -185,19 +185,16 @@ mt_fini(pcq* q)
 }
 
 
-
-
-
 // Simple busywait.
 // usleep() is not granular enough
 static void
 upause(int n)
 {
     int i;
-    volatile int j = 9900;
-    for (i = 0; i < n; ++i)
-    {
+    volatile uint64_t j = sys_cpu_timestamp();
+    for (i = 0; i < n; ++i) {
         j += i;
+        rte_pause();
     }
 }
 
@@ -232,7 +229,7 @@ perf_producer(void* v)
         uint64_t nn = timenow();
         uint64_t t0 = sys_cpu_timestamp();
         if (!rte_ring_mp_enqueue(q, (void *)nn)) {
-            upause(10);
+            rte_pause();
             continue;
         }
         c->cycles += (sys_cpu_timestamp() - t0);
@@ -262,7 +259,7 @@ perf_consumer(void *vx)
             uint_fast32_t np = atomic_load(c->done);
             if (np) break;
 
-            upause(10);
+            rte_pause();
             continue;
         }
 
@@ -339,7 +336,7 @@ perf_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
         cyc += cx->cycles;
         delctx(cx);
     }
-    printf("#    P Total %zd elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
+    printf("# P Total %zd elem, avg %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
 
     latv all;
     latv pctile;
@@ -360,9 +357,9 @@ perf_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
         delctx(cx);
     }
 
-    printf("#    C Total %zd elem, %5.2f cy/enq\n", tot, _d(cyc) / _d(tot));
-
     assert(tot == VECT_LEN(&all));
+
+    printf("# C Total %zd elem, avg %5.2f cy/deq\n", tot, _d(cyc) / _d(tot));
 
     VECT_APPEND_VECT(&pctile, &all);
 
@@ -387,9 +384,9 @@ perf_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
 
 
     printf("# Latencies: median %" PRIu64 " ns. Percentiles:\n"
-           "#     99th: %" PRIu64 "\n"
-           "#     70th: %" PRIu64 "\n"
-           "#     50th: %" PRIu64 "\n",
+           "#  99th: %" PRIu64 "\n"
+           "#  70th: %" PRIu64 "\n"
+           "#  50th: %" PRIu64 "\n",
            median,
            VECT_ELEM(&pctile, p99).v,
            VECT_ELEM(&pctile, p70).v,
@@ -425,13 +422,14 @@ vrfy_producer(void* v)
     while (1) {
         z = n;
 
-        if (rte_ring_mp_enqueue(q, (void *)z) > 0) {
-            VECT_PUSH_BACK(&c->pseq, z);
-            n = atomic_fetch_add(c->seq, 1);
-            if (++i == NITER) break;
+        if (rte_ring_mp_enqueue(q, (void *)z) <= 0) {
+            rte_pause();
+            continue;
         }
-        else
-            upause(10);
+
+        VECT_PUSH_BACK(&c->pseq, z);
+        n = atomic_fetch_add(c->seq, 1);
+        if (++i == NITER) break;
     }
 
     sem_post(c->ending);
@@ -452,17 +450,15 @@ vrfy_consumer(void *vx)
     waitstart(c);
 
     while (1) {
-        int r = rte_ring_mc_dequeue(q, &vp);
-        if (r > 0) {
-            uint64_t j = (uint64_t)vp;
-            lat      ll = { .v = j, .ts = 0 };
-            VECT_PUSH_BACK(v, ll);
+        if (rte_ring_mc_dequeue(q, &vp) <= 0) {
+            uint_fast32_t np = atomic_load(c->done);
+            if (np) break;
+            rte_pause();
             continue;
         }
 
-        uint_fast32_t np = atomic_load(c->done);
-        if (np) break;
-        upause(10);
+        lat ll = { .v = (uint64_t)vp, .ts = 0 };
+        VECT_PUSH_BACK(v, ll);
     }
 
     return (void*)0;
@@ -507,7 +503,7 @@ vrfy_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
     for (i = 0; i < np; ++i) {
         ctx* cx = pp[i];
 
-        printf("# P %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_LEN(&cx->pseq));
+        printf("#    P %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_LEN(&cx->pseq));
         tot += VECT_LEN(&cx->pseq);
 
         VECT_APPEND_VECT(&allp, &cx->pseq);
@@ -518,7 +514,7 @@ vrfy_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
     assert(tot > 1);
     assert(tot == VECT_LEN(&allp));
 
-    printf("#   Total %zd elem\n", tot);
+    printf("# P Total %zd elem\n", VECT_LEN(&allp));
 
     VECT_INIT(&allc, tot);
 
@@ -526,7 +522,7 @@ vrfy_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
         ctx* cx = cc[i];
         lat* ll;
 
-        printf("# C %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_LEN(&cx->lv));
+        printf("#    C %d on cpu %d, %zd elem\n", i, cx->cpu, VECT_LEN(&cx->lv));
 
         // Only use the seq# we got off the queue
         VECT_FOR_EACH(&cx->lv, ll) {
@@ -540,6 +536,7 @@ vrfy_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
         assert(tot == VECT_LEN(&allc));
     }
 
+    printf("# C Total %zd elem\n", VECT_LEN(&allc));
 
     // Now sort based on sequence#
     VECT_SORT(&allc, seq_cmp);
@@ -570,7 +567,9 @@ mt_test(test_desc* tt, int np, int nc)
     ctx*      cc[nc];
     ctx*      pp[np];
 
-    printf("# [%s] %d CPUs; %d P, %d C, QSIZ %d N %d\n", tt->name, nmax, np, nc, QSIZ, NITER);
+    printf("# [%s] %d avail CPUs: %d P, %d C\n"
+           "# QSIZ %d, %d elem/producer (total %d elem)\n",
+            tt->name, nmax, np, nc, QSIZ, NITER, np * NITER);
 
     pcq *q = mt_setup();
 
@@ -632,14 +631,11 @@ mt_test(test_desc* tt, int np, int nc)
         pthread_join(cx->id, &x);
     }
 
-    printf("# harvested producers; waiting on consumers ..\n");
-
     for (i = 0; i < nc; ++i) {
         ctx* cx = cc[i];
         pthread_join(cx->id, &x);
     }
 
-    printf("# harvested consumers; finishing ..\n");
     (*tt->fini)(q, pp, np, cc, nc);
 
 
