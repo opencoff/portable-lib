@@ -62,6 +62,8 @@ nettests =
 # List your target here
 target = $(tests)
 
+#CFLAGS += -mavx
+
 
 define obj_def
 $(1)_objs = $(1).o

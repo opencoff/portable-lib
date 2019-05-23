@@ -18,7 +18,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 #include "utils/utils.h"
+
 
 /*
  * We store token delimiters as bits in a 256-wide bitarray. We
@@ -27,27 +29,34 @@
  * Checking to see if a character is a delimiter then boils down to
  * checking if the appropriate bit within the long-word is set.
  */
-#define BITVECTSIZE   (256 / 64)
+#define BITVECTSIZE   (256 / 32)
 
 typedef struct {
-    uint64_t b[BITVECTSIZE];
+    uint32_t b[BITVECTSIZE];
 } DELIM_TYPE;
 
 #define INIT_DELIM(v)  memset((v)->b, 0, sizeof (v)->b)
 
-#define ADD_DELIM(v, c) do { \
-                            uint64_t c_ = (uint64_t)(c);\
-                            uint64_t w_ = c_ / 64;  \
-                            uint64_t b_ = c_ & 63;  \
-                            (v)->b[w_] |= (1 << b_);\
-                        } while (0)
+static void
+__add_delim(DELIM_TYPE *v, uint32_t c)
+{
+    uint32_t w = c / 32;
+    uint32_t b = c % 32;
+    v->b[w] |= (1 << b);
+}
 
-#define IS_DELIM(v,c) ({ \
-                            uint64_t c_ = (uint64_t)(c);\
-                            uint64_t w_ = c_ / 64; \
-                            uint64_t b_ = c_ & 63; \
-                            ((v)->b[w_] & (1 << b_));\
-                        })
+
+
+static int
+__is_delim(DELIM_TYPE *v, uint32_t c)
+{
+    uint32_t w = c / 32;
+    uint32_t b = c % 32;
+    return 0 != (v->b[w] & (1 << b));
+}
+
+#define ADD_DELIM(v,c)  __add_delim(v, ((uint64_t)c))
+#define IS_DELIM(v,c)   __is_delim(v,  ((uint64_t)c))
 
 
 
@@ -59,7 +68,7 @@ PRINT_DELIM(DELIM_TYPE *v)
     int n = 0;
     fputc(' ', stdout);
     for (i = 0; i < 256; i++) {
-        fputc(IS_DELIM(v, i) ? '1': 'x', stdout);
+        fputc(IS_DELIM(v, i) ? '1': '.', stdout);
         ++n;
 
         if ((n % 4) == 0) fputc(' ', stdout);
@@ -71,8 +80,9 @@ PRINT_DELIM(DELIM_TYPE *v)
     }
     fputs("---\n", stdout);
 }
+#else
+#define PRINT_DELIM(v)
 #endif
-
 
 /*
  * Split a line of text that is comma separated and honor quoted
@@ -125,12 +135,13 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
      */
 
     if (!sep) sep = ",";
-    for (c = 0; (c = *sep); sep++) {
+    for (; (c = *sep); sep++) {
         ADD_DELIM(&v, c);
+        assert(IS_DELIM(&v, c));
     }
 
+    PRINT_DELIM(&v);
 
-    //PRINT_DELIM(&v);
     while ((c = *str)) {
         switch (c) {
             case '\'': case '"':

@@ -32,9 +32,6 @@ extern "C" {
 // Given n in bits, return # of u64's needed to hold it
 #define _BITSIZE_W(n)   (_ALIGN_UP(n, 64)/64)
 
-// Given n in bits, return number of u8's needed to hold it
-#define _BITSIZE_B(n)   (8*_BITS2WORDS(n))
-
 
 
 /* Dynamic bitset */
