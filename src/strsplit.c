@@ -24,6 +24,8 @@
 #include <errno.h>
 #include "utils/utils.h"
 
+#include "bits.h"
+
 
 struct stra
 {
@@ -36,25 +38,8 @@ typedef struct stra stra;
 
 
 
-/*
- * We store token delimiters as bits in a 256-wide bitarray. We
- * compose this large bitarray from an array of uint32_t.
- *
- * Checking to see if a character is a delimiter then boils down to
- * checking if the appropriate bit within the long-word is set.
- */
-#define LONGBYTES     (sizeof(uint32_t))
-#define LONGBIT       (LONGBYTES * 8)   // 8 bits per byte
-#define BITVECTSIZE   (256 / LONGBIT)
-#define _word(c)      ((c) / LONGBIT)
-#define _bitp(c)      (1 << ((c) % LONGBIT))
-
-#define ISDELIM(v,c)  (v[_word(c)] &  _bitp(c))
-#define ADDELIM(v,c)  (v[_word(c)] |= _bitp(c))
-
-
-static int __split    (stra *strv, char * str, const uint32_t * delim);
-static int __split_sqz(stra *strv, char * str, const uint32_t * delim);
+static int __split    (stra *strv, char * str, const delim *delim);
+static int __split_sqz(stra *strv, char * str, const delim *delim);
 
 
 /*
@@ -150,19 +135,18 @@ _stra_resize_if(stra* a, int n)
 static inline int
 __split_common(stra* a, char* str, const char* tok, int sqz_consec)
 {
-    uint32_t delim[BITVECTSIZE];
+    delim   d;
     unsigned int c;
 
+    __init_delim(&d);
     /*
      * Initialize a fast lookup bitvector to tell us if an input char is
      * a delimter or not.
      */
-    //printf("Split tok=|%s|\n", tok);
-    memset(delim, 0, sizeof delim);
     for (; (c = (0xff & *tok)); tok++)
-        ADDELIM(delim, c);
+        __add_delim(&d, c);
 
-    return sqz_consec ? __split_sqz(a, str, delim) : __split(a, str, delim);
+    return sqz_consec ? __split_sqz(a, str, &d) : __split(a, str, &d);
 }
 
 
@@ -196,8 +180,7 @@ strsplit(int *strv_size, char * str, const char * tok, int sqz_consec)
 
     _stra_init(&a);
 
-    if (!__split_common(&a, str, tok, sqz_consec))
-    {
+    if (!__split_common(&a, str, tok, sqz_consec)) {
         _stra_fini(&a);
         return 0;
     }
@@ -216,19 +199,15 @@ strsplit(int *strv_size, char * str, const char * tok, int sqz_consec)
  * Return True on success, False otherwise.
  */
 static int
-__split(stra * a, char * in_str, const uint32_t * delim)
+__split(stra * a, char * in_str, const delim *d)
 {
     unsigned char  * str = (unsigned char *) in_str,
                    * begin;
     unsigned int c;
 
-    //printf("# NOSQZ STR=|%s|\n", in_str);
-    for (begin = str; (c = *str); str++)
-    {
-        if ( ISDELIM(delim, c) )
-        {
-            if ( !_stra_resize_if(a, 1) )
-                return 0;
+    for (begin = str; (c = *str); str++) {
+        if (__is_delim(d, c)) {
+            if (!_stra_resize_if(a, 1)) return 0;
 
             *str = 0;
             //printf("#  %d => |%s|\n", a->size, begin);
@@ -238,10 +217,9 @@ __split(stra * a, char * in_str, const uint32_t * delim)
     }
 
 
-    if ( *begin )
-    {
-        if ( !_stra_resize_if(a, 1) )
-            return 0;
+    if (*begin) {
+        if (!_stra_resize_if(a, 1)) return 0;
+
         //printf("#  %d => |%s|\n", a->size, begin);
         a->arr[a->size++] = begin;
     }
@@ -255,34 +233,27 @@ __split(stra * a, char * in_str, const uint32_t * delim)
  * Split string compressing any intermediate delims.
  */
 static int
-__split_sqz(stra *a, char * in_str, const uint32_t * delim)
+__split_sqz(stra *a, char * in_str, const delim *d)
 {
-    unsigned char  * str = (unsigned char *) in_str,
-                   * begin;
+    unsigned char  *str = (unsigned char *) in_str,
+                   *begin;
     unsigned int c,
                  prev_c = 0;
 
     str = (unsigned char *)strtrim ((char *)str);
-    for (begin = str; (c = *str); prev_c = c, ++str)
-    {
-        if ( ISDELIM(delim, c) )
-        {
+    for (begin = str; (c = *str); prev_c = c, ++str) {
+        if ( __is_delim(d, c)) {
             *str = 0;
-        }
-        else if ( ISDELIM(delim, prev_c) )
-        {
-            if ( !_stra_resize_if(a, 1) )
-                return 0;
+        } else if (__is_delim(d, prev_c)) {
+            if (!_stra_resize_if(a, 1)) return 0;
 
             a->arr[a->size++] = begin;
             begin = str;
         }
     }
 
-    if ( *begin )
-    {
-        if ( !_stra_resize_if(a, 1) )
-            return 0;
+    if (*begin) {
+        if (!_stra_resize_if(a, 1)) return 0;
         a->arr[a->size++] = begin;
     }
 

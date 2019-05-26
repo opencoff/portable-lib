@@ -20,7 +20,7 @@
 #include <assert.h>
 
 
-typedef uint64_t word;
+typedef uint64_t      word;
 #define WORDSIZE      (8 * sizeof(word))
 #define BITVECTSIZE   (256 / WORDSIZE)
 
@@ -32,7 +32,7 @@ typedef struct {
 #define INIT_DELIM(v)  memset((v)->b, 0, sizeof (v)->b)
 
 static void
-__add_delim(DELIM_TYPE *v, uint32_t c)
+__add_delim(DELIM_TYPE *v, word c)
 {
     word w = c / WORDSIZE;
     word b = c % WORDSIZE;
@@ -42,7 +42,7 @@ __add_delim(DELIM_TYPE *v, uint32_t c)
 
 
 static int
-__is_delim(DELIM_TYPE *v, uint32_t c)
+__is_delim(DELIM_TYPE *v, word c)
 {
     word w = c / WORDSIZE;
     word b = c % WORDSIZE;
@@ -54,8 +54,8 @@ __is_delim(DELIM_TYPE *v, uint32_t c)
 
 
 
-static void
-PRINT_DELIM(DELIM_TYPE *v)
+void
+PRINT_DELIM(volatile DELIM_TYPE *v)
 {
     int i;
     int n = 0;
@@ -74,7 +74,6 @@ PRINT_DELIM(DELIM_TYPE *v)
     fputs("---\n", stdout);
 }
 
-
 int
 main()
 {
@@ -83,8 +82,10 @@ main()
     INIT_DELIM(&v);
 
     ADD_DELIM(&v, ',');
+
     PRINT_DELIM(&v);
 
     assert(IS_DELIM(&v, ','));
+
     return 0;
 }

@@ -20,69 +20,9 @@
 #include <errno.h>
 #include <assert.h>
 #include "utils/utils.h"
+#include "bits.h"
 
 
-/*
- * We store token delimiters as bits in a 256-wide bitarray. We
- * compose this large bitarray from an array of uint64_t.
- *
- * Checking to see if a character is a delimiter then boils down to
- * checking if the appropriate bit within the long-word is set.
- */
-#define BITVECTSIZE   (256 / 32)
-
-typedef struct {
-    uint32_t b[BITVECTSIZE];
-} DELIM_TYPE;
-
-#define INIT_DELIM(v)  memset((v)->b, 0, sizeof (v)->b)
-
-static void
-__add_delim(DELIM_TYPE *v, uint32_t c)
-{
-    uint32_t w = c / 32;
-    uint32_t b = c % 32;
-    v->b[w] |= (1 << b);
-}
-
-
-
-static int
-__is_delim(DELIM_TYPE *v, uint32_t c)
-{
-    uint32_t w = c / 32;
-    uint32_t b = c % 32;
-    return 0 != (v->b[w] & (1 << b));
-}
-
-#define ADD_DELIM(v,c)  __add_delim(v, ((uint64_t)c))
-#define IS_DELIM(v,c)   __is_delim(v,  ((uint64_t)c))
-
-
-
-#if 0
-static void
-PRINT_DELIM(DELIM_TYPE *v)
-{
-    int i;
-    int n = 0;
-    fputc(' ', stdout);
-    for (i = 0; i < 256; i++) {
-        fputc(IS_DELIM(v, i) ? '1': '.', stdout);
-        ++n;
-
-        if ((n % 4) == 0) fputc(' ', stdout);
-        if ((n % 8) == 0) fputc(' ', stdout);
-        if ((n % 64)  == 0) {
-            fputc('\n', stdout);
-            fputc(' ', stdout);
-        }
-    }
-    fputs("---\n", stdout);
-}
-#else
-#define PRINT_DELIM(v)
-#endif
 
 /*
  * Split a line of text that is comma separated and honor quoted
@@ -107,9 +47,9 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
     char *sub = str, // start of substring.
          *p   = str; // copy ptr
 
-    DELIM_TYPE  v;
+    delim  v;
 
-    INIT_DELIM(&v);
+    __init_delim(&v);
 
     /*
      * TODO May 2019
@@ -136,11 +76,9 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
 
     if (!sep) sep = ",";
     for (; (c = *sep); sep++) {
-        ADD_DELIM(&v, c);
-        assert(IS_DELIM(&v, c));
+        __add_delim(&v, c);
+        assert(__is_delim(&v, c));
     }
-
-    PRINT_DELIM(&v);
 
     while ((c = *str)) {
         switch (c) {
@@ -164,7 +102,7 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
                 continue;
 
             default:
-                if (IS_DELIM(&v, c)) {
+                if (__is_delim(&v, c)) {
                     // If we are not quoting, then we terminate word
                     // here.
                     if (q == 0) {
@@ -187,7 +125,7 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
     }
 
     if (sub != p) {
-        if (q)              return -EINVAL;
+        if (q)            return -EINVAL;
         if (k == sv_size) return -ENOSPC;
 
         *p++ = 0;
