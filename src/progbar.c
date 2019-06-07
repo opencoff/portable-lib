@@ -19,6 +19,10 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <assert.h>
+#include <termcap.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
 #include "utils/strutils.h"
 #include "utils/progbar.h"
@@ -28,71 +32,6 @@
 // at start of line.
 // 0x1B[2k => ESC[2K
 #define CLR     "\x1B[2K\r"
-
-static void update_total_progress(char *buf, size_t bsize, progress *p);
-static void update_incr_progress(char *buf, size_t bsize, progress *p);
-
-int
-progressbar_init(progress *p, int fd, uint64_t total, uint32_t flags)
-{
-    memset(p, 0, sizeof *p);
-
-    if (fd < 0 || !isatty(fd)) {
-        p->notty = 1;
-        return 0;
-    }
-
-    p->total = total;
-    p->fd = fd;
-    p->cur = 0;
-    p->flags = flags;
-
-    // XXX Read tty width and choose
-    p->width = 50;
-    p->step  = 100 / p->width;
-
-    return 0;
-}
-
-
-void
-progressbar_update(progress *p, uint64_t incr)
-{
-    char buf[512];
-
-    if (p->notty) return;
-
-    p->cur += incr;
-
-    if (p->total > 0) {
-        update_total_progress(buf, sizeof buf, p);
-    } else {
-        update_incr_progress(buf, sizeof buf, p);
-    }
-
-    if (0 != strcmp(p->buf, buf)) {
-        size_t n = strcopy(p->buf, sizeof p->buf, buf);
-
-        if (p->lines++ > 0) {
-            write(p->fd, CLR, strlen(CLR));
-        }
-        write(p->fd, p->buf, n);
-    }
-
-}
-
-void
-progressbar_finish(progress *p, int clr)
-{
-    if (!p->notty) {
-        // do stuff ..
-    }
-
-    if (clr > 0) write(p->fd, CLR, strlen(CLR));
-
-    write(p->fd, "\n", 1);
-    p->cur = 0;
-}
 
 
 // Update 'buf' with a total progress bar with completion percent
@@ -149,6 +88,75 @@ update_incr_progress(char *buf, size_t bsize, progress *p)
 
     // We pad to max of 20 chars
     snprintf(buf, bsize, "%-20s ...", cur);
+}
+
+
+// setup progress bar to handle 'total' units of output and write to
+// 'fd'.
+int
+progressbar_init(progress *p, int fd, uint64_t total, uint32_t flags)
+{
+    memset(p, 0, sizeof *p);
+
+    if (fd < 0 || !isatty(fd)) {
+        p->fd = -1;
+        return 0;
+    }
+
+    struct winsize w;
+
+    // try to get the actual width, else punt.
+    if (ioctl(fd, TIOCGWINSZ, &w) != 0) w.ws_col = 80;
+
+    p->total = total;
+    p->fd    = fd;
+    p->cur   = 0;
+    p->flags = flags;
+    p->width = w.ws_col > 50 ? 50 : w.ws_col / 2;
+    p->step  = 100 / p->width;
+
+    return 0;
+}
+
+
+// Update progress by recording additional 'incr' units of output.
+void
+progressbar_update(progress *p, uint64_t incr)
+{
+    char buf[512];
+
+    if (p->fd < 0) return;
+
+    p->cur += incr;
+
+    if (p->total > 0) {
+        update_total_progress(buf, sizeof buf, p);
+    } else {
+        update_incr_progress(buf, sizeof buf, p);
+    }
+
+    if (0 != strcmp(p->buf, buf)) {
+        size_t n = strcopy(p->buf, sizeof p->buf, buf);
+
+        // don't clear the line until we have something to clear
+        if (p->lines++ > 0) {
+            write(p->fd, CLR, strlen(CLR));
+        }
+        write(p->fd, p->buf, n);
+    }
+
+}
+
+// complete progress and "flush"
+void
+progressbar_finish(progress *p, int clr, int newln)
+{
+    if (p->fd >= 0) {
+        if (clr > 0)   write(p->fd, CLR, strlen(CLR));
+        if (newln > 0) write(p->fd, "\n", 1);
+        p->cur = 0;
+        p->buf[0] = 0;
+    }
 }
 
 /* EOF */

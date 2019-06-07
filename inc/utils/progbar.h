@@ -28,7 +28,6 @@ struct progress {
     int fd;
     uint64_t cur;
     uint64_t total;
-    uint32_t notty;
     uint32_t lines;
 
     uint32_t step;
@@ -63,8 +62,9 @@ void progressbar_update(progress*, uint64_t incr);
 /*
  * Finish/complete the progress bar by writing a '\n' to the output.
  * If 'clr' is true, then erase the current line. Else, write '\n'.
+ * if 'newln' is true, write a '\n'.
  */
-void progressbar_finish(progress*, int clr);
+void progressbar_finish(progress*, int clr, int newln);
 
 #ifdef __cplusplus
 }

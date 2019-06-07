@@ -14,7 +14,7 @@ int
 main()
 {
     progress p;
-    uint64_t tot = 130 * 1048576;
+    uint64_t tot = 80 * 1048576;
 
 
     struct timespec ts = {
@@ -32,5 +32,5 @@ main()
         nanosleep(&ts, 0);
     }
 
-    progressbar_finish(&p, 0);
+    progressbar_finish(&p, 0, 1);
 }
