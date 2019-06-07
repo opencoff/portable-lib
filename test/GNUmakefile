@@ -44,7 +44,7 @@ autotests = strmatch t_arena t_str2hex \
 		t_fixedsize t_mempool t_opt_test \
 		t_list t_b64_c t_vect \
 		t_xorrand  t_strtosize \
-		t_bits t_siphash24 \
+		t_bits t_siphash24 t_progress \
 		t_spscq t_bitvect t_fts t_hashspeed \
 		t_prodcons t_mpmcq t_ringbuf
 

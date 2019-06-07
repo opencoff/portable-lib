@@ -85,7 +85,7 @@ baseobjs = mempool.o dirname.o \
 		   mkdirhier.o parse-ip.o strcopy.o \
 		   gstring.o gstring_var.o freadline.o rotatefile.o \
 		   strsplit.o strsplit_csv.o strtrim.o \
-		   pack.o \
+		   pack.o progbar.o \
 		   $($(platform)_objs)
 
 
