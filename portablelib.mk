@@ -71,7 +71,7 @@ OpenBSD_defobjs   = $(all_posix_objs) openbsd_cpu.o
 #timerobjs = timer.o timer_int.o ctimer.o
 
 
-baseobjs = mempool.o dirname.o \
+baseobjs = mempool.o dirname.o fts.o \
            escape.o unescape.o mmap.o sysexception.o syserror.o \
 		   getopt_long.o error.o jenkins_hash.o  \
 		   bloom.o bloom_marshal.o str2hex.o frand.o fast-ht.o \

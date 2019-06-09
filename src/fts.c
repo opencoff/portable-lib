@@ -38,7 +38,6 @@
 #define _DIAGASSERT(a)  assert(a)
 #endif
 
-#include <sys/cdefs.h>
 #if defined(LIBC_SCCS) && !defined(lint)
 #if 0
 static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";

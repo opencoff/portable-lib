@@ -32,10 +32,10 @@ class Fail(Exception):
 
 
 def emit_info(msg):
-    print >> sys.stdout, msg
+    sys.stdout.write(msg)
 
 def emit_err(msg):
-    print >> sys.stderr, msg
+    sys.stderr.write(msg)
 
 def debug_info(msg):
     return
@@ -75,7 +75,7 @@ def validate_dep(dfile):
         return
 
     try:
-        fd = file(dfile)
+        fd = open(dfile)
     except:
         raise Fail("Can't open for reading: %s" % dfile)
 
@@ -98,7 +98,7 @@ def validate_dep(dfile):
             return
 
     # echo the dfile
-    print dfile
+    print(dfile)
 
 def main(args=None):
     if args is None:

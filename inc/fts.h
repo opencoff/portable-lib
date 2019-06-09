@@ -34,6 +34,10 @@
 #ifndef	__MY_FTS_H___
 #define	__MY_FTS_H___
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef	__fts_stat_t
 #define	__fts_stat_t	struct stat
 #endif
@@ -135,15 +139,17 @@ typedef struct _ftsent {
 	char fts_name[1];		/* file name */
 } FTSENT;
 
-#include <sys/cdefs.h>
+//#include <sys/cdefs.h>
 
-__BEGIN_DECLS
 FTSENT	*fts_children(FTS *, int);
 int	 fts_close(FTS *);
 FTS	*fts_open(char * const *, int,
     int (*)(const FTSENT **, const FTSENT **));
 FTSENT	*fts_read(FTS *);
 int	 fts_set(FTS *, FTSENT *, int);
-__END_DECLS
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !__MY_FTS_H___ */
