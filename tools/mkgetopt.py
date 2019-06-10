@@ -16,6 +16,7 @@
 import os, sys, random, os.path
 import re, textwrap
 from optparse import OptionParser
+from io import open
 
 Z = os.path.basename(sys.argv[0])
 __version__ = '1.0.2'
@@ -106,7 +107,7 @@ class opt_int(opt_type):
 
         try:
             if defstr:
-                defval = long(defstr, base)
+                defval = int(defstr, base)
             else:
                 defval = 0
         except:
@@ -411,11 +412,11 @@ Types = {
 
 
 # Useful constants
-_kB = 1024L
-_MB = _kB * 1024L
-_GB = _MB * 1024L
-_TB = _GB * 1024L
-_PB = _TB * 1024L
+_kB = 1024
+_MB = _kB * 1024
+_GB = _MB * 1024
+_TB = _GB * 1024
+_PB = _TB * 1024
 _Multipliers = {
     'k': _kB,
     'K': _kB,
@@ -432,7 +433,7 @@ def groksize(str):
     """
 
     x    = str[-1]
-    mult = 1L
+    mult = 1
     if x.isalpha():
         str  = str[:-1]
         mult = _Multipliers.get(x, 0)
@@ -446,7 +447,7 @@ def groksize(str):
     else:
         base = 10
     try:
-        v = long(str, base)
+        v = int(str, base)
     except:
         raise Invalid_Default("Invalid characters in size '%s'" % str)
 
@@ -691,7 +692,7 @@ class option:
         if self.default != '-' and self.type != 'callback':
             helpstr += " [%s]" % self.default
 
-        w = map(lambda x: x + '\\n"\n', tw.wrap(helpstr))
+        w = list(map(lambda x: x + '\\n"\n', tw.wrap(helpstr)))
         l = w[:1]
         for x in w[1:]:
             x = '" ' + x
@@ -1154,18 +1155,22 @@ class parser:
             self.fn = '<stdin>'
             fd      = sys.stdin
         else:
-            fd = open(self.fn, 'rb')
+            fd = open(self.fn, 'r')
 
         ln = 0
         for line in fd:
             ln += 1
-            p   = line_parser(line, self.op)
+            try:
+                p   = line_parser(line, self.op)
+            except Exception as x:
+                error(1, "%s:%d: %s", self.fn, ln, x.what)
+
             try:
                 w   = p.parse()
-            except Parse_Error, x:
+            except Parse_Error as x:
                 error(0, "%s:%d: %s", self.fn, ln, x.what)
                 continue
-            except Invalid_Directive, x:
+            except Invalid_Directive as x:
                 error(0, "%s:%d: %s", self.fn, ln, x.what)
                 continue
 
@@ -1173,7 +1178,7 @@ class parser:
                 try:
                     opt = option(w, self.fn, ln)
                     self.op.add_option(opt)
-                except Invalid_Option, x:
+                except Invalid_Option as x:
                     error(0, "%s:%d: %s", self.fn, ln, x.what)
                     continue
 
@@ -1204,7 +1209,7 @@ def make_output_names(infile, opt):
     # Create header guard for '#ifdef __foo__'
     guard = hfile.upper()
     rex   = re.compile(r'[^A-Za-z0-9_]')
-    guard = '___' + rex.sub('_', guard) + "_%d" % random.randint(100000, 999999999L) + '___'
+    guard = '___' + rex.sub('_', guard) + "_%d" % random.randint(100000, 999999999) + '___'
 
     return bundle(cfile=cfile, hfile=hfile, infile=infile,
                   guard=guard, prefix=opt.prefix)

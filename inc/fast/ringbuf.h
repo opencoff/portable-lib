@@ -937,10 +937,10 @@ rte_ring_dequeue_burst(struct rte_ring *r, void **obj_table, unsigned n)
  *   The number of entries in the ring.
  */
 static inline unsigned
-rte_ring_count(const struct rte_ring *r)
+rte_ring_count(struct rte_ring *r)
 {
-    uint32_t prod_tail = atomic_load_explicit(&r->prod.tail, memory_order_relaxed);
-    uint32_t cons_tail = atomic_load_explicit(&r->cons.tail, memory_order_relaxed);
+    uint_fast32_t prod_tail = atomic_load_explicit(&r->prod.tail, memory_order_relaxed);
+    uint_fast32_t cons_tail = atomic_load_explicit(&r->cons.tail, memory_order_relaxed);
     return ((prod_tail - cons_tail) & r->mask);
 }
 
@@ -953,7 +953,7 @@ rte_ring_count(const struct rte_ring *r)
  *   The number of free entries in the ring.
  */
 static inline unsigned
-rte_ring_free_count(const struct rte_ring *r)
+rte_ring_free_count(struct rte_ring *r)
 {
     return r->mask - rte_ring_count(r);
 }
@@ -969,7 +969,7 @@ rte_ring_free_count(const struct rte_ring *r)
  *   - 0: The ring is not full.
  */
 static inline int
-rte_ring_full(const struct rte_ring *r)
+rte_ring_full(struct rte_ring *r)
 {
     return rte_ring_free_count(r) == 0;
 }
@@ -984,14 +984,14 @@ rte_ring_full(const struct rte_ring *r)
  *   - 0: The ring is not empty.
  */
 static inline int
-rte_ring_empty(const struct rte_ring *r)
+rte_ring_empty(struct rte_ring *r)
 {
     return rte_ring_count(r) == 0;
 }
 
 
 static inline void
-rte_ring_dump(char *buf, size_t n, const struct rte_ring *r)
+rte_ring_dump(char *buf, size_t n, struct rte_ring *r)
 {
     ssize_t x;
     x = snprintf(buf, n, "ring <%p>: size=%u, used %u, avail %u\n"
