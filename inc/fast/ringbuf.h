@@ -149,7 +149,7 @@ enum rte_ring_queue_behavior {
  * values in a modulo-32bit base: that's why the overflow of the indexes is not
  * a problem.
  */
-struct __CACHELINE_ALIGNED __rte_index {
+struct __rte_index {
     atomic_uint_fast32_t head;
     atomic_uint_fast32_t tail;
 };
@@ -163,8 +163,8 @@ struct __CACHELINE_ALIGNED rte_ring {
     };
 
     /** Ring producer & consumer status. */
-    struct __rte_index prod;
-    struct __rte_index cons;
+    struct __rte_index prod __CACHELINE_ALIGNED;
+    struct __rte_index cons __CACHELINE_ALIGNED;
 
     void * volatile ring[0] __CACHELINE_ALIGNED;
 };
@@ -230,6 +230,99 @@ rte_ring_destroy(struct rte_ring *r)
 }
 
 
+/*
+ * Unrolled store data to ring
+ */
+static inline void
+__store_ring(struct rte_ring *r, uint_fast32_t head, void * const* obj, unsigned n)
+{
+    unsigned i;
+    unsigned loops = n & 0x3;
+    unsigned idx   = head & r->mask;
+
+
+    // If we know we won't wrap around, we unroll 4 times
+    if (likely((idx + n) <= r->mask)) {
+        for (i = 0; i < loops; i += 4, idx += 4) {
+                r->ring[idx+0] = obj[i+0];
+                r->ring[idx+1] = obj[i+1];
+                r->ring[idx+2] = obj[i+2];
+                r->ring[idx+3] = obj[i+3];
+        }
+
+        // mop up remainder
+        switch (n & 0x3) {
+            case 3:
+                r->ring[idx+0] = obj[i+0];
+                r->ring[idx+1] = obj[i+1];
+                r->ring[idx+2] = obj[i+2];
+                break;
+
+            case 2:
+                r->ring[idx+0] = obj[i+0];
+                r->ring[idx+1] = obj[i+1];
+                break;
+
+            case 1:
+                r->ring[idx+0] = obj[i+0];
+                break;
+        }
+    } else {
+        const uint32_t mask = r->mask;
+
+        for (i = 0; i < n; i++, idx++) {
+            r->ring[idx & mask] = obj[i];
+        }
+    }
+}
+
+
+/*
+ * Unrolled load data from ring
+ */
+static inline void
+__load_ring(struct rte_ring *r, uint_fast32_t head, void **obj, unsigned n)
+{
+    unsigned i;
+    unsigned loops = n & 0x3;
+    unsigned idx   = head & r->mask;
+
+
+    // If we know we won't wrap around, we unroll 4 times
+    if (likely((idx + n) <= r->mask)) {
+        for (i = 0; i < loops; i += 4, idx += 4) {
+                obj[i+0] = r->ring[idx+0];
+                obj[i+1] = r->ring[idx+1];
+                obj[i+2] = r->ring[idx+2];
+                obj[i+3] = r->ring[idx+3];
+        }
+
+        // mop up remainder
+        switch (n & 0x3) {
+            case 3:
+                obj[i+0] = r->ring[idx+0];
+                obj[i+1] = r->ring[idx+1];
+                obj[i+2] = r->ring[idx+2];
+                break;
+
+            case 2:
+                obj[i+0] = r->ring[idx+0];
+                obj[i+1] = r->ring[idx+1];
+                break;
+
+            case 1:
+                obj[i+0] = r->ring[idx+0];
+                break;
+        }
+    } else {
+        const uint32_t mask = r->mask;
+        for (i = 0; i < n; i++, idx++) {
+            obj[i+0] = r->ring[idx & mask];
+        }
+    }
+}
+
+
 /**
  * @internal Enqueue several objects on the ring (multi-producers safe).
  *
@@ -265,7 +358,6 @@ __rte_ring_mp_do_enqueue(struct rte_ring *r, void * const *obj_table,
     uint_fast32_t prod_head, prod_next;
     uint_fast32_t cons_tail, free_entries;
     int success;
-    unsigned i;
 
     /* move prod.head atomically */
     do {
@@ -298,8 +390,7 @@ __rte_ring_mp_do_enqueue(struct rte_ring *r, void * const *obj_table,
     } while (unlikely(success == 0));
 
     /* write entries in ring */
-    for (i = 0; likely(i < n); i++)
-        r->ring[(prod_head + i) & mask] = obj_table[i];
+    __store_ring(r, prod_head, obj_table, n);
 
     /*
      * If there are other enqueues in progress that preceeded us,
@@ -342,7 +433,6 @@ __rte_ring_sp_do_enqueue(struct rte_ring *r, void * const *obj_table,
     const uint32_t mask = r->mask;
     uint_fast32_t prod_head, cons_tail;
     uint_fast32_t prod_next, free_entries;
-    unsigned i;
 
     prod_head = atomic_load_explicit(&r->prod.head, memory_order_acquire);
     cons_tail = atomic_load_explicit(&r->cons.tail, memory_order_acquire);
@@ -367,9 +457,9 @@ __rte_ring_sp_do_enqueue(struct rte_ring *r, void * const *obj_table,
     atomic_store_explicit(&r->prod.head, prod_next, memory_order_release);
 
     /* write entries in ring */
-    for (i = 0; likely(i < n); i++)
-        r->ring[(prod_head + i) & mask] = obj_table[i];
+    __store_ring(r, prod_head, obj_table, n);
 
+    assert(atomic_load(&r->prod.tail) == prod_head);
     atomic_store_explicit(&r->prod.tail, prod_next, memory_order_release);
 
     return n;
@@ -404,11 +494,9 @@ __rte_ring_mc_do_dequeue(struct rte_ring *r, void **obj_table,
          unsigned n, enum rte_ring_queue_behavior behavior)
 {
     const unsigned max  = n;
-    const uint32_t mask = r->mask;
     uint_fast32_t cons_head, prod_tail;
     uint_fast32_t cons_next, entries;
     int success;
-    unsigned i;
 
     /* move cons.head atomically */
     do {
@@ -438,8 +526,7 @@ __rte_ring_mc_do_dequeue(struct rte_ring *r, void **obj_table,
     } while (likely(success == 0));
 
 
-    for (i = 0; likely(i < n); i++)
-        obj_table[i] = r->ring[(cons_head + i) & mask];
+    __load_ring(r, cons_head, obj_table, n);
 
     /*
      * If there are other dequeues in progress that preceded us,
@@ -480,10 +567,8 @@ static inline int
 __rte_ring_sc_do_dequeue(struct rte_ring *r, void **obj_table,
          unsigned n, enum rte_ring_queue_behavior behavior)
 {
-    const uint32_t mask = r->mask;
     uint_fast32_t cons_head, prod_tail;
     uint_fast32_t cons_next, entries;
-    unsigned i;
 
     cons_head = atomic_load_explicit(&r->cons.head, memory_order_acquire);
     prod_tail = atomic_load_explicit(&r->prod.tail, memory_order_acquire);
@@ -503,12 +588,9 @@ __rte_ring_sc_do_dequeue(struct rte_ring *r, void **obj_table,
     cons_next = cons_head + n;
     atomic_store_explicit(&r->cons.head, cons_next, memory_order_release);
 
-    for (i = 0; likely(i < n); i++) {
-        /* WTF??? WHY DOES THIS CODE GIVE STRICT-ALIASING WARNINGS
-         * ON SOME GCC. THEY ARE FREAKING VOID* !!! */
-        obj_table[i] = r->ring[(cons_head + i) & mask];
-    }
+    __load_ring(r, cons_head, obj_table, n);
 
+    assert(atomic_load(&r->cons.tail) == cons_head);
     atomic_store_explicit(&r->cons.tail, cons_next, memory_order_release);
     return n;
 }
