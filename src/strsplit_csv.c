@@ -93,6 +93,8 @@ strsplit_csv(char *sv[], int sv_size, char *str, const char *sep)
                         // Otherwise, we are done with the quoted word.
                         q = 0;
                     }
+                } else if (q > 0) {
+                    *p++ = *str;
                 } else {
                     // Start of quote.
                     q = c;

@@ -29,6 +29,7 @@ static testcase tests[] =
     _T("abc", "abc", 4),                           /* 0 */
     _T("abc,def,ghi", "abc;def;ghi", 5),
     _T("abc,def,ghi", "abc;def;ghi", 3),
+    _T("abc,\"d'ef\",ghi", "abc;d'ef;ghi", 3),
     _T("\"abc\",def,xyz", "abc;def;xyz", 3),
     _T("\"abc\\\"x\",def,ghi", "abc\"x;def;ghi", 3),
     _T("\"abc\\\"x,y,z\",def,ghi", "abc\"x,y,z;def;ghi", 3),
