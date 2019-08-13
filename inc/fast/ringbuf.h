@@ -236,12 +236,12 @@ rte_ring_destroy(struct rte_ring *r)
 static inline void
 __store_ring(struct rte_ring *r, uint_fast32_t head, void * const* obj, unsigned n)
 {
-    unsigned i;
-    unsigned idx   = head & r->mask;
+    unsigned i   = 0;
+    unsigned idx = head & r->mask;
 
     // If we know we won't wrap around, we unroll 4 times
     if (likely((idx + n) <= r->mask)) {
-        unsigned loops = n >> 2;
+        unsigned loops = n & ~0x3;
 
         for (i = 0; i < loops; i += 4, idx += 4) {
                 r->ring[idx+0] = obj[i+0];
@@ -283,12 +283,12 @@ __store_ring(struct rte_ring *r, uint_fast32_t head, void * const* obj, unsigned
 static inline void
 __load_ring(struct rte_ring *r, uint_fast32_t head, void **obj, unsigned n)
 {
-    unsigned i;
-    unsigned idx   = head & r->mask;
+    unsigned i   = 0;
+    unsigned idx = head & r->mask;
 
     // If we know we won't wrap around, we unroll 4 times
     if (likely((idx + n) <= r->mask)) {
-        unsigned loops = n >> 2;
+        unsigned loops = n & ~0x3;
 
         for (i = 0; i < loops; i += 4, idx += 4) {
                 obj[i+0] = r->ring[idx+0];
