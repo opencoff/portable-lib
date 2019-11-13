@@ -23,7 +23,7 @@ win32_vpath   += $(PORTABLE)/src/win32
 win32_incdirs += $(PORTABLE)/inc/win32
 win32_defs    += -DWIN32 -D_WIN32 -DWINVER=0x0501
 win32_tests   +=
-win32_ldflags +=
+win32_LDFLAGS +=
 win32_ldlibs  += -lwsock32
 
 all_posix_objs = daemon.o
@@ -36,7 +36,7 @@ posix_incdirs  +=
 posix_defs     +=
 posix_tests    +=
 posix_ldlibs   +=
-posix_ldflags  +=
+posix_LDFLAGS  +=
 
 Linux_ldlibs     += -lsodium
 Linux_defs       += -D_GNU_SOURCE=1
@@ -54,7 +54,7 @@ ifneq ($(findstring $(platform),$(posix_oses)),)
 	$(platform)_vpath   += $(posix_vpath)
 	$(platform)_incdirs += $(PORTABLE)/inc/$(platform) $(posix_incdirs)
 	$(platform)_defs    += $(posix_defs)
-	$(platform)_ldflags += $(posix_ldflags)
+	$(platform)_LDFLAGS += $(posix_LDFLAGS)
 	$(platform)_ldlibs  += $(posix_ldlibs)
 endif
 
@@ -149,6 +149,7 @@ MKGETOPT = $(TOOLSDIR)/mkgetopt.py
 
 WARNINGS	    = -Wall -Wextra -Wpointer-arith -Wshadow
 #EXTRA_WARNINGS  = -Wsign-compare -Wconversion -Wsign-conversion
+LDFLAGS += $(EXTRA_WARNINGS)
 
 win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
@@ -160,11 +161,17 @@ OpenBSD_CC      = clang
 OpenBSD_LD      = clang++
 OpenBSD_CXXFLAGS += -std=c++17
 
-Darwin_CXXFLAGS += -std=c++17
+Darwin_CC = clang
+Darwin_CXX = clang++
+Darwin_LD = clang++
+Darwin_SANITIZE = -fsanitize=undefined -fsanitize=address
+Darwin_CXXFLAGS += -std=c++17 $(Darwin_SANITIZE)
+Darwin_CFLAGS += $(Darwin_SANITIZE)
+Darwin_LDFLAGS += $(Darwin_SANITIZE)
 
 ARFLAGS  = rv
 CFLAGS  += $($(platform)_CFLAGS) $(WARNINGS) $(EXTRA_WARNINGS) $(INCS) $(DEFS)
-LDFLAGS += $($(platform)_ldflags)
+LDFLAGS += $($(platform)_LDFLAGS)
 
 
 CXXFLAGS += $(CFLAGS) $($(platform)_CXXFLAGS)

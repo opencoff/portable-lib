@@ -78,10 +78,9 @@ extern "C" {
 struct bag
 {
     uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
+    void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 
     SL_ENTRY(bag) link;
-
-    void*      hv[FASTHT_BAGSZ];
 
     uint64_t __pad0;    // cache line pad
 };
@@ -94,7 +93,7 @@ SL_HEAD_TYPEDEF(bag_head, bag);
  */
 struct hb
 {
-    bag_head  head;
+    bag_head  head __CACHELINE_ALIGNED;
     uint32_t  nodes;    // number of nodes in this list
     uint32_t  bags;     // number of bags
 };
@@ -106,9 +105,9 @@ typedef struct hb hb;
  */
 struct ht
 {
+    hb      *b;         // array of buckets
     uint64_t n;         // number of buckets
     uint64_t salt;      // random seed
-    hb      *b;         // array of buckets
 
     uint64_t nodes;     // number of nodes in the hash table
     uint64_t fill;      // number of buckets occupied.

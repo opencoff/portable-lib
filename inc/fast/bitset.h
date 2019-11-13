@@ -126,7 +126,7 @@ bitset_set(bitset *b, size_t i)
     assert(i < (64*b->n));
     uint64_t *w = &b->w[i / 64];
 
-    *w |= (1 << (i % 64));
+    *w |= (_U64(1) << (i % 64));
 }
 
 
@@ -137,7 +137,7 @@ bitset_clr(bitset *b, size_t i)
     assert(i < (64*b->n));
     uint64_t *w = &b->w[i / 64];
 
-    *w &= ~(1 << (i % 64));
+    *w &= ~(_U64(1) << (i % 64));
 }
 
 
@@ -149,7 +149,7 @@ bitset_isset(bitset *b, size_t i)
 {
     assert(i < (64*b->n));
     uint64_t *w = &b->w[i / 64];
-    return (*w & (1 << (i % 64))) > 0;
+    return (*w & (_U64(1) << (i % 64))) > 0;
 }
 
 // return current value of bit 'i'

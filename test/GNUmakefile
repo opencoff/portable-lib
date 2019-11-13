@@ -48,7 +48,6 @@ autotests = strmatch t_arena t_str2hex \
 		t_spscq t_bitvect t_fts t_hashspeed \
 		t_prodcons t_mpmcq t_ringbuf
 
-
 tests_with_input = mmaptest t_mkdirhier  \
                    t_readpass t_rotatefile
 
@@ -94,11 +93,11 @@ test:
 	for t in $(autotests); do  \
         echo "TEST $$t:"; \
 		./$(objdir)/$$t || exit 1;   \
-    done
+    done || exit 1
 ifneq ($(hash-input),)
 	for t in $(hashtests); do \
 		./$(objdir)/$$t $(hash-input) || exit 1; \
-	done
+	done || exit 1
 endif
 
 

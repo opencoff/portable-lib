@@ -196,9 +196,11 @@ int
 mask_to_cidr4(uint32_t mask, uint32_t* cidr)
 {
     uint32_t n = 0;
+    const uint32_t ff = ((uint32_t)0xff) << 24;
 
     while (mask > 0) {
-        uint8_t v = ((0xff << 24) & mask) >> 24;
+        uint32_t v0 = (ff & mask) >> 24;
+        uint8_t v = v0 & 0xff;
 
         mask <<= 8;
         if (v == 0xff) {

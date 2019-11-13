@@ -24,8 +24,8 @@ static const kv Vars[] = {
 struct test
 {
     int pass;
-    char *in;
-    char *exp;
+    const char *in;
+    const char *exp;
 };
 typedef struct test test;
 

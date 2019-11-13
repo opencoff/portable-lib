@@ -111,10 +111,11 @@ gstr_init2(gstr* g, const gstr* s)
 gstr*
 gstr_init_from(gstr* g, const char* s)
 {
-    size_t n = strlen(s) + 1;
+    assert(s);
 
+    size_t n = strlen(s) + 1;
     gstr_init(g, n);
-    memcpy(g->str, s, n+1);
+    memcpy(g->str, s, n);
 
     return g;
 }
