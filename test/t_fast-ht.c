@@ -86,7 +86,9 @@ insert_words(strvect* v, ht* h)
         void *r = ht_probe(h, w->h, w->w);
         tot += now() - t0;
 
-        assert(!r);
+        if (r) {
+            printf("# Duplicate %s\n", w->w);
+        }
     }
     return tot;
 }

@@ -19,7 +19,7 @@ typedef struct testcase  testcase;
 #define _T3(str,v1,v2,v3)           {str,3, {v1,v2,v3}}
 #define _T4(str,v1,v2,v3,v4)        {str,4, {v1,v2,v3,v4}}
 #define _T5(str,v1,v2,v3,v4, v5)    {str,5, {v1,v2,v3,v4,v5}}
-#define _Tx(str, err)               {str, -err}
+#define _Tx(str, err)               {str, -err, {}}
 static testcase tests[] =
 {
     _T3("abc def ghi",       "abc", "def", "ghi"),  // 0
