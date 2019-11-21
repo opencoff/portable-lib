@@ -78,9 +78,10 @@ extern "C" {
 struct bag
 {
     uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
-    void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
-
     SL_ENTRY(bag) link;
+
+    // start of second  cache line
+    void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 
     uint64_t __pad0;    // cache line pad
 };

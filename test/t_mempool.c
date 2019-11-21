@@ -53,6 +53,7 @@ VECT_TYPEDEF(ptr_vect, void*);
 #define now()   sys_cpu_timestamp()
 
 extern uint32_t arc4random(void);
+extern void arc4random_buf(void *, size_t);
 
 
 static void
@@ -84,6 +85,9 @@ perf_test(int run)
         tm_a += (timenow() - t0);
 
         VECT_PUSH_BACK(&pv, p);
+
+        // scribble the memory a bit
+        arc4random_buf(p, sizeof(obj2));
     }
 
     /*

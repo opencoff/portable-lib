@@ -32,10 +32,10 @@ static int grow_if(gstr * g, int len);
 #endif /* !CHAR_BIT */
 
 
-#define LONGBIT       (CHAR_BIT * sizeof(unsigned long))
+#define LONGBIT       (CHAR_BIT * sizeof(uint32_t))
 #define BITVECTSIZE   (256 / LONGBIT)
-#define _vect(c)      ((c) / LONGBIT)
-#define _mask(c)      (1 << ((c) % LONGBIT))
+#define _vect(c)      (_U32(c) / LONGBIT)
+#define _mask(c)      (1 << (_U32(c) % LONGBIT))
 
 #define ISDELIM(v,c)  (v[_vect(c)] & _mask(c))
 #define ADDELIM(v,c)  (v[_vect(c)] |= _mask(c))
@@ -52,8 +52,7 @@ grow_if(gstr * g, int len)
     if (newcapacity > reqd)
         return 0;
 
-    /* Align to nearest 1k boundary */
-    newcapacity = _ALIGN_UP(reqd, 1024);
+    newcapacity = NEXTPOW2(reqd);
 
     str = RENEWA(char, g->str, newcapacity);
 
@@ -96,11 +95,11 @@ gstr_init2(gstr* g, const gstr* s)
     assert(g);
     assert(s);
 
-    size_t n    = s->len+1;
+    size_t n    = NEXTPOW2(s->len+1);
     g->str      = NEWA(char, n);
     g->len      = s->len;
-    g->cap = n;
-    memcpy(g->str, s->str, n);
+    g->cap      = n;
+    memcpy(g->str, s->str, s->len+1);
     return g;
 }
 
@@ -113,9 +112,11 @@ gstr_init_from(gstr* g, const char* s)
 {
     assert(s);
 
-    size_t n = strlen(s) + 1;
-    gstr_init(g, n);
-    memcpy(g->str, s, n);
+    size_t n = strlen(s);
+    g->cap = NEXTPOW2(n+1);
+    g->str = NEWA(char, g->cap);
+    g->len = n;
+    memcpy(g->str, s, n+1);
 
     return g;
 }
@@ -139,7 +140,6 @@ gstr_fini(gstr *g)
 static size_t
 __append(gstr* g, const char* str, size_t len)
 {
-    len = strlen(str);
     if (grow_if(g, len+1) < 0) return 0;
 
     memcpy(g->str + g->len, str, len+1);
@@ -220,10 +220,14 @@ gstr_chop(gstr * g)
     if ( g->len > 0 )
     {
         c = g->str[g->len-1];
-        if (c == '\r' || c == '\n')
-            g->str[--g->len] = 0;
-        else
-            c = 0;
+        if (c == '\n') g->str[--g->len] = 0;
+        if (g->len > 0) {
+            int cr = g->str[g->len-1];
+            if (cr == '\r') {
+                c = cr;
+                g->str[--g->len] = 0;
+            }
+        }
     }
 
     return c;
@@ -239,16 +243,11 @@ int
 gstr_chop_if(gstr * g, const char * s)
 {
     assert(g);
+    assert(s);
 
-    int c;
+    if (g->len == 0) return 0;
 
-    if ( !s )
-        return 0;
-
-    if (g->len == 0)
-        return 0;
-
-    c = g->str[g->len-1];
+    int c = g->str[g->len-1];
 
     /* Remove the char if it is present in 's'
      * Optimization: Usually, we only have one character in 's'.

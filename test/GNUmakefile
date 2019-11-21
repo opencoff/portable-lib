@@ -38,7 +38,7 @@ posix_tests += t_cresolve
 # What tests to build
 autotests = strmatch t_arena t_str2hex \
 		t_ipaddr t_strcopy t_strtoi \
-		t_pack t_strsplit_csv \
+		t_pack t_strsplit_csv t_splitargs \
 		t_strsplit t_gvarexp t_dirname t_uuid \
 		t_frand t_ulid \
 		t_fixedsize t_mempool t_opt_test \
