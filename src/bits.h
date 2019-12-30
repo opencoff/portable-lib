@@ -35,9 +35,10 @@ extern "C" {
 #define _word(c)      (((xword)(c)) / WORDBITS)
 #define _bitp(c)      (1 << (((xword)(c)) % WORDBITS))
 
-typedef struct delim {
+struct delim {
     xword    v[BITVECTSIZE];
-} delim;
+};
+typedef struct delim delim;
 
 #define __init_delim(d)   memset((d)->v, 0, sizeof (d)->v)
 #define __is_delim(d,c)   ((d)->v[_word(c)] &  _bitp(c))

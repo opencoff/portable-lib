@@ -51,7 +51,7 @@ grow_if(gstr * g, int len)
 
 
 static inline gstr *
-__init_gstr(gstr *g, size_t n, char *src)
+__init_gstr(gstr *g, size_t n, const char *src)
 {
     if (n == 0) n = 127;
 
@@ -375,7 +375,7 @@ gstr_unquote(gstr* g)
 int
 gstr_readline(gstr * g, FILE * fp, const char * tok)
 {
-    delim delim;
+    delim d;
     char * str;
     size_t len;
     int c;
@@ -384,9 +384,9 @@ gstr_readline(gstr * g, FILE * fp, const char * tok)
     assert(fp);
     assert(tok);
 
-    __init_delim(&delim);
+    __init_delim(&d);
     for (; (c = *tok); tok++)
-        __add_delim(&delim, c);
+        __add_delim(&d, c);
 
     str = g->str;
     len = g->len = 0;
@@ -401,7 +401,7 @@ gstr_readline(gstr * g, FILE * fp, const char * tok)
             g->cap = newcap;
         }
 
-        if (__is_delim(&delim, c))
+        if (__is_delim(&d, c))
             break;
 
         // else, store it and move on
