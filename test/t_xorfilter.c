@@ -4,6 +4,7 @@
  */
 
 #include <stdio.h>
+#include <inttypes.h>
 #include <assert.h>
 #include "error.h"
 #include "utils/utils.h"
@@ -43,19 +44,78 @@ basictest(int is16)
         }
     }
 
-    const char *pref = is16 ? "Xor16" : "Xor8";
-    printf("%s FP Prob (est): %8.7f\n"
-           "%s Bits/entry:    %4.2f\n", pref, ((double)rands) / ((double)tries),
-           pref, Xorfilter_bpe(x));
+    const char *pref = is16 ? "Xor16" : "Xor8 ";
+    printf("%s FP Prob (est): %8.7f %4.2f bits/entry\n",
+           pref, ((double)rands) / ((double)tries), Xorfilter_bpe(x));
 
     Xorfilter_delete(x);
     DEL(keys);
 }
 
+#define now()       sys_cpu_timestamp()
+#define _d(x)       ((double)(x))
+
+static void
+perftest(int is16)
+{
+    const size_t trials = 100;
+    const size_t n = 100000;
+    uint64_t *keys = NEWA(uint64_t, n);
+
+    for (size_t i = 0; i < n; i++) keys[i] = rand64();
+    Xorfilter *x;
+    const char *pref;
+
+    uint64_t t_create = 0,
+             t_find = 0;
+
+    if (is16) {
+        pref = "Xor16";
+        for (size_t k = 0; k < trials; k++) {
+            uint64_t t0 = now();
+
+            x = Xorfilter_new16(keys, n);
+            t_create += now() - t0;
+
+            assert(x);
+        }
+    } else {
+        pref = "Xor8 ";
+        for (size_t k = 0; k < trials; k++) {
+            uint64_t t0 = now();
+
+            x = Xorfilter_new8(keys, n);
+            t_create += now() - t0;
+            assert(x);
+        }
+    }
+
+
+    for (size_t k = 0; k < trials; k++) {
+        for (size_t i = 0; i < n; i++) {
+            uint64_t t0 = now();
+            int ok = Xorfilter_contains(x, keys[i]);
+
+            t_find += now() - t0;
+            assert(ok);
+        }
+    }
+
+    Xorfilter_delete(x);
+
+    double cr = (_d(t_create) / _d(trials)) / _d(n);
+    double ff = (_d(t_find) / _d(trials)) / _d(n);
+
+    printf("%s %lu items: create %6.3f cy/elem, find %6.3f cy/elem\n",
+            pref, n, cr, ff);
+}
 
 int
 main()
 {
     basictest(0);
     basictest(1);
+
+    perftest(0);
+    perftest(1);
 }

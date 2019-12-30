@@ -40,6 +40,7 @@
  *               h2 = mix(mix(h))
  */
 #include <stdint.h>
+#include <inttypes.h>
 #include <math.h>
 #include "fast/vect.h"
 #include "utils/xorfilter.h"
@@ -146,14 +147,14 @@ hash3(uint64_t h, uint32_t size)
 
 // Given a hashed quantity, return its 8 bit fingerprint
 static inline uint8_t
-__fp8(uint64_t h)
+__xfp8(uint64_t h)
 {
     return 0xff & (h ^ (h >> 32));
 }
 
 // Given a hashed quantity, return its 16 bit fingerprint
 static inline uint16_t
-__fp16(uint64_t h)
+__xfp16(uint64_t h)
 {
     return 0xffff & (h ^ (h >> 32));
 }
@@ -294,7 +295,7 @@ Xorfilter_new8(uint64_t *keys, size_t n)
     x->fp8 = NEWZA(uint8_t, VECT_LEN(&stack) * 3);
     while (VECT_LEN(&stack) > 0) {
         keyidx  ki = VECT_POP_BACK(&stack);
-        uint8_t fp = __fp8(ki.hash);
+        uint8_t fp = __xfp8(ki.hash);
         fpidx    z = hash3(ki.hash, x->size);
 
         x->fp8[ki.idx] = fp ^ x->fp8[z.i] ^ x->fp8[z.j] ^ x->fp8[z.k];
@@ -319,7 +320,7 @@ Xorfilter_new16(uint64_t *keys, size_t n)
     x->is16 = 1;
     while (VECT_LEN(&stack) > 0) {
         keyidx   ki = VECT_POP_BACK(&stack);
-        uint16_t fp = __fp16(ki.hash);
+        uint16_t fp = __xfp16(ki.hash);
         fpidx    z = hash3(ki.hash, x->size);
 
         x->fp16[ki.idx] = fp ^ x->fp16[z.i] ^ x->fp16[z.j] ^ x->fp16[z.k];
@@ -337,11 +338,11 @@ Xorfilter_contains(Xorfilter *x, uint64_t key)
     fpidx    z = hash3(h, x->size);
 
     if (x->is16) {
-        uint16_t fp = __fp16(h);
+        uint16_t fp = __xfp16(h);
         uint16_t *b = x->fp16;
         return fp == (b[z.i] ^ b[z.j] ^ b[z.k]);
     }
-    uint8_t fp = __fp8(h);
+    uint8_t fp = __xfp8(h);
     uint8_t *b = x->fp8;
     return fp == (b[z.i] ^ b[z.j] ^ b[z.k]);
 }
