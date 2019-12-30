@@ -23,48 +23,50 @@
 
 #include "utils/gstring.h"
 #include "utils/utils.h"
+#include "bits.h"
 
 /* Grow string `g' by `len' bytes -- if necessary. */
 static int grow_if(gstr * g, int len);
 
-#ifndef CHAR_BIT
-#define CHAR_BIT 8
-#endif /* !CHAR_BIT */
 
-
-#define LONGBIT       (CHAR_BIT * sizeof(uint32_t))
-#define BITVECTSIZE   (256 / LONGBIT)
-#define _vect(c)      (_U32(c) / LONGBIT)
-#define _mask(c)      (1 << (_U32(c) % LONGBIT))
-
-#define ISDELIM(v,c)  (v[_vect(c)] & _mask(c))
-#define ADDELIM(v,c)  (v[_vect(c)] |= _mask(c))
-
-
-/* Grow the gstr by len -- if necessary. */
+/* Grow the gstr by additional 'len' bytes -- if necessary. */
 static int
 grow_if(gstr * g, int len)
 {
-    size_t newcapacity = g->cap,
-           reqd        = g->len + len;
+    size_t want = g->len + len,
+           have = g->cap;
     char * str;
 
-    if (newcapacity > reqd)
-        return 0;
+    if (have > want) return 0;
 
-    newcapacity = NEXTPOW2(reqd);
+    while (have < want) have *= 2;
 
-    str = RENEWA(char, g->str, newcapacity);
-
-    /* XXX DIE? */
-    if (! str)
-        return -1;
+    str = RENEWA(char, g->str, have);
+    assert(str);
 
     g->str = str;
-    g->cap = newcapacity;
+    g->cap = have;
     return 0;
 }
 
+
+static inline gstr *
+__init_gstr(gstr *g, size_t n, char *src)
+{
+    if (n == 0) n = 127;
+
+    g->cap = NEXTPOW2(n+1);
+    g->str = NEWZA(char, g->cap);
+    assert(g->str);
+
+    if (src) {
+        memcpy(g->str, src, n+1);
+        g->len = n;
+    } else {
+        g->len = 0;
+    }
+    return g;
+}
 
 /* Initialize a gstr structure to hold string of atleast `size'
  * bytes.
@@ -78,14 +80,7 @@ gstr_init(gstr * g, size_t size)
 {
     assert(g);
 
-    if ( size == 0 ) size = 128;
-
-    g->len = 0;
-    g->cap = size;
-    g->str = NEWA(char, size);
-    assert(g->str);
-    g->str[0] = 0;
-    return g;
+    return __init_gstr(g, size, 0);
 }
 
 
@@ -95,12 +90,7 @@ gstr_init2(gstr* g, const gstr* s)
     assert(g);
     assert(s);
 
-    size_t n    = NEXTPOW2(s->len+1);
-    g->str      = NEWA(char, n);
-    g->len      = s->len;
-    g->cap      = n;
-    memcpy(g->str, s->str, s->len+1);
-    return g;
+    return __init_gstr(g, s->len, s->str);
 }
 
 
@@ -110,15 +100,8 @@ gstr_init2(gstr* g, const gstr* s)
 gstr*
 gstr_init_from(gstr* g, const char* s)
 {
-    assert(s);
-
-    size_t n = strlen(s);
-    g->cap = NEXTPOW2(n+1);
-    g->str = NEWA(char, g->cap);
-    g->len = n;
-    memcpy(g->str, s, n+1);
-
-    return g;
+    size_t n = s ? strlen(s) : 0;
+    return __init_gstr(g, n, s);
 }
 
 
@@ -392,7 +375,7 @@ gstr_unquote(gstr* g)
 int
 gstr_readline(gstr * g, FILE * fp, const char * tok)
 {
-    unsigned long delim[BITVECTSIZE];
+    delim delim;
     char * str;
     size_t len;
     int c;
@@ -401,9 +384,9 @@ gstr_readline(gstr * g, FILE * fp, const char * tok)
     assert(fp);
     assert(tok);
 
-    memset(delim, 0, sizeof delim);
+    __init_delim(&delim);
     for (; (c = *tok); tok++)
-        ADDELIM(delim, c);
+        __add_delim(&delim, c);
 
     str = g->str;
     len = g->len = 0;
@@ -418,7 +401,7 @@ gstr_readline(gstr * g, FILE * fp, const char * tok)
             g->cap = newcap;
         }
 
-        if (ISDELIM(delim, c))
+        if (__is_delim(&delim, c))
             break;
 
         // else, store it and move on

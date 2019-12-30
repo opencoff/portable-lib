@@ -29,14 +29,14 @@ extern "C" {
  * Checking to see if a character is a delimiter then boils down to
  * checking if the appropriate bit within the long-word is set.
  */
-#define word          uint32_t
-#define WORDBITS      (8 * sizeof(uint32_t))
+#define xword          uint32_t
+#define WORDBITS      (8 * sizeof(xword))
 #define BITVECTSIZE   (256 / WORDBITS)
-#define _word(c)      (((word)(c)) / WORDBITS)
-#define _bitp(c)      (1 << (((word)(c)) % WORDBITS))
+#define _word(c)      (((xword)(c)) / WORDBITS)
+#define _bitp(c)      (1 << (((xword)(c)) % WORDBITS))
 
 typedef struct delim {
-    word    v[BITVECTSIZE];
+    xword    v[BITVECTSIZE];
 } delim;
 
 #define __init_delim(d)   memset((d)->v, 0, sizeof (d)->v)

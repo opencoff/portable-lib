@@ -18,6 +18,7 @@ static const kv Vars[] = {
     {"abc", "foo"},
     {"ab",  "bar"},
     {"a",   "pqrf"},
+    {"a-b c", "ABC"},
     {0, 0}
 };
 
@@ -39,6 +40,8 @@ static const test Tests[] = {
     _P("${ab}",  "bar"),
     _P("$a",     "pqrf"),
     _P("${a}",   "pqrf"),
+    _P("${a-b c}", "ABC"),
+    _P("$a ${a-b c}", "pqrf ABC"),
     _P("$abc def", "foo def"),
     _P("${abc} def", "foo def"),
     _P("${a} def",   "pqrf def"),

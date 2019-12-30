@@ -114,11 +114,11 @@ gstr_varexp(gstr* g0, const char * (*find)(void *, const char* key), void* cooki
 
         // This could be a var. Expand it.
         n = getvar(&v, s+1);
-        if (gstr_len(&v) == 0) { r = -EINVAL; goto done; }
+        if (gstr_len(&v) == 0) { r = -EINVAL; goto fail; }
 
         // var is in 'v.str'. Look it up.
         z = (*find)(cookie, v.str);
-        if (!z) { r = -ENOENT; goto done; }
+        if (!z) { r = -ENOENT; goto fail; }
 
         gstr_append_str(&g, z);
         s += n;
@@ -132,6 +132,11 @@ gstr_varexp(gstr* g0, const char * (*find)(void *, const char* key), void* cooki
     g0->cap = g.cap;
 
     free(gone);
+    goto done;
+
+fail:
+    g0->str[0] = 0;
+    g0->len    = 0;
 
 done:
     gstr_fini(&v);
