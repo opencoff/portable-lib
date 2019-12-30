@@ -327,7 +327,6 @@ extern "C" {
 /* Fetch the n'th element */
 #define VECT_ELEM(v,n)  ((v)->array[(n)])
 
-#define VECT_LEN(v)        ((v)->size)
 #define VECT_LEN(v)         ((v)->size)
 #define VECT_CAPACITY(v)    ((v)->capacity)
 

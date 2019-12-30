@@ -47,7 +47,7 @@ typedef struct arena * arena_t ;
  *   On Success: 0
  *   On failure: -EINVAL or -ENOMEM
  */
-extern int arena_new(arena_t* ret_ptr, int alloc_chunk_size);
+extern int arena_new(arena_t* ret_ptr, size_t alloc_chunk_size);
 
 
 /* Allocate `n' bytes of storage from arena `a'.
@@ -56,7 +56,7 @@ extern int arena_new(arena_t* ret_ptr, int alloc_chunk_size);
  *               atleast `n' bytes big.
  *   On failure: NULL
  */
-extern void * arena_alloc(arena_t a, int n);
+extern void * arena_alloc(arena_t a, size_t n);
 
 
 /* Delete the entire arena `a' -- thus deallocating all individual

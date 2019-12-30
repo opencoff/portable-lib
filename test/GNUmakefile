@@ -40,7 +40,7 @@ autotests = strmatch t_arena t_str2hex \
 		t_ipaddr t_strcopy t_strtoi \
 		t_pack t_strsplit_csv t_splitargs \
 		t_strsplit t_gvarexp t_dirname t_uuid \
-		t_frand t_ulid \
+		t_frand t_ulid t_xorfilter \
 		t_fixedsize t_mempool t_opt_test \
 		t_list t_b64_c t_vect \
 		t_xorrand  t_strtosize \
@@ -52,7 +52,7 @@ tests_with_input = mmaptest t_mkdirhier  \
                    t_readpass t_rotatefile
 
 hash-input = $(wildcard ./in) # input for all the tests below
-hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_fastht
+hashtests = t_hashtab t_fast-ht t_hashbench t_bloom
 
 tests = $(autotests) $(tests_with_input) $(hashtests) $($(platform)_tests)
 

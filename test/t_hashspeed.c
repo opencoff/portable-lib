@@ -76,7 +76,6 @@ static const hashfunc Hashes[] =
     , {"murmur3", murmur3_hash_32 }
     , {"hsieh", hsieh_hash }
     , {"fnv", fnv_hash }
-    , {"jenkins", jenkins_hash }
     , {"fasthash", fasthash32 }
     , {"siphash",  siphash24_32 }
     , {"yorrike", yorrike_hash32 }

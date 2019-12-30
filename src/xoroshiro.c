@@ -25,8 +25,6 @@
 #include "utils/utils.h"
 #include "utils/xoroshiro.h"
 
-
-
 static inline uint64_t
 rotl(const uint64_t x, unsigned int k)
 {
@@ -53,7 +51,7 @@ makeseed()
             z ^= c * (j+1);
         }
     }
-    return splitmix64(z);
+    return splitmix64(&z);
 }
 
 
@@ -63,7 +61,7 @@ xoro128plus_init(xoro128plus *s, uint64_t seed)
     if (!seed) seed = makeseed();
 
     s->v0 = seed;
-    s->v1 = splitmix64(seed);
+    s->v1 = splitmix64(&seed);
 }
 
 

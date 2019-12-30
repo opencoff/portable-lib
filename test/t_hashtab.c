@@ -77,7 +77,6 @@ fold32(uint64_t v)
  */
 static uint32_t hash_murmur3(const void*);
 static uint32_t hash_hsieh(const void*);
-static uint32_t hash_jenkins(const void*);
 static uint32_t hash_fnv(const void*);
 static uint32_t hash_city(const void*);
 static uint32_t hash_sip(const void*);
@@ -96,7 +95,6 @@ static const hash_func_pair Hashnames [] =
 {
     {"hsieh",   hash_hsieh},
     {"murmur",  hash_murmur3},
-    {"jenkins", hash_jenkins},
     {"fnv",     hash_fnv},
     {"city",    hash_city},
     {"siphash", hash_sip},
@@ -535,8 +533,7 @@ Usage: %s [OPTIONS] file [file ..]\n\
           --fill=num, -f num    Set fill percent to `num' %%\n\
           --hash=NAME, -H NAME  Use hash function 'NAME' instead of default\n\
                                 NAME must be one of 'default', 'hsieh', 'murmur', \n\
-                                'fnv', 'city', 'siphash[*]', 'fast', 'yorrike',\n\
-                                'jenkins' \n\
+                                'fnv', 'city', 'siphash[*]', 'fast', 'yorrike'\n\
 ", program_name) ;
 
     exit(s) ;
@@ -555,14 +552,6 @@ hash_hsieh(const void* x)
 {
     const datum* p = (const datum*)x;
     return hsieh_hash(p->key, strlen((const char*)p->key), 0);
-}
-
-
-static uint32_t
-hash_jenkins(const void* x)
-{
-    const datum* p = (const datum*)x;
-    return jenkins_hash(p->key, strlen((const char*)p->key), 0x58718AFD);
 }
 
 static uint32_t
