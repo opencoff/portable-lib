@@ -76,9 +76,11 @@ perftest(int is16)
 
             x = Xorfilter_new16(keys, n);
             t_create += now() - t0;
-
             assert(x);
+            Xorfilter_delete(x);
         }
+
+        x = Xorfilter_new16(keys, n);
     } else {
         pref = "Xor8 ";
         for (size_t k = 0; k < trials; k++) {
@@ -87,10 +89,21 @@ perftest(int is16)
             x = Xorfilter_new8(keys, n);
             t_create += now() - t0;
             assert(x);
+            Xorfilter_delete(x);
         }
+        x = Xorfilter_new8(keys, n);
     }
 
+    // shuffle all the items
+    // fisher-yates shuffle
+    for (size_t i = n-1; i > 0; i--) {
+        size_t j = rand64() % (i+1);
+        uint64_t e = keys[i];
+        keys[i]    = keys[j];
+        keys[j]    = e;
+    }
 
+    // now look for items
     for (size_t k = 0; k < trials; k++) {
         for (size_t i = 0; i < n; i++) {
             uint64_t t0 = now();
