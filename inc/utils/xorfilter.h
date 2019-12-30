@@ -27,17 +27,30 @@
 extern "C" {
 #endif /* __cplusplus */
 
-// Forward Decl
+// Forward Decl: Opaque struct for callers
 struct Xorfilter;
 typedef struct Xorfilter Xorfilter;
 
+/*
+ * Create and return a new 8-bit Xorfilter using 'n' keys in 'elem'.
+ */
 extern Xorfilter* Xorfilter_new8(uint64_t *elem, size_t n);
+
+/*
+ * Create and return a new 16-bit Xorfilter using 'n' keys in 'elem'.
+ */
 extern Xorfilter* Xorfilter_new16(uint64_t *elem, size_t n);
+
+/* Delete and free memory associated with Xorfilter */
 extern void Xorfilter_delete(Xorfilter *);
 
-extern int Xorfilter_contains(Xorfilter *, uint64_t n);
+/*
+ * Return true if the Xorfilter contains element 'x' and false
+ * otherwise.
+ */
+extern int Xorfilter_contains(Xorfilter *, uint64_t x);
 
-// Return number of bits per element
+/* Return number of bits per element in this XOrfilter */
 extern double Xorfilter_bpe(Xorfilter *);
 
 #ifdef __cplusplus

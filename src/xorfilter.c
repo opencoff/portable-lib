@@ -43,7 +43,9 @@
 #include <math.h>
 #include "fast/vect.h"
 #include "utils/xorfilter.h"
-#include "utils/xoroshiro.h"
+
+
+extern void arc4random_buf(void *, size_t);
 
 /*
  * Holds the state for the Xorfilter. We keep this opaque to
@@ -71,6 +73,13 @@ struct fpidx {
 };
 typedef struct fpidx fpidx;
 
+static uint64_t
+rand64()
+{
+    uint64_t x;
+    arc4random_buf(&x, sizeof x);
+    return x;
+}
 
 // Compression function from fasthash
 static inline uint64_t
@@ -110,15 +119,13 @@ __geth0(uint64_t h, uint32_t size)
 static inline uint32_t
 __geth1(uint64_t h, uint32_t size)
 {
-    h = mix(h);
-    return h % size;
+    return mix(h) % size;
 }
 
 static inline uint32_t
 __geth2(uint64_t h, uint32_t size)
 {
-    h = mix(mix(h));
-    return h % size;
+    return mix(mix(h)) % size;
 }
 
 /*
@@ -199,18 +206,17 @@ xorfilter_init(Xorfilter *x, uint64_t *keys, size_t n)
     uint32_t tries = 0;
     uint64_t seed  = 0;
 
-    xorset *H = NEWZA(xorset, cap);
+    xorset *H = NEWA(xorset, cap);
     keyvect q;
     keyvect stack;
-    xoro128plus rng;
-
-    xoro128plus_init(&rng, 0);
-    seed = xoro128plus_u64(&rng);
 
     VECT_INIT(&q, cap);
     VECT_INIT(&stack, n);
 
     while (1) {
+        memset(H, 0, cap * sizeof(H[0]));
+        seed = rand64();
+
         for (size_t i = 0; i < n; i++) {
             uint64_t h = hashkey(keys[i], seed);
             fpidx    z = hash3(h, size);
@@ -227,9 +233,10 @@ xorfilter_init(Xorfilter *x, uint64_t *keys, size_t n)
 
         VECT_RESET(&q);
         for (size_t i = 0; i < cap; i++) {
-            if (H[i].n == 1) {
+            xorset *y = &H[i];
+            if (y->n == 1) {
                 keyidx ki = {
-                    .hash = H[i].mask,
+                    .hash = y->mask,
                     .idx  = i,
                 };
 
@@ -259,7 +266,6 @@ xorfilter_init(Xorfilter *x, uint64_t *keys, size_t n)
             goto fini;
         }
 
-        seed = xoro128plus_u64(&rng);
     }
 
     x->seed = seed;
@@ -313,19 +319,10 @@ Xorfilter_new16(uint64_t *keys, size_t n)
     x->is16 = 1;
     while (VECT_LEN(&stack) > 0) {
         keyidx   ki = VECT_POP_BACK(&stack);
-        uint32_t  z = ki.idx;
         uint16_t fp = __fp16(ki.hash);
-        fpidx    hs = hash3(ki.hash, x->size);
+        fpidx    z = hash3(ki.hash, x->size);
 
-        if (z < x->size) {
-            fp ^= x->fp16[hs.j] ^ x->fp16[hs.k];
-        } else if (z < (2 * x->size)) {
-            fp ^= x->fp16[hs.i] ^ x->fp16[hs.k];
-        } else {
-            fp ^= x->fp16[hs.i] ^ x->fp16[hs.j];
-        }
-
-        x->fp16[z] = fp;
+        x->fp16[ki.idx] = fp ^ x->fp16[z.i] ^ x->fp16[z.j] ^ x->fp16[z.k];
     }
 
     VECT_FINI(&stack);
