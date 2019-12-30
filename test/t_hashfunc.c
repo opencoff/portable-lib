@@ -60,13 +60,13 @@ main(int argc, char* argv[])
 
 #define MASK    (0xffffffff)
 
-    printf("city,murmur3,hsieh,fnv,jenkins,fasthash,yorrike,siphash,word\n");
+    printf("city,murmur3,hsieh,fnv,fasthash,yorrike,siphash,word\n");
     do
     {
         char* s = fgets(buf, BUFSIZE, fp);
         char* e;
         size_t n;
-        uint32_t city, murmur, hsieh, jenkins, fnv, fhash, yorr, siph;
+        uint32_t city, murmur, hsieh, fnv, fhash, yorr, siph;
 
         if (!s)
             break;
@@ -94,13 +94,12 @@ main(int argc, char* argv[])
         murmur  = MASK & murmur3_hash_32(s, n, seed);
         hsieh   = MASK & hsieh_hash(s, n, seed);
         fnv     = MASK & fnv_hash(s, n, seed);
-        jenkins = MASK & jenkins_hash(s, n, seed);
         fhash   = MASK & fasthash32(s, n, seed);
         yorr    = MASK & yorrike_hash32(s, n, seed);
         siph    = MASK & siphash_32(s, n, seed);
 
-        printf("%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x,%s\n",
-                city, murmur, hsieh, fnv, jenkins, fhash, yorr, siph, s);
+        printf("%#x,%#x,%#x,%#x,%#x,%#x,%#x,%s\n",
+                city, murmur, hsieh, fnv, fhash, yorr, siph, s);
     } while (1);
 
     if (fp != stdin)

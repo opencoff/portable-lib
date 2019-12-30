@@ -318,6 +318,11 @@ extern "C" {
 #define VECT_FIRST_ELEM(v)     ((v)->array[0])
 #define VECT_LAST_ELEM(v)      ((v)->array[(v)->size-1])
 #define VECT_TOP(v)            VECT_LAST_ELEM(v)
+#define VECT_POP(v)            do { \
+                                    typeof(v) a_ = (v); \
+                                    assert(a_->size > 0); \
+                                    a_->size--;\
+                              } while(0)
 
 /*
  * One past the last element. Useful when iterating with vectors
@@ -327,7 +332,6 @@ extern "C" {
 /* Fetch the n'th element */
 #define VECT_ELEM(v,n)  ((v)->array[(n)])
 
-#define VECT_LEN(v)        ((v)->size)
 #define VECT_LEN(v)         ((v)->size)
 #define VECT_CAPACITY(v)    ((v)->capacity)
 

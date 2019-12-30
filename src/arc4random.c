@@ -157,23 +157,6 @@ _rs_random_buf(rand_state* rs, void *_buf, size_t n)
     }
 }
 
-static inline uint32_t
-_rs_random_u32(rand_state* rs)
-{
-    u8 *keystream;
-    uint32_t val;
-
-    _rs_stir_if_needed(rs, sizeof(val));
-    if (rs->rs_have < sizeof(val))
-        _rs_rekey(rs, NULL, 0);
-    keystream = rs->rs_buf + sizeof(rs->rs_buf) - rs->rs_have;
-    memcpy(&val, keystream, sizeof(val));
-    memset(keystream, 0, sizeof(val));
-    rs->rs_have -= sizeof(val);
-
-    return val;
-}
-
 
 #if defined(__Darwin__) || defined(__APPLE__)
 
@@ -276,13 +259,23 @@ sget()
  */
 
 
+static inline uint32_t
+__rand32(rand_state *z)
+{
+    uint32_t v;
+    _rs_random_buf(z, &v, sizeof v);
+    return v;
+}
+
 
 uint32_t
 arc4random()
 {
     rand_state* z = sget();
+    uint32_t v;
 
-    return _rs_random_u32(z);
+    _rs_random_buf(z, &v, sizeof v);
+    return v;
 }
 
 
@@ -326,7 +319,7 @@ arc4random_uniform(uint32_t upper_bound)
      * to re-roll.
      */
     for (;;) {
-        r = _rs_random_u32(z);
+        r = __rand32(z);
         if (r >= min)
             break;
     }

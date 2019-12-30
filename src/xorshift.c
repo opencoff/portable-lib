@@ -42,14 +42,14 @@ makeseed()
             z = (c * (j+1)) ^ (z * i);
         }
     }
-    return splitmix64(z);
+    return splitmix64(&z);
 }
 
 
 void
 xs64star_init(xs64star* s, uint64_t seed)
 {
-    s->v = seed ? splitmix64(seed) : makeseed();
+    s->v = seed ? splitmix64(&seed) : makeseed();
 }
 
 

@@ -38,8 +38,8 @@ typedef struct xoro128plus xoro128plus;
 /*
  * Xoroshiro 128+ PRNG
  */
-void xoro128plus_init(xoro128plus *z, uint64_t seed);
-uint64_t xoro128plus_u64(xoro128plus *z);
+extern void xoro128plus_init(xoro128plus *z, uint64_t seed);
+extern uint64_t xoro128plus_u64(xoro128plus *z);
 
 
 #ifdef __cplusplus

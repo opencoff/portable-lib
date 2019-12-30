@@ -48,7 +48,7 @@ struct arena_node
     SL_LINK(arena_node) link;
 
     /* Bytes available in this arena */
-    unsigned int total;
+    uint64_t total;
 
     /* Start of available memory in thus chunk. */
     unsigned char * free;
@@ -64,18 +64,15 @@ typedef struct arena_node arena_node;
 struct arena
 {
     SL_HEAD(node_head, arena_node) head;
-    int chunk_size;
+    uint64_t chunk_size;
 };
 typedef struct arena arena;
-
-
-
-
 
 /* Minimum alignment restriction on _this_ platform */
 union align
 {
     double dv ;
+    uint64_t u64;
     int     iv;
     long    lv;
     long    *lp;
@@ -89,7 +86,7 @@ union align
 
 
 int
-arena_new(arena_t* p_arena, int chunk_size)
+arena_new(arena_t* p_arena, size_t chunk_size)
 {
     int retval = -ENOMEM;
     arena * a;
@@ -112,7 +109,7 @@ arena_new(arena_t* p_arena, int chunk_size)
 
 
 /* compute available bytes in a node */
-static inline int
+static inline uint64_t
 __avail(arena_node* n)
 {
     return n->end - n->free;
@@ -123,10 +120,10 @@ __avail(arena_node* n)
  * Allocate memory from an arena
  */
 void *
-arena_alloc (arena_t a, int nbytes)
+arena_alloc(arena_t a, size_t nbytes)
 {
     arena_node* n;
-    int chunk;
+    size_t chunk;
     void * mem = 0;
 
     if (!a) return 0;
@@ -169,7 +166,7 @@ _end:
 
 /* Delete all pools of memory associated with arena `a' */
 void
-arena_delete (arena_t a)
+arena_delete(arena_t a)
 {
     arena_node* n;
 
