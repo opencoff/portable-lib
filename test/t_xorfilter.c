@@ -6,11 +6,36 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <unistd.h>
 #include "error.h"
 #include "utils/utils.h"
 #include "utils/xorfilter.h"
 
 extern void arc4random_buf(void *, size_t);
+
+static void basictest(int is16,   size_t n);
+static void perftest(int is16,    size_t n);
+static void marshaltest(int is16, size_t n);
+
+#define NELEM   10000
+
+int
+main()
+{
+    printf("Xorfilter: Basic tests ..\n");
+    basictest(0, NELEM);
+    basictest(1, NELEM);
+
+    printf("Xorfilter: Perf tests ..\n");
+    perftest(0, NELEM);
+    perftest(1, NELEM);
+
+    printf("Xorfilter: Marshal/Unmarshal tests ..\n");
+    marshaltest(0, NELEM);
+    marshaltest(1, NELEM);
+}
+
+
 
 static uint64_t
 rand64()
@@ -21,9 +46,8 @@ rand64()
 }
 
 static void
-basictest(int is16)
+basictest(int is16, size_t n)
 {
-    size_t   n = 10000;
     uint64_t *keys = NEWA(uint64_t, n);
 
     for (size_t i = 0; i < n; i++) keys[i] = i;
@@ -56,10 +80,9 @@ basictest(int is16)
 #define _d(x)       ((double)(x))
 
 static void
-perftest(int is16)
+perftest(int is16, size_t n)
 {
     const size_t trials = 100;
-    const size_t n = 100000;
     uint64_t *keys = NEWA(uint64_t, n);
 
     for (size_t i = 0; i < n; i++) keys[i] = rand64();
@@ -115,6 +138,7 @@ perftest(int is16)
     }
 
     Xorfilter_delete(x);
+    DEL(keys);
 
     double cr = (_d(t_create) / _d(trials)) / _d(n);
     double ff = (_d(t_find) / _d(trials)) / _d(n);
@@ -123,12 +147,40 @@ perftest(int is16)
             pref, n, cr, ff);
 }
 
-int
-main()
-{
-    basictest(0);
-    basictest(1);
 
-    perftest(0);
-    perftest(1);
+static void
+marshaltest(int is16, size_t n)
+{
+    uint64_t *keys = NEWA(uint64_t, n);
+
+    for (size_t i = 0; i < n; i++) keys[i] = rand64();
+
+    Xorfilter* x = is16 ? Xorfilter_new16(keys, n) : Xorfilter_new8(keys, n);
+    assert(x);
+
+    const char *fname = "/tmp/xor-test.dat";
+    int r = Xorfilter_marshal(x, fname);
+
+    assert(r == 0);
+    Xorfilter_delete(x); x = 0;
+
+    r = Xorfilter_unmarshal(&x, fname, 0);
+    assert(r == 0);
+    assert(x);
+
+    for (size_t i = 0; i < n; i++) {
+        assert(Xorfilter_contains(x, keys[i]));
+    }
+    Xorfilter_delete(x);
+
+    r = Xorfilter_unmarshal(&x, fname, XORFILTER_MMAP);
+    assert(r == 0);
+    assert(x);
+
+    for (size_t i = 0; i < n; i++) {
+        assert(Xorfilter_contains(x, keys[i]));
+    }
+    Xorfilter_delete(x);
+    DEL(keys);
+    unlink(fname);
 }

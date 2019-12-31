@@ -53,6 +53,21 @@ extern int Xorfilter_contains(Xorfilter *, uint64_t x);
 /* Return number of bits per element in this XOrfilter */
 extern double Xorfilter_bpe(Xorfilter *);
 
+/*
+ * Marshal a Xorfilter to a file 'fname'
+ */
+extern int Xorfilter_marshal(Xorfilter *, const char *fname);
+
+
+#define XORFILTER_MMAP   (1 << 0)
+
+/*
+ * Unmarshal a Xorfilter from the given file. If XORFILTER_MMAP is
+ * set in 'flags', the actual filter data is mmap'd directly from
+ * the file (instead of malloc()'ing the memory).
+ */
+extern int Xorfilter_unmarshal(Xorfilter **p_x, const char *fname, uint32_t flags);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

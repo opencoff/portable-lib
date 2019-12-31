@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
 #include <assert.h>
 #include <inttypes.h>
 
@@ -305,6 +306,7 @@ marshal_tests(Bloom* b, strvect * v, const char *desc)
     // Verify that all the elements are present.
     find_all(v, b, 0);
     Bloom_fini(ub);
+    unlink(fname);
 
     printf("ok\n");
 }

@@ -562,13 +562,13 @@ Bloom_marshal(Bloom *b, const char *fname)
     if (fd < 0) return -errno;
 
     if (ftruncate(fd, sz) < 0) {
-        r = -errno;
+        r = errno;
         goto fail;
     }
 
     void *mptr = mmap(0, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     if (mptr == ((void *)-1)) {
-        r = -errno;
+        r = errno;
         goto fail;
     }
 

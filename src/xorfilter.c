@@ -8,7 +8,7 @@
  *
  * Copyright (c) 2019 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -44,26 +44,9 @@
 #include <math.h>
 #include "fast/vect.h"
 #include "utils/xorfilter.h"
-
+#include "xorfilt_internal.h"
 
 extern void arc4random_buf(void *, size_t);
-
-/*
- * Holds the state for the Xorfilter. We keep this opaque to
- * callers.  The actual filter Xor8 or Xor16 is picked based on
- * the variant 'is16'.
- */
-struct Xorfilter {
-    union {
-        uint8_t *fp8;
-        uint16_t *fp16;
-    };
-    uint64_t seed;
-    uint32_t size;
-    uint32_t is16;  // set to true if this a Xor16 filter
-    uint32_t n;     // number of elements
-};
-typedef struct Xorfilter Xorfilter;
 
 /*
  * Index into the linear Fingerprint array.
@@ -199,8 +182,7 @@ __update_q(keyvect *q, xorset *xs, uint32_t i, uint64_t h)
 static keyvect
 xorfilter_init(Xorfilter *x, uint64_t *keys, size_t n)
 {
-    double dn   = 32.0 + ceil(1.23 * (double)(n));
-    size_t size = (size_t)(dn) / 3;
+    size_t size = xorfilter_calc_size(n);
 
     // always a multiple of 3
     size_t   cap   = size * 3;
@@ -316,8 +298,8 @@ Xorfilter_new16(uint64_t *keys, size_t n)
         return 0;
     }
 
-    x->fp16 = NEWZA(uint16_t, VECT_LEN(&stack) * 3);
-    x->is16 = 1;
+    x->fp16  = NEWZA(uint16_t, VECT_LEN(&stack) * 3);
+    x->is_16 = 1;
     while (VECT_LEN(&stack) > 0) {
         keyidx   ki = VECT_POP_BACK(&stack);
         uint16_t fp = __xfp16(ki.hash);
@@ -337,7 +319,7 @@ Xorfilter_contains(Xorfilter *x, uint64_t key)
     uint64_t h = hashkey(key, x->seed);
     fpidx    z = hash3(h, x->size);
 
-    if (x->is16) {
+    if (x->is_16) {
         uint16_t fp = __xfp16(h);
         uint16_t *b = x->fp16;
         return fp == (b[z.i] ^ b[z.j] ^ b[z.k]);
@@ -352,17 +334,15 @@ Xorfilter_contains(Xorfilter *x, uint64_t key)
 double
 Xorfilter_bpe(Xorfilter *x)
 {
-    size_t sz = 3 * x->size * 8;
-
-    if (x->is16) sz *= 2;
-    return ((double)sz) / ((double)x->n);
+    double sz = (double)(8 * xorfilter_size(x));
+    return sz / ((double)x->n);
 }
 
 
 void
 Xorfilter_delete(Xorfilter *x)
 {
-    if (x->fp8) DEL(x->fp8);
+    if (x->ptr && !x->is_mmap) DEL(x->ptr);
     DEL(x);
 }
 /* EOF */
