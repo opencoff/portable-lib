@@ -86,12 +86,12 @@ static uint64_t
 hashkey(uint64_t v, uint64_t salt)
 {
     const uint64_t m = 0x880355f21e6d1965ULL;
-    uint64_t h       = (8 * m);
+    uint64_t h       = salt ^ (8 * m);
 
     h ^= mix(v);
     h *= m;
 
-    return mix(h) ^ salt;
+    return mix(h);
 }
 
 static inline uint32_t

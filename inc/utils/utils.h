@@ -148,16 +148,29 @@ timenow_us(void)
     return tv.tv_usec + (1000000 * tv.tv_sec);
 }
 
+typedef uint64_t duration_t;
+
+// Number of duration units in a second
+#define __Duration       ((duration_t)1000000000)
+#define __dur(a)         ((duration_t)(a))
+
+#define _Hour(n)         (_Minute(n) * 24)
+#define _Minute(n)       (_Second(n) * 60)
+#define _Second(n)       (__dur(n) * __Duration)
+#define _Millisecond(n)  (_Second(n) / 1000)
+#define _Microsecond(n)  (_Millisecond(n) / 1000)
+#define _Nanosecond(n)   __dur(n)
+
 /*
  * Return time in nanoseconds
  */
-static inline uint64_t
+static inline duration_t
 timenow(void)
 {
     struct timespec tv = {0, 0};
 
     clock_gettime(CLOCK_MONOTONIC, &tv);
-    return tv.tv_nsec + (1000000000 * tv.tv_sec);
+    return tv.tv_nsec + _Second(tv.tv_sec);
 }
 
 

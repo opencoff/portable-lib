@@ -90,15 +90,20 @@ perftest(int is16, size_t n)
     const char *pref;
 
     uint64_t t_create = 0,
-             t_find = 0;
+             t_find   = 0;
+
+    duration_t d_create = 0,
+               d_find   = 0;
 
     if (is16) {
         pref = "Xor16";
         for (size_t k = 0; k < trials; k++) {
-            uint64_t t0 = now();
+            uint64_t t0   = now();
+            duration_t d0 = timenow();
 
             x = Xorfilter_new16(keys, n);
             t_create += now() - t0;
+            d_create += timenow() - d0;
             assert(x);
             Xorfilter_delete(x);
         }
@@ -107,10 +112,12 @@ perftest(int is16, size_t n)
     } else {
         pref = "Xor8 ";
         for (size_t k = 0; k < trials; k++) {
-            uint64_t t0 = now();
+            uint64_t t0   = now();
+            duration_t d0 = timenow();
 
             x = Xorfilter_new8(keys, n);
             t_create += now() - t0;
+            d_create += timenow() - d0;
             assert(x);
             Xorfilter_delete(x);
         }
@@ -129,10 +136,12 @@ perftest(int is16, size_t n)
     // now look for items
     for (size_t k = 0; k < trials; k++) {
         for (size_t i = 0; i < n; i++) {
-            uint64_t t0 = now();
+            uint64_t t0   = now();
+            duration_t d0 = timenow();
             int ok = Xorfilter_contains(x, keys[i]);
 
             t_find += now() - t0;
+            d_find += timenow() - d0;
             assert(ok);
         }
     }
@@ -140,11 +149,18 @@ perftest(int is16, size_t n)
     Xorfilter_delete(x);
     DEL(keys);
 
-    double cr = (_d(t_create) / _d(trials)) / _d(n);
-    double ff = (_d(t_find) / _d(trials)) / _d(n);
+    uint64_t tot = _d(n) * _d(trials);
+    double cr    = (_d(t_create) / _d(trials)) / _d(n);
+    double ff    = (_d(t_find)   / _d(trials)) / _d(n);
 
-    printf("%s %lu items: create %6.3f cy/elem, find %6.3f cy/elem\n",
-            pref, n, cr, ff);
+    // Speed of operation in Million ops/sec
+    double spd_creat = (_Second(tot) / _d(d_create)) /  1000000.0,
+           spd_find  = (_Second(tot) / _d(d_find))   /  1000000.0;
+
+    printf("%s %lu items:\n"
+           "  create %6.3f cy/elem, find %6.3f cy/elem\n"
+           "  create  %4.1f M ops/sec, find %3.1f M ops/sec\n",
+            pref, n, cr, ff, spd_creat, spd_find);
 }
 
 
