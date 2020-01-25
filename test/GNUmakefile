@@ -36,12 +36,12 @@ win32_tests += mmap_win32 t_socketpair
 posix_tests += t_cresolve
 
 # What tests to build
-autotests = strmatch t_arena t_str2hex \
+autotests = strmatch t_arena t_str2hex t_esc \
 		t_ipaddr t_strcopy t_strtoi \
 		t_pack t_strsplit_csv t_splitargs \
 		t_strsplit t_gvarexp t_dirname t_uuid \
 		t_frand t_ulid t_xorfilter \
-		t_fixedsize t_mempool t_opt_test \
+		t_fixedsize t_mempool \
 		t_list t_b64_c t_vect \
 		t_xorrand  t_strtosize \
 		t_bits t_siphash24 t_progress \

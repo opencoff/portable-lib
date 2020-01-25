@@ -60,6 +60,7 @@ __init_gstr(gstr *g, size_t n, const char *src)
     assert(g->str);
 
     if (src) {
+        n = strlen(src);
         memcpy(g->str, src, n+1);
         g->len = n;
     } else {
@@ -85,7 +86,7 @@ gstr_init(gstr * g, size_t size)
 
 
 gstr*
-gstr_init2(gstr* g, const gstr* s)
+gstr_dup(gstr* g, const gstr* s)
 {
     assert(g);
     assert(s);

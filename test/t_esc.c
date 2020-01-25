@@ -1,6 +1,6 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * t_esc.cpp - Unit test harness for testing escape() and unescape()
+ * t_esc.c - Unit test harness for testing escape() and unescape()
  * functions.
  *
  * Copyright (c) 2005 Sudhi Herle <sw@herle.net>
@@ -21,18 +21,11 @@
  * This software does not come with any express or implied
  * warranty; it is provided "as is". No claim  is made to its
  * suitability for any purpose.
- *
- *
- * Rev: $Id: escape.cpp,v 1.5 2006/01/22 08:37:38 sherle Exp $
- *
  */
 
-#include "utils/strutils.h"
-
 #include <stdio.h>
-
-using namespace std;
-using namespace putils;
+#include <ctype.h>
+#include "utils/gstring.h"
 
 
 struct testcase
@@ -40,6 +33,7 @@ struct testcase
     const char * str;
     const char * escset;
 };
+typedef struct testcase testcase;
 
 
 static const testcase Tests [] =
@@ -47,7 +41,7 @@ static const testcase Tests [] =
       {"",                          "\a\b\t\n\v\f\r\b"} // 0
     , {"a",                         "\a\b\t\n\v\f\r\b"}
     , {"\\\\//aabb",                "\a\b\t\n\v\f\r\b"}
-    , {"\\\\aabb",                  "\\\a\b\t\n\v\f\r\b"}
+    , {"\\\\aabb",                  "\a\b\t\n\v\f\r\b"}
     , {"abc",                       "\a\b\t\n\v\f\r\b"}
     , {"a\tb\rc\nd\fe\af\fg\vh\b",  "\a\b\t\n\v\f\r\b"} // 5
     , {"\a\b\t\n\v\f\r\b",          "\a\b\t\n\v\f\r\b"}
@@ -60,10 +54,11 @@ struct test
     const char * str;
     const char * exp;
 };
+typedef struct test test;
 
 static const test Esc_tests [] =
 {
-       {"a\t\b\t11\n13\n01", "a|0011|0010|001111|001213|001201"}
+       {"a\t\b\t11\n13\n01", "a|t|b|t11|n13|n01"}
     ,  {"abc",               "abc"}
     ,  {"|",                 "||"}
     ,  {"a",                 "a"}
@@ -74,91 +69,81 @@ static const test Esc_tests [] =
 
 static const test Unesc_tests [] =
 {
+#if 1
        {"||",               "|"}
     ,  {"|",                "|"}
     ,  {"",                 ""}
     ,  {"|v|n|f",           "\v\n\f"}
     ,  {"|011abc",          "\tabc"}
     ,  {"|0011123",         "\t123"}
+#endif
     ,  {"|1",               "\1"}
     ,  {"|1abc",            "\1abc"}
-    ,  {"|x",               "|x"}
     ,  {"|x09abc",            "\tabc"}
     ,  {0, 0}
 };
 
 
-static string
-make_printable(const string &s)
+static gstr
+make_printable(const char *s)
 {
-    string ret;
+    int c;
+    gstr g;
 
-    for (string::size_type i = 0; i < s.size(); ++i)
-    {
-        switch (s[i])
-        {
+    gstr_init(&g, 0);
+
+    for (;  (c = *s); s++) {
+        switch (c) {
             case '\v':
-                ret += "\\v";
+                gstr_append_str(&g, "\\v");
                 break;
             case '\f':
-                ret += "\\f";
+                gstr_append_str(&g, "\\f");
                 break;
             case '\b':
-                ret += "\\b";
+                gstr_append_str(&g, "\\b");
                 break;
             case '\n':
-                ret += "\\n";
+                gstr_append_str(&g, "\\n");
                 break;
             case '\r':
-                ret += "\\r";
+                gstr_append_str(&g, "\\r");
                 break;
             case '\t':
-                ret += "\\t";
+                gstr_append_str(&g, "\\t");
                 break;
 
             default:
-                if (isprint (s[i]))
-                    ret += s[i];
-                else
-                {
+                if (isprint(c)) {
+                    gstr_append_ch(&g, c);
+                } else {
                     char buf[8];
-                    snprintf(buf, sizeof buf, "\\x%2.2x", s[i]);
+                    snprintf(buf, sizeof buf, "\\x%2.2x", c);
 
-                    ret += buf;
+                    gstr_append_str(&g, buf);
                 }
                 break;
         }
     }
 
-    return ret;
+    return g;
 }
 
 
 static void
-failed(const char * prefix, int i, const string& str, const string& exp,
-       const string& saw)
+failed(const char *prefix, int i, const char *str, const char *exp, const char *saw)
 {
-    string s = make_printable (str);
-    string e = make_printable (exp);
-    string x = make_printable (saw);
+    gstr s = make_printable(str);
+    gstr e = make_printable(exp);
+    gstr w = make_printable(saw);
     printf ("** failed %s %d; str={%s}\n  exp={%s} saw={%s}\n",
-            prefix, i, s.c_str(), e.c_str(), x.c_str());
+            prefix, i, gstr_str(&s), gstr_str(&e), gstr_str(&w));
+
+    gstr_fini(&s);
+    gstr_fini(&e);
+    gstr_fini(&w);
 }
 
-static bool
-compare(const string& lhs, const string& rhs)
-{
-    if ( lhs.size() != rhs.size() )
-        return false;
-
-    for (string::size_type i = 0; i < lhs.size(); ++i)
-    {
-        if ( lhs[i] != rhs[i] )
-            return false;
-    }
-
-    return true;
-}
 
 int
 main()
@@ -166,52 +151,62 @@ main()
     int fail = 0;
     const testcase * t = Tests;
 
-    for (int i = 0; t->str; ++t, ++i)
-    {
-        string str    = t->str;
-        string escset = t->escset;
+    for (int i = 0; t->str; ++t, ++i) {
+        gstr src;
+        gstr str;
 
-        string escaped = string_escape (str, escset);
+        gstr_init_from(&src, t->str);
+        gstr_dup(&str, &src);
 
-        string unescaped = string_unescape (escaped);
+        gstr_escape(&str, t->escset, '\\');
+        gstr_unescape(&str, '\\');
 
-        if ( !compare (str, unescaped) )
-        {
+        if (!gstr_eq(&src, &str)) {
             ++fail;
-            failed ("mismatch", i, str, str, unescaped);
+            failed("mismatch", i, t->str, t->str, gstr_str(&str));
         }
+
+        gstr_fini(&src);
+        gstr_fini(&str);
     }
 
 
-    const string escset = "\f\v\b\n\r\t";
-    const test * tt = Esc_tests;
-    for (int i = 0; tt->str; ++tt, ++i)
-    {
-        string str = tt->str;
-        string exp = tt->exp;
+    const char *escset = "\f\v\b\n\r\t";
+    const test * tt    = Esc_tests;
+    for (int i = 0; tt->str; ++tt, ++i) {
+        gstr src;
+        gstr exp;
 
-        string saw = string_escape (str, escset, '|');
+        gstr_init_from(&src, tt->str);
+        gstr_init_from(&exp, tt->exp);
 
-        if ( !compare (saw, exp) )
-        {
+        gstr_escape(&src, escset, '|');
+
+        if (!gstr_eq(&src, &exp)) {
             ++fail;
-            failed ("escape mismatch", i, str, exp, saw);
+            failed("escape mismatch", i, tt->str, tt->exp, gstr_str(&src));
         }
+        gstr_fini(&src);
+        gstr_fini(&exp);
+
     }
 
     tt = Unesc_tests;
-    for (int i = 0; tt->str; ++tt, ++i)
-    {
-        string str = tt->str;
-        string exp = tt->exp;
+    for (int i = 0; tt->str; ++tt, ++i) {
+        gstr src;
+        gstr exp;
 
-        string saw = string_unescape (str, '|');
+        gstr_init_from(&src, tt->str);
+        gstr_init_from(&exp, tt->exp);
 
-        if ( !compare(saw, exp) )
-        {
-            failed ("unescape mismatch", i, str, exp, saw);
+        gstr_unescape(&src, '|');
+
+        if (!gstr_eq(&src, &exp)) {
             ++fail;
+            failed("unescape mismatch", i, tt->str, tt->exp, gstr_str(&src));
         }
+        gstr_fini(&src);
+        gstr_fini(&exp);
     }
 
     return fail;

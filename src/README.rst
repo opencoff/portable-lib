@@ -4,16 +4,32 @@ Guide to source code
 
 This is a brief guide to the various files in this directory.
 
+Xor Filter:
+
+    - xorfilter.c - Better than Bloom & Cuckoo filters
+    - xorfilter_marshal.c: Marshal, Unmarshal of Xorfilter
+
+    Performance numbers on a Pixelbook Core i7:
+    Xor8  10000 items::
+
+        create 216.738 cy/elem, find 2304.860 cy/elem
+        create   7.4 M ops/sec, find 0.7 M ops/sec
+
+    Xor16 10000 items::
+
+        create 223.628 cy/elem, find 2417.902 cy/elem
+        create   7.2 M ops/sec, find 0.7 M ops/sec
+
 Bloom Filter:
 
     - bloom.c: Core bloom filter code (standard, counting, scalable)
     - bloom_marshal.c: Marshal, Unmarshal of bloom filters
 
-    Performance numbers on MacBook Pro 15,1 (Late 2018):
+    Performance numbers on MacBook Pro 15,1 (Late 2018)::
 
-    Standard Bloom filter: 155 cycles/add, 148 cycles/search
-    Counting Bloom filter: 157 cycles/add, 150 cycles/search
-    Scalable Bloom filter: 716 cycles/add, 770 cycles/search
+        Standard Bloom filter: 155 cycles/add, 148 cycles/search
+        Counting Bloom filter: 157 cycles/add, 150 cycles/search
+        Scalable Bloom filter: 716 cycles/add, 770 cycles/search
 
 
 Fast hash table:
@@ -21,13 +37,12 @@ Fast hash table:
     fast-ht.c: Fast hash table with chunked array of buckets.
     Takes full advantage of cacheline alignment: keys are
     `uint64_t` and values are `void*`. Some perf numbers on a
-    MacBook Pro 15,1 (Late 2018) [6 Core i9 at 2.9GHz, 32GB of RAM]
+    MacBook Pro 15,1 (Late 2018) [6 Core i9 at 2.9GHz, 32GB of RAM]::
 
-    insert: 148 cycles (~16M inserts/sec)
-    find: 41 cycles    (~41M searches/sec)
-    find non existant entry: 39 cycles (~40M searches/sec)
-    delete: 42 cycles  (~38M deletes/sec)
-
+        insert: 148 cycles (~16M inserts/sec)
+        find:   41 cycles  (~41M searches/sec)
+        delete: 42 cycles  (~38M deletes/sec)
+        find non existant entry: 39 cycles (~40M searches/sec)
 
 Policy based hash table:
 
@@ -40,7 +55,6 @@ Hash Functions:
     - fasthash.c: Zilong Tan's super fast hash
     - fnvhash.c: Fowler, Noll, Vo hash
     - hsieh_hash.c: Paul Hsieh's hash function
-    - jenkins_hash.c: The venerable hash function from Bob Jenkins
     - metrohash128.c: Google's Metrohash
     - metrohash128crc.c: Google's Metrohash
     - metrohash64.c: 64 bit Metrohash

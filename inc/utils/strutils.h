@@ -217,25 +217,6 @@ extern ssize_t str2hex(uint8_t* out, size_t outlen, const char* str);
 
 namespace putils {
 
-/**
- * Add escape sequences to characters in 'str' if they contain chars
- * in 'escset'. And, use 'esc_char' to denote the escape sequence.
- *
- * @return String with special characters escaped.
- */
-std::string string_escape(const std::string& str, const std::string& escset,
-                           char esc_char = '\\');
-
-
-
-/**
- * Remove escape sequences in 'str'  -- i.e., "process" any
- * characters that are escaped by 'esc_char'.
- *
- * @return String with escape sequences removed (processed).
- */
-std::string string_unescape(const std::string& str, char esc_char = '\\');
-
 
 template<typename T> std::pair<T, bool> strtoi(const std::string& s, int base=0)
 {

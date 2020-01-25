@@ -22,6 +22,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include <stdint.h>
 /*
  * We store token delimiters as bits in a 256-wide bitarray. We
  * compose this large bitarray from an array of uint32_t.

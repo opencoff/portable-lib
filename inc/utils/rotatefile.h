@@ -17,14 +17,11 @@
 #ifndef __ROTATEFILE_H_1186176198__
 #define __ROTATEFILE_H_1186176198__ 1
 
+#include <stdint.h>
 
-#include <string>
-#include <exception>
-
-
-namespace putils
-{
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 /**
@@ -37,7 +34,7 @@ namespace putils
  * @param flags     Behavior modification flags; bitwise OR of the
  *                  ROTATE_xxx bit definitions above
  */
-int rotate_filename(const std::string& filename, int nsaved, unsigned int flags = 0);
+extern int rotate_filename(const char* filename, int nsaved, unsigned int flags);
 
 
 /**
@@ -52,10 +49,12 @@ int rotate_filename(const std::string& filename, int nsaved, unsigned int flags 
  * @param flags     Behavior modification flags; bitwise OR of the
  *                  ROTATE_xxx bit definitions above
  */
-int rotate_filename_by_size(const std::string& filename, int nsaved,
-                    unsigned long size_mb, unsigned int flags = 0);
+extern int rotate_filename_by_size(const char* filename, int nsaved,
+                    uint64_t size_mb, unsigned int flags);
 
-}
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #endif /* ! __ROTATEFILE_H_1186176198__ */
 

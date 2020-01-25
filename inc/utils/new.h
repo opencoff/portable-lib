@@ -46,8 +46,9 @@ extern "C" {
 /* Corresponding macro to "free" an item obtained via NEWx macros.
  * */
 #define DEL(ptr)             do { \
-                                if (ptr) free(ptr); \
-                                ptr = 0; \
+                                void *x_ = (void *)(ptr);   \
+                                if (x_) free(x_);           \
+                                (ptr) = 0;                  \
                             } while (0)
 
 /* Return the size of a initialized array of any type */

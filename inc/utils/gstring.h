@@ -52,7 +52,11 @@ extern gstr* gstr_init(gstr *, size_t size);
  */
 extern gstr* gstr_init_from(gstr*, const char*);
 
-gstr* gstr_init2(gstr* d, const gstr* src);
+
+/**
+ * Duplicate a gstring into another one
+ */
+gstr* gstr_dup(gstr* d, const gstr* src);
 
 
 /**
@@ -171,6 +175,19 @@ extern gstr* gstr_trim(gstr*);
  */
 extern int gstr_unquote(gstr* g);
 
+/*
+ * If 'src' contains any chars in
+ * 'escset', escape it with 'esc_char'.
+ *
+ * Note: 'esc_char' can't be in 'escset'.
+ */
+extern gstr *gstr_escape(gstr *g, const char *escset, int esc_char);
+
+/*
+ * Unescape a string 'src' where 'esc_char' is used to "escape" the
+ * special chars.
+ */
+extern gstr* gstr_unescape(gstr *g, int esc_char);
 
 /**
  * Get a null-terminated line of text delimited by any char in 'tok' from

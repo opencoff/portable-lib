@@ -78,7 +78,7 @@ baseobjs = mempool.o dirname.o fts.o splitargs.o \
 		   b64_encode.o b64_decode.o humanize.o strtosize.o \
 		   cmutex.o arena.o memmgr.o hexdump.o \
 		   hashtab.o  hashtab_iter.o strunquote.o \
-		   readpass.o cmdline.o  uuid.o ulid.o \
+		   readpass.o uuid.o ulid.o \
 		   hsieh_hash.o fnvhash.o murmur3_hash.o cityhash.o \
 		   fasthash.o siphash24.o yorrike.o xorshift.o xxhash.o \
 		   metrohash64.o metrohash128.o xoroshiro.o \
