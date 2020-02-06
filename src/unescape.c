@@ -17,11 +17,12 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <assert.h>
 #include "utils/gstring.h"
 #include "utils/new.h"
 
 
-static const char * parse_esc(gstr *g,          const char *ptr, int esc_char);
+static const char * parse_esc(char **p_out,     const char *ptr, int esc_char);
 static const char * extract_octal(int *p_val,   const char *ptr);
 static const char * extract_hex(int *p_val,     const char *ptr);
 static const char * extract_decimal(int *p_val, const char *ptr);
@@ -40,26 +41,26 @@ static const char * extract_decimal(int *p_val, const char *ptr);
 gstr*
 gstr_unescape(gstr *g, int esc_char)
 {
-    int c;
-
     // stash the pointer safely while we walk it
     const char *src = g->str,
-               *ptr = src;
+               *ptr = src,
+               *end = src + g->len;
+    char *out       = g->str;
 
-    g->str = NEWZA(char, g->cap);
-    g->len = 0;
-
-    while ((c = *ptr)) {
+    while (ptr < end) {
+        int c = *ptr;
+        assert(c);
         if (c == esc_char) {
-            ptr = parse_esc(g, ptr+1, esc_char);
+            ptr = parse_esc(&out, ptr+1, esc_char);
         }
         else {
-            gstr_append_ch(g, c);
+            *out++ = c;
             ptr++;
         }
     }
 
-    DEL(src);
+    *out   = 0;
+    g->len = out - g->str;
     return g;
 }
 
@@ -70,8 +71,9 @@ gstr_unescape(gstr *g, int esc_char)
  * Return new offset from whence to commence processing
  */
 static const char *
-parse_esc(gstr* g, const char *src, int esc_char)
+parse_esc(char **p_out, const char *src, int esc_char)
 {
+    char *out       = *p_out;
     const char *ptr = src;
 
     DD(("parse-esc: <%s>\n", ptr));
@@ -150,20 +152,23 @@ parse_esc(gstr* g, const char *src, int esc_char)
             }
 
             if (ptr) {
-                gstr_append_ch(g, val);
-                return ptr;
+                v = val;
+                goto out;
             }
 
             // If we didn't succeed in converting digits, we just
             // put back whatever we saw so far and continue past the
             // anomalies
-            gstr_append_ch(g, esc_char);
-            gstr_append_ch(g, c);
+            *out++ = esc_char;
+            *out++ = c;
+            *p_out = out;
             return src + 2;
         }
     }
 
-    gstr_append_ch(g, v);
+out:
+    *out++ = v;
+    *p_out = out;
     return ptr;
 }
 

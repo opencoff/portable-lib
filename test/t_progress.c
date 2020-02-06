@@ -14,7 +14,7 @@ int
 main()
 {
     progress p;
-    uint64_t tot = 80 * 1048576;
+    uint64_t tot = 10 * 1048576;
 
 
     struct timespec ts = {

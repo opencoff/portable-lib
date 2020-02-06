@@ -151,6 +151,7 @@ extern gstr* gstr_copy(gstr* dest, const gstr* src);
  */
 extern char*  (gstr_str)(gstr*);
 extern size_t (gstr_len)(gstr*);
+extern size_t (gstr_cap)(gstr*);
 
 
 /**
@@ -219,6 +220,7 @@ extern int gstr_varexp(gstr *g, const char* (*find)(void*, const char* key), voi
                           _c;})
 #define gstr_firstch(g) ((g)->str[0])
 #define gstr_len(g)     (g)->len
+#define gstr_cap(g)     (g)->cap
 #define gstr_str(g)     (g)->str
 #define gstr_ch(g, i)   (g)->str[(i)]
 

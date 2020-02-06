@@ -69,14 +69,12 @@ static const test Esc_tests [] =
 
 static const test Unesc_tests [] =
 {
-#if 1
-       {"||",               "|"}
-    ,  {"|",                "|"}
+       {"|",                "|"}
+    ,  {"||",               "|"}
     ,  {"",                 ""}
     ,  {"|v|n|f",           "\v\n\f"}
     ,  {"|011abc",          "\tabc"}
     ,  {"|0011123",         "\t123"}
-#endif
     ,  {"|1",               "\1"}
     ,  {"|1abc",            "\1abc"}
     ,  {"|x09abc",            "\tabc"}

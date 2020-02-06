@@ -26,34 +26,30 @@
 #include "bits.h"
 
 /* Grow string `g' by `len' bytes -- if necessary. */
-static int grow_if(gstr * g, int len);
+static gstr* grow_if(gstr * g, int len);
 
 
 /* Grow the gstr by additional 'len' bytes -- if necessary. */
-static int
+static gstr*
 grow_if(gstr * g, int len)
 {
-    size_t want = g->len + len,
-           have = g->cap;
-    char * str;
+    size_t want = g->len + len + 1; // trailing null
 
-    if (have > want) return 0;
+    if (g->cap < want) {
+        want   = NEXTPOW2(want);
+        g->str = RENEWA(char, g->str, want);
+        g->cap = want;
+        assert(g->str);
+    }
 
-    while (have < want) have *= 2;
-
-    str = RENEWA(char, g->str, have);
-    assert(str);
-
-    g->str = str;
-    g->cap = have;
-    return 0;
+    return g;
 }
 
 
 static inline gstr *
 __init_gstr(gstr *g, size_t n, const char *src)
 {
-    if (n == 0) n = 127;
+    if (n == 0) n = 63;
 
     g->cap = NEXTPOW2(n+1);
     g->str = NEWZA(char, g->cap);
@@ -124,11 +120,10 @@ gstr_fini(gstr *g)
 static size_t
 __append(gstr* g, const char* str, size_t len)
 {
-    if (grow_if(g, len+1) < 0) return 0;
-
+    g = grow_if(g, len+1);
     memcpy(g->str + g->len, str, len+1);
-
-    return g->len += len;
+    g->len += len;
+    return g->len;
 }
 
 
@@ -166,7 +161,7 @@ gstr_append_ch(gstr* g, int ch)
 {
     assert(g);
 
-    if (grow_if(g, 1) < 0) return -1;
+    g = grow_if(g, 1);
 
     g->str[g->len++] = ch;
     g->str[g->len]   = 0;
@@ -261,8 +256,7 @@ gstr_copy(gstr * dest, const gstr* src)
     len = src->len;
     dest->len = 0;
 
-    if (grow_if(dest, len+1) < 0) return 0;
-
+    dest = grow_if(dest, len+1);
     memcpy(dest->str, src->str, len+1);
     return dest;
 }
