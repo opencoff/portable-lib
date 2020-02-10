@@ -18,11 +18,11 @@
  * Notes
  * =====
  * IEEE 754 double precision format:
- *   bit 64: sign
- *   bit 63-52: exponent (11 bits)
+ *   bit 63: sign
+ *   bit 62-52: exponent (11 bits)
  *   Bit 51-0:  fraction.
  *
- * So, when we set sign = 0 and exponent = 0x3ff, then the format
+ * So, when we set sign = 0 and exponent = 0xfff, then the format
  * represents a normalized number in the range [1, 2).
  *
  * So, if we can manage to fill the 52 bits with random bits, we

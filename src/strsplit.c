@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 #include "utils/utils.h"
 
 #include "bits.h"
@@ -85,29 +86,17 @@ _stra_fini(stra* a)
 static inline int
 _stra_resize(stra * a)
 {
-    int retval = 1;
-    int newcap = a->cap * 2;
     unsigned char ** newarr;
+    int newcap = a->cap * 2;
 
     newarr  = (unsigned char **) realloc(a->arr,
                                  newcap * sizeof (unsigned char *));
-    if ( newarr )
-    {
-        memset(newarr + a->cap, 0, a->cap * sizeof (unsigned char *));
-        a->cap = newcap;
-        a->arr = newarr;
-    }
-    else
-    {
-        free(a->arr);
-        a->arr  = 0;
-        a->size = 0;
-        a->cap  = 0;
-        errno   = ENOMEM;
-        retval  = 0;
-    }
+    assert(newarr);
 
-    return retval;
+    memset(newarr + a->cap, 0, a->cap * sizeof (unsigned char *));
+    a->cap = newcap;
+    a->arr = newarr;
+    return 1;
 }
 
 

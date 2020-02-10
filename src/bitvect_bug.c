@@ -1,26 +1,19 @@
 /* :vi:ts=4:sw=4:
  *
- * strsplit_csv.c -  Inspired by
- *  "Practice of Programming" --  (Kernighan and Pike)
+ * bitvect_bug.c - exposes gcc & clang optimization bug
  *
- * Copyright (c) 2005 Sudhi Herle <sw at herle.net>
- *
- * Licensing Terms: GPLv2
- *
- * If you need a commercial license for this work, please contact
- * the author.
- *
- * This software does not come with any express or implied
- * warranty; it is provided "as is". No claim  is made to its
- * suitability for any purpose.
+ * - Bug is exposed when compiled with -O3 -DWORD=uint64_t
  */
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
+#ifndef WORD
+#error "Compile with -DWORD=uint64_t or -DWORD=uint32_t"
+#endif
 
-typedef uint64_t      word;
+typedef WORD        word;
 #define WORDSIZE      (8 * sizeof(word))
 #define BITVECTSIZE   (256 / WORDSIZE)
 
@@ -55,7 +48,7 @@ __is_delim(DELIM_TYPE *v, word c)
 
 
 void
-PRINT_DELIM(volatile DELIM_TYPE *v)
+PRINT_DELIM(DELIM_TYPE *v)
 {
     int i;
     int n = 0;
