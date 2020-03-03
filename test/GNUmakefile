@@ -85,6 +85,9 @@ include $(PORTABLE)/portablelib.mk
 # Set this up for profiling
 #CFLAGS += -pg -no-pie
 #LDFLAGS += -pg -no-pie
+sanitize = -fbounds-check -fsanitize=address -fsanitize=leak -fsanitize=bounds
+CFLAGS += -D_FORTIFY_SOURCE=2 $(sanitize)
+LDFLAGS += $(sanitize)
 
 # Include
 include $(PORTABLE)/tools.mk
@@ -92,11 +95,11 @@ include $(PORTABLE)/tools.mk
 test:
 	for t in $(autotests); do  \
         echo "TEST $$t:"; \
-		./$(objdir)/$$t || exit 1;   \
+		./$(objdir)/$$t; \
     done || exit 1
 ifneq ($(hash-input),)
 	for t in $(hashtests); do \
-		./$(objdir)/$$t $(hash-input) || exit 1; \
+		./$(objdir)/$$t $(hash-input) ; \
 	done || exit 1
 endif
 

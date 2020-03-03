@@ -65,6 +65,7 @@ fixedtest()
             if (n != test->exp_count) {
                 printf("[%zd] in=|%s|: exp to fail, saw %d", test-tests, test->str, n);
             }
+            free(in);
             continue;
         }
 

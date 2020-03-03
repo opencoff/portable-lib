@@ -125,7 +125,7 @@ gstr_varexp(gstr* g0, const char * (*find)(void *, const char* key), void* cooki
     }
 
     // Finally, swap the two pointers
-    char * gone = g0->str;
+    char *gone = g0->str;
 
     g0->str = g.str;
     g0->len = g.len;

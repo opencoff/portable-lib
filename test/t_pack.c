@@ -140,6 +140,7 @@ teststr()
     assert(strlen(us) == pslen);
     assert(0 == strcmp(us, ps));
     assert(uv == 0xbeefdead);
+    free(us);
 }
 
 
