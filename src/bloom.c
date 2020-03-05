@@ -480,13 +480,10 @@ scalable_fini(scalable_bloom *sb)
     uint32_t i;
 
     for (i = 0; i < sb->len; ++i) {
-        bloom* f = &sb->bfa[i];
-
-        bloom_fini(f);
+        bloom_fini(&sb->bfa[i]);
     }
 
     DEL(sb->bfa);
-    memset(sb, 0x33, sizeof *sb);
 }
 
 
@@ -653,8 +650,28 @@ __alloc_bloom(int typ, uint32_t n)
             break;
     }
 
+    DEL(b->filter);
     DEL(b);
     return 0;
+}
+
+
+void
+__free_bloom(Bloom *b)
+{
+    switch (b->typ) {
+        case BLOOM_TYPE_SCALE:
+            scalable_fini(b->filter);
+            // FALLTHROUGH
+
+        case BLOOM_TYPE_COUNTING:
+        case BLOOM_TYPE_QUICK:
+            DEL(b->filter);
+            DEL(b);
+            break;
+        default:
+            break;
+    }
 }
 
 // Create a scalable, non-counting bloom filter.

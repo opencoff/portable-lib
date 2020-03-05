@@ -237,6 +237,7 @@ main(int argc, char *argv[])
      * Just delete the enclosing 'arena'.
      */
     arena_delete(arena);
+    VECT_FINI(&vv);
 
     fflush(stdout) ;
     fflush(stderr) ;

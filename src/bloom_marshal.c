@@ -467,10 +467,10 @@ rdhdr(uint8_t *buf, uint64_t sz, mstate *m)
         // Sanity check
         if (n > 1048576)            return -E2BIG;
 
-        VECT_INIT(&m->offs, n);
-
         avail -= 16;
         if (avail  < (n * 8)) return -EBADF;
+
+        VECT_INIT(&m->offs, n);
 
         // Decode offsets
         for (i = 0; i < n; i++) {
@@ -494,7 +494,7 @@ rdhdr(uint8_t *buf, uint64_t sz, mstate *m)
         VECT_INIT(&m->offs, 1);
 
         o = &VECT_GET_NEXT(&m->offs);
-        o->hdroff  = dec_LE_u64(p);
+        o->hdroff  = dec_LE_u64(p); p += 8;
         o->dataoff = _ALIGN_UP(o->hdroff + FILT_HDRSIZ, 64);
         if (o->hdroff  >= sz) return -EBADF;
         if (o->dataoff >= sz) return -EBADF;
@@ -707,6 +707,7 @@ Bloom_unmarshal(Bloom **p_b, const char *fname, uint32_t flags)
         rdfilter(start, o, f, do_mmap);
     }
 
+    VECT_FINI(&m.offs);
 
     assert(p_b);
     *p_b = m.b;
@@ -722,7 +723,9 @@ Bloom_unmarshal(Bloom **p_b, const char *fname, uint32_t flags)
     return 0;
 
 fail0:
+    VECT_FINI(&m.offs);
     munmap(mptr, st.st_size);
+    if (m.b) __free_bloom(m.b);
 
 fail:
     r = -errno;

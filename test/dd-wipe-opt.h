@@ -6,8 +6,8 @@
  *
  * Make all changes in dd-wipe-opt.in.
  */
-#ifndef ___DD_WIPE_OPT_H_573265265___
-#define ___DD_WIPE_OPT_H_573265265___ 1
+#ifndef ___DD_WIPE_OPT_H_755021410___
+#define ___DD_WIPE_OPT_H_755021410___ 1
 
 /* ANSI/ISO headerfile that defines exact width types */
 #include <stdint.h>
@@ -116,6 +116,6 @@ extern const char* opt_usage(void);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* ___DD_WIPE_OPT_H_573265265___ */
+#endif /* ___DD_WIPE_OPT_H_755021410___ */
 
 /* EOF */

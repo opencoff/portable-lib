@@ -97,6 +97,7 @@ main()
 
     VECT_APPEND_VECT(&vz, &a);
     assert(VECT_LEN(&vz) == 13);
+    VECT_FINI(&a);
 
     VECT_SHUFFLE(&vz, arc4random);
     for (i = 0; i < VECT_LEN(&a); i++) {
@@ -113,5 +114,7 @@ main()
         printf("Sample %2zd: %d.%d\n", i, x->v0, x->v1);
     }
 
+    VECT_FINI(&s);
+    VECT_FINI(&vz);
     return 0;
 }

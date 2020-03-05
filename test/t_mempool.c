@@ -121,7 +121,7 @@ perf_test(int run)
                , _ops_per_sec(tm_f), _us_per_op(cy_f));
 
     mempool_delete(pool);
-
+    VECT_FINI(&pv);
 }
 
 

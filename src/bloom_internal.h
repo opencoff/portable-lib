@@ -128,26 +128,8 @@ bloom_fill_ratio_est(bloom *b)
 extern Bloom* __alloc_bloom(int typ, uint32_t n);
 
 
-
-static inline void
-__free_bloom(Bloom *b)
-{
-    scalable_bloom *sb = 0;
-
-    switch (b->typ) {
-        case BLOOM_TYPE_SCALE:
-            sb = b->filter;
-            DEL(sb);
-            // fall through
-
-        case BLOOM_TYPE_COUNTING:
-        case BLOOM_TYPE_QUICK:
-            DEL(b);
-            break;
-        default:
-            break;
-    }
-}
+// Free a bloom filter
+extern void __free_bloom(Bloom *b);
 
 
 #define _d(x)   ((double)(x))
@@ -194,6 +176,7 @@ make_e(uint64_t k)
     return exp(-_d(k) * log(2.0));
 }
 
+#define inline /**/
 
 #ifdef __cplusplus
 }

@@ -135,6 +135,7 @@ gstr_varexp(gstr* g0, const char * (*find)(void *, const char* key), void* cooki
     goto done;
 
 fail:
+    gstr_fini(&g);
     g0->str[0] = 0;
     g0->len    = 0;
 
