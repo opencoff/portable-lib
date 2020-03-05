@@ -26,7 +26,6 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "utils/splitmix.h"
 
 struct xoro128plus
 {

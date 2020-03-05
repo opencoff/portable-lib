@@ -81,7 +81,7 @@ baseobjs = mempool.o dirname.o fts.o splitargs.o \
 		   readpass.o uuid.o ulid.o \
 		   hsieh_hash.o fnvhash.o murmur3_hash.o cityhash.o \
 		   fasthash.o siphash24.o yorrike.o xorshift.o xxhash.o \
-		   metrohash64.o metrohash128.o xoroshiro.o \
+		   metrohash64.o metrohash128.o xoroshiro.o romu-rand.o \
 		   mkdirhier.o parse-ip.o strcopy.o \
 		   gstring.o gstring_var.o freadline.o rotatefile.o \
 		   strsplit.o strsplit_csv.o strtrim.o \

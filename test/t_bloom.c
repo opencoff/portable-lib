@@ -291,8 +291,8 @@ marshal_tests(Bloom* b, strvect * v, const char *desc)
     assert(Bloom_eq(b, ub));
 
     // Verify that all the elements are present.
-    find_all(v, b, 0);
-    Bloom_fini(ub); ub = 0;
+    find_all(v, ub, 0);
+    Bloom_delete(ub); ub = 0;
 
     printf("ok\n    Unmarshal mem-mapped: ");
 
@@ -304,8 +304,8 @@ marshal_tests(Bloom* b, strvect * v, const char *desc)
     assert(Bloom_eq(b, ub));
 
     // Verify that all the elements are present.
-    find_all(v, b, 0);
-    Bloom_fini(ub);
+    find_all(v, ub, 0);
+    Bloom_delete(ub);
     unlink(fname);
 
     printf("ok\n");

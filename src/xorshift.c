@@ -21,29 +21,8 @@
 
 #include "utils/utils.h"
 #include "utils/xorshift-rand.h"
+#include "utils/splitmix.h"
 
-
-/*
- * Generate a data dependent random value from the CPU timestamp
- * counter.
- */
-static uint64_t
-makeseed()
-{
-    uint64_t c = sys_cpu_timestamp();
-    uint64_t m = c & 0xff;
-    uint64_t i, j, n;
-    uint64_t z = sys_cpu_timestamp();
-
-    for (i = 0; i < m; i++) {
-        c = sys_cpu_timestamp();
-        n = c % 1024;
-        for (j = 0; j < n; ++j) {
-            z = (c * (j+1)) ^ (z * i);
-        }
-    }
-    return splitmix64(&z);
-}
 
 
 void

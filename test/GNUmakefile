@@ -95,7 +95,7 @@ include $(PORTABLE)/tools.mk
 test:
 	for t in $(autotests); do  \
         echo "TEST $$t:"; \
-		./$(objdir)/$$t; \
+		./$(objdir)/$$t || exit 1; \
     done || exit 1
 ifneq ($(hash-input),)
 	for t in $(hashtests); do \

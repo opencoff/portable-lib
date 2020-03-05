@@ -321,7 +321,7 @@ counting_bloom_init(bloom* b, size_t n, double e)
 
     uint64_t bytes = (s * k);
     b->bitmap      = NEWZA(uint8_t, bytes);
-    if (!b->bitmap)  return 0;
+    assert(b->bitmap);
 
     b->k      = k;
     b->m      = s;
@@ -351,7 +351,7 @@ standard_bloom_init(bloom* b, size_t n, double e)
 
     uint64_t bytes = (units * UNITSIZE);
     b->bitmap      = NEWZA(uint8_t, bytes);
-    if (!b->bitmap)  return 0;
+    assert(b->bitmap);
 
     b->k = k;
     b->m = msub;
@@ -515,9 +515,11 @@ scalable_bloom_desc(scalable_bloom* sb, char *buf, size_t bsiz)
     char* ret = buf;
     bloom* f = &sb->bfa[0];
     char* p;
+    int r;
 
-    asprintf(&p, "scalable-bloom: %d filters (scale %d, err tightening factor %5.4f)\n",
+    r = asprintf(&p, "scalable-bloom: %d filters (scale %d, err tightening factor %5.4f)\n",
                  sb->len, sb->scale, sb->r);
+    assert(r > 0);
 
     ssize_t n = strcopy(buf, bsiz, p); free(p);
     if (n < 0) return ret;
@@ -537,8 +539,9 @@ scalable_bloom_desc(scalable_bloom* sb, char *buf, size_t bsiz)
         size /= 8;
 
         humanize_size(sz, sizeof sz, size);
-        asprintf(&p, "    [%02u] FP-prob: %5.4f: %" PRIu64 " partitions x %" PRIu64 " slots/partition [%s]: %" PRIu64 " elem (fill %6.3f)\n",
+        r = asprintf(&p, "    [%02u] FP-prob: %5.4f: %" PRIu64 " partitions x %" PRIu64 " slots/partition [%s]: %" PRIu64 " elem (fill %6.3f)\n",
                 i, f->e, f->k, f->m, sz, f->size, bloom_fill_ratio_est(f));
+        assert(r > 0);
 
         n = strcopy(buf, bsiz, p); free(p);
         if (n < 0) return ret;
@@ -556,13 +559,10 @@ static int
 setup_scalable_bloom(Bloom *b, uint32_t nfilt)
 {
     scalable_bloom* sb = NEWZ(scalable_bloom);
-    if (!sb) return 0;
+    assert(sb);
 
     sb->bfa = NEWZA(bloom, nfilt);
-    if (!sb->bfa) {
-        DEL(sb);
-        return 0;
-    }
+    assert(sb->bfa);
 
     sb->b     = b;
     b->find   = (int  (*)(void*, uint64_t))scalable_find;
@@ -594,8 +594,9 @@ setup_standard_bloom(Bloom *b)
     b->name   = "standard-bloom";
     b->typ    = BLOOM_TYPE_QUICK;
     b->filter = NEWZ(bloom);
+    assert(b->filter);
 
-    return !!b->filter;
+    return 1;
 }
 
 
@@ -612,8 +613,9 @@ setup_counting_bloom(Bloom *b)
     b->name   = "counting-bloom";
     b->typ    = BLOOM_TYPE_COUNTING;
     b->filter = NEWZ(bloom);
+    assert(b->filter);
 
-    return !!b->filter;
+    return 1;
 }
 
 
@@ -633,8 +635,7 @@ Bloom*
 __alloc_bloom(int typ, uint32_t n)
 {
     Bloom *b = NEWZ(Bloom);
-
-    if (!b) return 0;
+    assert(b);
 
     switch (typ) {
         case BLOOM_TYPE_SCALE:
@@ -650,6 +651,7 @@ __alloc_bloom(int typ, uint32_t n)
             break;
     }
 
+    if (typ == BLOOM_TYPE_SCALE) scalable_fini(b->filter);
     DEL(b->filter);
     DEL(b);
     return 0;

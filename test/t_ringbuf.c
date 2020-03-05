@@ -398,6 +398,7 @@ perf_finisher(pcq *q, ctx** pp, int np, ctx** cc, int nc)
     }
 
     VECT_FINI(&all);
+    VECT_FINI(&pctile);
 }
 
 

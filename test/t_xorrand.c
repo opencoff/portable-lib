@@ -12,6 +12,7 @@
 #include "error.h"
 #include "utils/xorshift-rand.h"
 #include "utils/xoroshiro.h"
+#include "utils/romu-rand.h"
 
 
 
@@ -52,6 +53,14 @@ main(int argc, char* argv[])
 
     for(i = 0; i < n; i++) {
         uint64_t z = xoro128plus_u64(&s);
+        printf("%#.16" PRIx64 "\n", z);
+    }
+
+    printf("-- Romu Rand Quad output --\n");
+    romu r;
+    romu_quad_init(&r, 0, 0);
+    for(i = 0; i < n; i++) {
+        uint64_t z = romu_quad(&r);
         printf("%#.16" PRIx64 "\n", z);
     }
 
