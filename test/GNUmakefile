@@ -40,13 +40,13 @@ autotests = strmatch t_arena t_str2hex t_esc \
 		t_ipaddr t_strcopy t_strtoi \
 		t_pack t_strsplit_csv t_splitargs \
 		t_strsplit t_gvarexp t_dirname t_uuid \
-		t_frand t_ulid t_xorfilter \
-		t_fixedsize t_mempool \
 		t_list t_b64_c t_vect \
 		t_xorrand  t_strtosize \
+		t_bitvect t_fts \
 		t_bits t_siphash24 t_progress \
-		t_spscq t_bitvect t_fts t_hashspeed \
-		t_prodcons t_mpmcq t_ringbuf
+		t_frand t_ulid t_hashspeed \
+		t_xorfilter t_fixedsize t_mempool \
+		t_spscq t_prodcons t_mpmcq t_ringbuf
 
 tests_with_input = mmaptest t_mkdirhier  \
                    t_readpass t_rotatefile

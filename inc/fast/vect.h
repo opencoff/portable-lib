@@ -39,9 +39,9 @@ extern "C" {
  */
 #define VECT_TYPE(nm, type)     \
     struct nm {                 \
-        type * array;           \
         size_t size;            \
-        size_t capacity;        \
+        size_t cap;             \
+        type * arr;             \
     }
 
 
@@ -54,22 +54,15 @@ extern "C" {
 
 /*
  * Initialize a vector to have at least 'cap' entries as its initial
- * capacity.
+ * cap.
  */
-#define VECT_INIT(v, cap)       do {                             \
+#define VECT_INIT(v, n)       do {                               \
                                     typeof(v) v_ = (v);          \
-                                    size_t cap_ = (cap);         \
-                                    if ( cap_ > 0 )  {           \
-                                        if (cap_ < 16) cap_ = 16;\
-                                        else {                   \
-                                        }                        \
-                                        v_->array = NEWZA(typeof(v_->array[0]), cap_);\
-                                        v_->capacity = cap_;    \
-                                    } else {                    \
-                                        v_->array = 0;          \
-                                        v_->capacity = 0;       \
-                                    }                           \
-                                    v_->size = 0;               \
+                                    size_t cap_  = (n);          \
+                                    if (cap_ == 0) cap_ = 16;    \
+                                    v_->arr  = NEWZA(typeof(v_->arr[0]), cap_);\
+                                    v_->cap  = cap_;             \
+                                    v_->size = 0;                \
                                 } while (0)
 
 
@@ -77,47 +70,47 @@ extern "C" {
  * Delete a vector. Don't use the container after calling this
  * macro.
  */
-#define VECT_FINI(v)       do {                        \
-                                typeof(v) v_ = (v);    \
-                                if (v_->array)         \
-                                    DEL(v_->array);    \
-                                v_->capacity = 0;      \
-                                v_->size     = 0;      \
-                                v_->array    = 0;      \
+#define VECT_FINI(v)       do {                      \
+                                typeof(v) v_ = (v);  \
+                                if (v_->arr)         \
+                                    DEL(v_->arr);    \
+                                v_->cap  = 0;        \
+                                v_->size = 0;        \
+                                v_->arr  = 0;        \
                             } while (0)
 
 
 /*
  * Swap two vectors. Type-safe.
  */
-#define VECT_SWAP(a, b)         do {                                         \
-                                        size_t c0_ = (a)->capacity;          \
-                                        size_t c1_ = (a)->size;              \
-                                        typeof((a)->array) c2_ = (a)->array; \
-                                        (a)->capacity = (b)->capacity;  \
-                                        (a)->size     = (b)->size;      \
-                                        (a)->array    = (b)->array;     \
-                                        (b)->capacity = c0_;            \
-                                        (b)->size     = c1_;            \
-                                        (b)->array    = c2_;            \
+#define VECT_SWAP(a, b)         do {                                     \
+                                        size_t c0_ = (a)->cap;           \
+                                        size_t c1_ = (a)->size;          \
+                                        typeof((a)->arr) c2_ = (a)->arr; \
+                                        (a)->cap  = (b)->cap;       \
+                                        (a)->size = (b)->size;      \
+                                        (a)->arr  = (b)->arr;       \
+                                        (b)->cap  = c0_;            \
+                                        (b)->size = c1_;            \
+                                        (b)->arr  = c2_;            \
                                     } while (0)
 
 // internal helper macro that doesn't rename variables (assumes all
 // vars are "unique" in their scope).
 #define __vect_RESERVE(v_, want_)                                   \
                         do {                                        \
-                            size_t n_ = v_->capacity;               \
-                            if  ( want_ >= n_ ) {                   \
+                            size_t n_ = v_->cap;                    \
+                            if  (want_ >= n_) {                     \
                                 do { n_ *= 2; } while (n_ < want_); \
-                                v_->array = RENEWA(typeof(v_->array[0]), v_->array, n_);\
-                                memset(v_->array+v_->size, 0, sizeof(v_->array[0]) * (n_ - v_->capacity));\
-                                v_->capacity = n_;     \
+                                v_->arr = RENEWA(typeof(v_->arr[0]), v_->arr, n_);\
+                                memset(v_->arr+v_->size, 0, sizeof(v_->arr[0]) * (n_ - v_->cap));\
+                                v_->cap = n_;          \
                             }                          \
                         } while (0)
 
 /*
  * Reserve at least 'want' entries in the vector.
- * The _new_ capacity will be at least this much.
+ * The _new_ cap will be at least this much.
  */
 #define VECT_RESERVE(v,want)    do {                        \
                                     typeof(v) v_ = (v);     \
@@ -132,16 +125,16 @@ extern "C" {
  */
 #define VECT_ENSURE(v,xtra)    do {\
                                     typeof(v) v_ = (v);           \
-                                    size_t x_ = (xtra) + v_->size;\
+                                    size_t x_    = (xtra) + v_->size;\
                                     __vect_RESERVE(v_, x_);       \
                                } while (0)
 
 
 /*
- * Get the next slot in the array - assumes the caller has
+ * Get the next slot in the arr - assumes the caller has
  * previously reserved space by using "VECT_ENSURE(v, 1)"
  */
-#define VECT_GET_NEXT(v) (v)->array[(v)->size++]
+#define VECT_GET_NEXT(v) (v)->arr[(v)->size++]
 
 
 /*
@@ -150,7 +143,7 @@ extern "C" {
 #define VECT_PUSH_BACK(v,e)    do {                                 \
                                     typeof(v) v_ = (v);             \
                                     __vect_RESERVE(v_, v_->size+1); \
-                                    v_->array[v_->size++] = e;      \
+                                    v_->arr[v_->size++] = e;        \
                                 } while (0)
 
 
@@ -161,8 +154,8 @@ extern "C" {
 #define VECT_POP_BACK(v)    ({ \
                                 typeof(v) v_ = (v);     \
                                 assert(v_->size > 0);   \
-                                typeof(v_->array[0])   z_ = v_->array[--v_->size]; \
-                            z_;})
+                                v_->arr[--v_->size];    \
+                            })
 
 
 
@@ -172,7 +165,7 @@ extern "C" {
 #define VECT_PUSH_FRONT(v,e)         do {                             \
                                             typeof(v) v_ = v;         \
                                             __vect_RESERVE(v_, v_->size+1);         \
-                                            typeof(e) * start_ = v_->array;         \
+                                            typeof(e) * start_ = v_->arr;         \
                                             typeof(e) * p_     = start_ + v_->size; \
                                             for (; p_ > start_; p_--)   \
                                                 *p_ = *(p_ - 1);         \
@@ -186,9 +179,9 @@ extern "C" {
  */
 #define VECT_POP_FRONT(v)           ({\
                                         typeof(v) v_ = v;           \
-                                        typeof(v_->array[0]) *p_   = v_->array;      \
-                                        typeof(v_->array[0]) *end_ = p_ + --v_->size;\
-                                        typeof(v_->array[0]) e_    = *p_;            \
+                                        typeof(v_->arr[0]) *p_   = v_->arr;      \
+                                        typeof(v_->arr[0]) *end_ = p_ + --v_->size;\
+                                        typeof(v_->arr[0]) e_    = *p_;            \
                                         for (; p_ < end_; p_++) \
                                             *p_ = *(p_ + 1);    \
                                         e_;\
@@ -213,7 +206,8 @@ extern "C" {
                         typeof(d) a_ = (d); \
                         typeof(s) b_ = (s); \
                         __vect_RESERVE(a_, b_->size);\
-                        memcpy(a_->array, b_->array, b_->size * sizeof(b_->array[0])); \
+                        assert(sizeof(a_->arr[0]) == sizeof(b_->arr[0]));        \
+                        memcpy(a_->arr, b_->arr, b_->size * sizeof(b_->arr[0])); \
                         a_->size = b_->size; \
                     } while (0)
 
@@ -225,8 +219,9 @@ extern "C" {
                     do {                    \
                         typeof(d) a_ = (d); \
                         typeof(s) b_ = (s); \
-                        __vect_RESERVE(a_, a_->size + b_->size);\
-                        memcpy(a_->array+a_->size, b_->array, b_->size * sizeof(b_->array[0])); \
+                        __vect_RESERVE(a_, a_->size + b_->size);                          \
+                        assert(sizeof(a_->arr[0]) == sizeof(b_->arr[0]));                 \
+                        memcpy(a_->arr+a_->size, b_->arr, b_->size * sizeof(b_->arr[0])); \
                         a_->size += b_->size; \
                     } while (0)
 
@@ -235,9 +230,10 @@ extern "C" {
  * The sort function must use the same type signature as qsort()
  */
 #define VECT_SORT(v, cmp) do { \
-        qsort((v)->array, (v)->size, sizeof((v)->array[0]), \
-                (int (*)(const void*, const void*)) cmp); \
-    } while (0)
+                                typeof(v) v_ = (v);                               \
+                                qsort(v_->arr, v_->size, sizeof(v_->arr[0]),      \
+                                        (int (*)(const void*, const void*)) cmp); \
+                            } while (0)
 
 
 
@@ -246,7 +242,7 @@ extern "C" {
  */
 #define VECT_SHUFFLE(v, rnd) do {                                   \
                                 typeof(v) v_ = (v);                 \
-                                typeof(v_->array) p_ = v_->array;   \
+                                typeof(v_->arr) p_ = v_->arr;       \
                                 typeof(p_[0]) e_;                   \
                                 int i_;                             \
                                 for (i_= v_->size-1; i_ > 0; i_--){ \
@@ -270,20 +266,20 @@ extern "C" {
  *
  * Return false if 's' has fewer than 'k' elements, true otherwise.
  */
-#define VECT_SAMPLE(d, s, k, rnd) ({    int z_ = 0;                             \
+#define VECT_SAMPLE(d, s, k, rnd) ({    int z_    = 0;                          \
                                         size_t k_ = (k);                        \
                                         typeof(s) b_ = (s);                     \
                                         if (k_ <  b_->size) {                   \
                                             typeof(d) a_ = (d);                 \
-                                            typeof(a_->array) x_ = a_->array;   \
-                                            typeof(a_->array) y_ = b_->array;   \
+                                            typeof(a_->arr) x_ = a_->arr;       \
+                                            typeof(a_->arr) y_ = b_->arr;       \
                                             size_t i_;                          \
                                             __vect_RESERVE(a_, k_);             \
                                             a_->size = k_;                      \
                                             for (i_=0; i_ < k_; i_++)           \
                                                 x_[i_] = y_[i_];                \
                                             for (i_=k_; i_ < b_->size; i_++) {  \
-                                                size_t j_ = ((size_t)rnd()) % (i_+1);       \
+                                                size_t j_ = ((size_t)rnd()) % (i_+1); \
                                                 if (j_ < k_) x_[j_] = y_[i_];   \
                                             }                                   \
                                             z_ = 1;                             \
@@ -300,14 +296,14 @@ extern "C" {
  */
 #define VECT_RAND_ELEM(v, rnd) ({   typeof(v) a_ = v;            \
                                     size_t n_ = ((size_t)rnd()) % a_->size; \
-                                 &a_->array[n_];})
+                                 a_->arr[n_];})
 
 /*
  * Iterate through vector 'v' and set each element to the pointer
  * 'p'
  */
-#define VECT_FOR_EACH(v, p)     for (p = &(v)->array[0];        p < &VECT_END(v); ++p)
-#define VECT_FOR_EACHi(v, i, p) for (p = &(v)->array[0], i = 0; i < (v)->size;    ++p, ++i)
+#define VECT_FOR_EACH(v, p)     for (p = &(v)->arr[0];        p < &VECT_END(v); ++p)
+#define VECT_FOR_EACHi(v, i, p) for (p = &(v)->arr[0], i = 0; i < (v)->size;    ++p, ++i)
 
 /* -- Various accessors -- */
 
@@ -315,8 +311,11 @@ extern "C" {
  * Get the first and last element (both are valid entries).
  * No validation is done with respect to size etc.
  */
-#define VECT_FIRST_ELEM(v)     ((v)->array[0])
-#define VECT_LAST_ELEM(v)      ((v)->array[(v)->size-1])
+#define VECT_FIRST_ELEM(v)     ((v)->arr[0])
+#define VECT_LAST_ELEM(v)      ({ typeof(v) v_ = (v);   \
+                                  assert(v_->size > 0); \
+                                  v_->arr[v_->size-1];  \
+                               })
 #define VECT_TOP(v)            VECT_LAST_ELEM(v)
 #define VECT_POP(v)            do { \
                                     typeof(v) a_ = (v); \
@@ -327,13 +326,13 @@ extern "C" {
 /*
  * One past the last element. Useful when iterating with vectors
  */
-#define VECT_END(v)            ((v)->array[(v)->size])
+#define VECT_END(v)            (v)->arr[(v)->size]
 
 /* Fetch the n'th element */
-#define VECT_ELEM(v,n)  ((v)->array[(n)])
+#define VECT_ELEM(v,n)      ((v)->arr[(n)])
 
 #define VECT_LEN(v)         ((v)->size)
-#define VECT_CAPACITY(v)    ((v)->capacity)
+#define VECT_CAPACITY(v)    ((v)->cap)
 
 
 #ifdef __cplusplus
