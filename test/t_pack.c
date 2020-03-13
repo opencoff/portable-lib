@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "error.h"
 #include "utils/utils.h"
@@ -17,6 +18,16 @@ static void testmulti(void);
 static void testvararg(void);
 static void teststr(void);
 static void testerr(void);
+static void hexdump(const char* prefix, const void * buf, size_t bufsiz);
+
+
+#define xassert(a,fmt,...) do {\
+                                if (!(a)) { \
+                                    fprintf(stderr, fmt "\n", __VA_ARGS__);\
+                                    hexdump(#a, pbuf, psz);\
+                                }\
+                                assert(a);\
+                            } while (0)
 
 int
 main()
@@ -123,23 +134,70 @@ testvararg()
 static void
 teststr()
 {
-    const char *ps     = "hello\tmonkeys";
+    const char *ps     = "hello";
     const size_t pslen = strlen(ps);
     uint8_t pbuf[256];
     ssize_t psz;
-    char *us = 0;    // unpacked string
-    uint32_t uv = 0; // unpacked u32
+    char *us      = 0; // unpacked string
+    uint32_t slen = 0; // unpacked string length
+    uint32_t vv   = 0;
 
-    psz = Pack(pbuf, sizeof pbuf, "> Z I", ps, 0xbeefdead);
-    assert((size_t)psz == (4 + 1 + pslen));
+
+    // Invalid.
+    psz = Pack(pbuf, sizeof pbuf, "* 2Z", 4, ps);
+    xassert(psz < 0, "psz=%ld", psz);
+
+    psz = Pack(pbuf, sizeof pbuf, "> Z", ps);
+    assert((size_t)psz == (1 + pslen));
     assert(0 == memcmp(pbuf, ps, pslen));
 
-    psz = Unpack(pbuf, psz, "> Z I", &us, &uv);
-    assert((size_t)psz == (4 + 1 + pslen));
+    psz = Unpack(pbuf, psz, "> Z", &us);
+    xassert((size_t)psz == (1 + pslen), "psz=%ld", psz);
     assert(us);
     assert(strlen(us) == pslen);
     assert(0 == strcmp(us, ps));
-    assert(uv == 0xbeefdead);
+    free(us);
+
+    psz = Pack(pbuf, sizeof pbuf, "3Z", ps);
+    xassert(psz == 3, "psz=%ld", psz);
+
+    psz = Unpack(pbuf, psz, "3Z", &us);
+    assert(psz == 3);
+    assert(us);
+    xassert(strlen(us) == 3, "us=|%s|", us);
+    free(us);
+
+    psz = Pack(pbuf, sizeof pbuf, "* Z", 4, ps);
+    xassert(psz == 8, "psz=%ld", psz);
+
+    psz = Unpack(pbuf, psz, "* Z", &slen, &us);
+    xassert(psz == 8, "psz=%ld", psz);
+    assert(us);
+    xassert(slen == 4, "slen=%u", slen);
+    xassert(strlen(us) == 4, "us=|%s|", us);
+    assert(strcmp("hell", us) == 0);
+    free(us);
+
+    psz = Pack(pbuf, sizeof pbuf, "* Z I", 10, ps, 0xbaadf00d);
+    assert(psz == 18);
+
+    psz = Unpack(pbuf, psz, "* Z I", &slen, &us, &vv);
+    assert(psz == 18);
+    assert(slen == 10);
+    assert(us);
+    assert(strlen(us) == 5);
+    assert(vv == 0xbaadf00d);
+    free(us);
+
+    psz = Pack(pbuf, sizeof pbuf, "8Z 8x I", ps, 0xdeadbeef);
+    assert(psz == 20);
+
+    psz = Unpack(pbuf, psz, "8z 8x I", &us, &vv);
+    assert(psz == 20);
+    assert(us);
+    assert(strlen(us) == 5);
+    assert(strcmp(ps, us) == 0);
+    assert(vv == 0xdeadbeef);
     free(us);
 }
 
@@ -253,3 +311,46 @@ test1(void)
     xtest4( int64_t, 8, ">4l", -3,       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfd);
 }
 
+static void
+hexdump(const char* prefix, const void * buf, size_t bufsiz)
+{
+    const char hex[]   = "0123456789abcdef";
+    const uint8_t * p  = (const uint8_t*)buf;
+    size_t rem         = bufsiz;
+    char bb[128];
+
+    printf("%s: %p %zu bytes\n", prefix, buf, bufsiz);
+
+    while (rem > 0)
+    {
+        char * ptr   = &bb[0];
+        char * ascii = ptr + ((8 * 2 + 7) * 2) + 4;
+        size_t n = rem > 16 ? 16 : rem;
+        const uint8_t * pe = p + n;
+        int z = 0;
+
+        rem -= n;
+        memset(bb, ' ', sizeof bb);
+
+        for (z = 0; p < pe; ++p, ++z)
+        {
+            unsigned char c = *p;
+            *ptr++ = hex[c >> 4];
+            *ptr++ = hex[c & 0xf];
+            *ptr++ = ' ';
+            if (isprint(c))
+                *ascii++ = c;
+            else
+                *ascii++ = '.';
+
+            if (z == 7)
+            {
+                *ptr++   = ' ';
+                *ascii++ = ' ';
+            }
+        }
+        *ascii = 0;
+
+        printf("%p %s\n", p, bb);
+    }
+}

@@ -58,6 +58,8 @@ extern "C" {
 #define _VU32(x)     ((volatile uint32_t)(x))
 #define _VU64(x)     ((volatile uint64_t)(x))
 
+#define ARRAY_LEN(x)  (sizeof(x) / (sizeof(x[0])))
+
 #ifdef __cplusplus
 #ifndef typeof
 #define typeof(a)   __typeof__(a)
