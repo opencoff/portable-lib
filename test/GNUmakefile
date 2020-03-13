@@ -82,12 +82,9 @@ mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 # PORTABLE must be defined above..
 include $(PORTABLE)/portablelib.mk
 
-# Set this up for profiling
-#CFLAGS += -pg -no-pie
-#LDFLAGS += -pg -no-pie
-sanitize = -fbounds-check -fsanitize=address -fsanitize=leak -fsanitize=bounds
-CFLAGS += -D_FORTIFY_SOURCE=2 $(sanitize)
-LDFLAGS += $(sanitize)
+#sanitize = -fbounds-check -fsanitize=address -fsanitize=leak -fsanitize=bounds
+CFLAGS_Linux += -D_FORTIFY_SOURCE=2 $(sanitize)
+LDFLAGS_Linux += $(sanitize)
 
 # Include
 include $(PORTABLE)/tools.mk
