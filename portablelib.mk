@@ -153,6 +153,12 @@ LDFLAGS += $(EXTRA_WARNINGS)
 
 win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
+sanitize = -D_FORTIFY_SOURCE=2 -fbounds-check -fsanitize=address \
+		   -fsanitize=leak -fsanitize=bounds
+Linux_CFLAGS   += $(sanitize)
+Linux_CXXFLAGS += $(sanitize)
+Linux_LDFLAGS  += $(sanitize)
+
 Linux_CXXFLAGS += -std=c++17
 Linux_ldlibs   += -lpthread
 

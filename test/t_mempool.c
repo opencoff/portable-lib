@@ -128,9 +128,9 @@ perf_test(int run)
 int
 main()
 {
-    int i;
-    for(i = 0; i < 16; ++i)
-        perf_test(i);
+    perf_test(0);
+    perf_test(1);
+    perf_test(2);
 
     return 0;
 }

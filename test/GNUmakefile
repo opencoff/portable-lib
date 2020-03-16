@@ -51,9 +51,10 @@ autotests = strmatch t_arena t_str2hex t_esc \
 tests_with_input = mmaptest t_mkdirhier  \
                    t_readpass t_rotatefile
 
-hash-input = $(wildcard ./in) # input for all the tests below
-hashtests = t_hashtab t_fast-ht t_hashbench t_bloom
+hash-input = $(wildcard ./big.txt) # input for all the tests below
+hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_xorfilter-file
 
+autotests=
 tests = $(autotests) $(tests_with_input) $(hashtests) $($(platform)_tests)
 
 nettests =
@@ -77,14 +78,10 @@ $(foreach p,$(target),$(eval $(call obj_def,$(p))))
 mt-dd-wipe_opt_objs = dd-wipe-opt.o
 mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 
-
 # Define common library objects needed for this project
 # PORTABLE must be defined above..
 include $(PORTABLE)/portablelib.mk
 
-#sanitize = -fbounds-check -fsanitize=address -fsanitize=leak -fsanitize=bounds
-CFLAGS_Linux += -D_FORTIFY_SOURCE=2 $(sanitize)
-LDFLAGS_Linux += $(sanitize)
 
 # Include
 include $(PORTABLE)/tools.mk
@@ -95,11 +92,12 @@ test:
 		./$(objdir)/$$t || exit 1; \
     done || exit 1
 ifneq ($(hash-input),)
+	@echo "Hash tests ..";\
 	for t in $(hashtests); do \
+		echo "HASH-TEST $$t:"; \
 		./$(objdir)/$$t $(hash-input) ; \
 	done || exit 1
 endif
-
 
 
 #  DON'T DELETE BELOW!

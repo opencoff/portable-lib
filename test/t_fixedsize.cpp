@@ -277,8 +277,9 @@ main()
     pool_test();
     simple_test();
 
-    for(int i = 0; i < 8; ++i)
-        perf_test(i);
+    perf_test(0);
+    perf_test(1);
+    perf_test(2);
 }
 
 /* EOF */

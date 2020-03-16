@@ -205,7 +205,7 @@ main(int argc, char *argv[])
 
     VECT_INIT(&vv, 1048576);
     memset(&pol, 0, sizeof pol);
-    arena_new(&arena, 128*1024);
+    arena_new(&arena, 0);
 
     arena_memmgr(&pol.mem, arena);
 

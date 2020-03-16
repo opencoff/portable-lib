@@ -309,7 +309,7 @@ main(int argc, char** argv)
 
 #ifdef __MAKE_OPTIMIZE__
 
-#define NITER   10
+#define NITER   4
     perf_test(&v, NITER);
 
 #endif // __OPTIMIZE__

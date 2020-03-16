@@ -141,8 +141,8 @@ arena_alloc(arena_t a, size_t nbytes)
     }
 
     /* allocate a new node; but, try to allocate a few more bytes
-     * to satisfy atleast 16 such allocations.  */
-    chunk = nbytes < a->chunk_size ? a->chunk_size : nbytes * 128;
+     * to satisfy atleast few more such allocations.  */
+    chunk = nbytes < a->chunk_size ? a->chunk_size : nbytes * 16;
     n     = (arena_node *) malloc(sizeof(arena_node) + chunk);
     if (!n) goto _end;
 
