@@ -47,7 +47,10 @@ Darwin_ldlibs    += /opt/local/lib/libsodium.a
 OpenBSD_incdirs  += /usr/local/include
 OpenBSD_ldlibs	 += -L/usr/local/lib -lsodium -lpthread
 
-posix_oses  = Linux Darwin Solaris OpenBSD FreeBSD NetBSD
+DragonFly_incdirs += /usr/local/include /usr/local/include/ncurses
+DragonFly_ldlibs  += -L/usr/local/lib -lsodium -lpthread
+
+posix_oses  = Linux Darwin Solaris OpenBSD FreeBSD NetBSD DragonFly
 
 # Helper for Posix OSes
 ifneq ($(findstring $(platform),$(posix_oses)),)
@@ -65,6 +68,9 @@ Linux_defobjs     = $(all_posix_objs) linux_cpu.o \
 Darwin_defobjs    = $(all_posix_objs) darwin_cpu.o darwin_sem.o
 win32_defobjs     = $(all_win32_objs) win32_rand.o
 OpenBSD_defobjs   = $(all_posix_objs) openbsd_cpu.o
+
+# DragonFly BSD supports linux's sched_{get/set}affinity()
+DragonFly_defobjs = $(all_posix_objs) nofdatasync.o linux_cpu.o
 
 
 
