@@ -28,10 +28,6 @@ PORTABLE := ..
 
 # My test cases
 posix_tests +=
-Linux_tests  = $(posix_tests) mt-dd-wipe
-Darwin_tests = $(posix_tests) mt-dd-wipe
-win32_tests += mmap_win32 t_socketpair
-
 #posix_tests += t_resolve
 posix_tests += t_cresolve
 
@@ -62,6 +58,11 @@ nettests =
 target = $(tests)
 
 #CFLAGS += -mavx
+
+Linux_tests  += $(posix_tests) mt-dd-wipe
+Darwin_tests += $(posix_tests) mt-dd-wipe
+win32_tests += mmap_win32 t_socketpair
+DragonFly_tests += $(posix_tests)
 
 
 define obj_def

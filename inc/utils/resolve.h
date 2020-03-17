@@ -71,6 +71,12 @@ VECT_TYPEDEF(if_address_vect, if_address);
 extern int get_all_if_address(if_address_vect*, unsigned int mask);
 
 
+/*
+ * Free all interface addresses
+ */
+extern void free_all_if_address(if_address_vect*);
+
+
 /**
  * Get all addresses bound to an interface.
  *

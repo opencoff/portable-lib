@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2005, Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -70,30 +70,23 @@ hexdump(const char* prefix, const void * buf, size_t bufsiz)
 
     printf("%s: %p %zu bytes\n", prefix, buf, bufsiz);
 
-    while (rem > 0)
-    {
-        char * ptr   = &bb[0];
-        char * ascii = ptr + ((8 * 2 + 7) * 2) + 4;
-        size_t n = rem > 16 ? 16 : rem;
-        const uint8_t * pe = p + n;
-        int z = 0;
+    while (rem > 0) {
+        char *ptr         = &bb[0];
+        char *ascii       = ptr + ((8 * 2 + 7) * 2) + 4;
+        size_t    n       = rem > 16 ? 16 : rem;
+        const uint8_t *pe = p + n;
+        int z             = 0;
 
         rem -= n;
         memset(bb, ' ', sizeof bb);
 
-        for (z = 0; p < pe; ++p, ++z)
-        {
+        for (z = 0; p < pe; ++p, ++z) {
             unsigned char c = *p;
             *ptr++ = hex[c >> 4];
             *ptr++ = hex[c & 0xf];
             *ptr++ = ' ';
-            if (isprint(c))
-                *ascii++ = c;
-            else
-                *ascii++ = '.';
-
-            if (z == 7)
-            {
+            *ascii++ = isprint(c) ? c : '.';
+            if (z == 7) {
                 *ptr++   = ' ';
                 *ascii++ = ' ';
             }
@@ -116,8 +109,7 @@ is_ifname(const char* name)
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     int r = 0;
 
-    if (fd >= 0)
-    {
+    if (fd >= 0) {
         struct ifreq ifr;
         memset(&ifr, 0, sizeof ifr);
 
@@ -140,10 +132,8 @@ sockaddr_to_string(char * buf, size_t bufsiz, const struct sockaddr * sa)
     struct sockaddr_in  * a4 = (struct sockaddr_in *)sa;
     struct sockaddr_in6 * a6 = (struct sockaddr_in6 *)sa;
 
-    switch (sa->sa_family)
-    {
-        case AF_LINK:
-        {
+    switch (sa->sa_family) {
+        case AF_LINK: {
             macaddr_type * dl = (macaddr_type *)sa;
             unsigned char* m  = (unsigned char*)LLADDR(dl),
                          * me = m + 6;
@@ -151,8 +141,7 @@ sockaddr_to_string(char * buf, size_t bufsiz, const struct sockaddr * sa)
 
             //hexdump("macdump", sa, sizeof(struct sockaddr_storage));
 
-            for (; m < me; ++m)
-            {
+            for (; m < me; ++m) {
                 unsigned char c = *m;
                 *p++ = hex[c >> 4];
                 *p++ = hex[c & 0xf];
@@ -212,15 +201,16 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
     if (r < 0)
         return r;
 
-    for (ifp = ifa; ifp; ifp = ifp->ifa_next)
-    {
+    for (ifp = ifa; ifp; ifp = ifp->ifa_next) {
         iftmp t;
         if_addr * a = &t.ifa;
         size_t len  = 0;
 
+        if (!ifp->ifa_addr) {
+            continue;
+        }
 
-        switch (ifp->ifa_addr->sa_family)
-        {
+        switch (ifp->ifa_addr->sa_family) {
             default:
             case AF_INET:
                 if (!(mask & F_INET))
@@ -245,8 +235,7 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
          * How ugly! Linux does not support sa_len field in struct sockaddr.
          */
 #if defined(__linux__)
-        switch (ifp->ifa_addr->sa_family)
-        {
+        switch (ifp->ifa_addr->sa_family) {
             default:
             case AF_INET:
                 len = sizeof(struct sockaddr_in);
@@ -275,35 +264,37 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
 
     freeifaddrs(ifa);
 
+    if (VECT_LEN(&av) == 0) {
+        VECT_FINI(&av);
+        return 0;
+    }
+
     /*
      * Sort the array 'av' and sort out duplicates
      */
     VECT_SORT(&av, iftmp_cmp);
 
-    prev = &VECT_ELEM(&av, 0);
-    cur  = &VECT_ELEM(addrv, 0);
-    VECT_INIT(&cur->if_addr, 4);
 
-    if (VECT_LEN(&av) == 0)
-        return 0;
+#define __get_next(av) ({                              \
+                            typeof((av)->arr) z_;      \
+                            VECT_ENSURE(av, 1);        \
+                            z_ = &VECT_GET_NEXT(av);    \
+                            VECT_INIT(&z_->if_addr, 4); \
+                            z_;                        \
+                        })
+
+    prev = &VECT_ELEM(&av,   0);
+    cur  = __get_next(addrv);
 
     strcopy(cur->if_name, sizeof cur->if_name, prev->nm);
     VECT_PUSH_BACK(&cur->if_addr, prev->ifa);
 
-
     size_t j;
-    for (j = 1; j < VECT_LEN(&av); ++j)
-    {
+    for (j = 1; j < VECT_LEN(&av); ++j) {
         iftmp* x = &VECT_ELEM(&av, j);
 
-        if (0 != strcmp(prev->nm, x->nm))
-        {
-            VECT_ENSURE(addrv, 1);
-
-            addrv->size += 1;
-
-            cur = &VECT_ELEM(addrv, addrv->size);
-            VECT_INIT(&cur->if_addr, 4);
+        if (0 != strcmp(prev->nm, x->nm)) {
+            cur = __get_next(addrv);
             strcopy(cur->if_name, sizeof cur->if_name, x->nm);
         }
 
@@ -311,25 +302,21 @@ get_all_if_address(if_address_vect* addrv, unsigned int mask)
         prev = x;
     }
 
-    addrv->size += 1;
-
-#if 0
-    VECT_FOR_EACH(addrv, cur)
-    {
-        char buf[64];
-        if_addr* z;
-
-        printf("%s: %d addresses:\n", cur->if_name, VECT_LEN(&cur->if_addr));
-        VECT_FOR_EACH(&cur->if_addr, z)
-        {
-            printf("   %s\n", sockaddr_to_string(buf, sizeof buf, (struct sockaddr*)&z->sa));
-        }
-    }
-#endif
-
+    VECT_FINI(&av);
     return 0;
 }
 
+
+void
+free_all_if_address(if_address_vect *addrv)
+{
+    if_address *av;
+    VECT_FOR_EACH(addrv, av) {
+        VECT_FINI(&av->if_addr);
+    }
+
+    VECT_FINI(addrv);
+}
 
 
 
@@ -348,18 +335,18 @@ get_interface_address(const char* ifname, if_addr_vect* addrv, unsigned int mask
     VECT_INIT(&av, 8);
 
     n = get_all_if_address(&av, mask);
-    if (n < 0)
+    if (n < 0) {
+        free_all_if_address(&av);
         return n;
+    }
 
     VECT_RESET(addrv);
     VECT_RESERVE(addrv, 8);
 
-    for (j = 0; j < VECT_LEN(&av); ++j)
-    {
+    for (j = 0; j < VECT_LEN(&av); ++j) {
         if_address* a = &VECT_ELEM(&av, j);
 
-        if (0 == strcmp(a->if_name, ifname))
-        {
+        if (0 == strcmp(a->if_name, ifname)) {
             VECT_COPY(addrv, &a->if_addr);
 
 #if 0
@@ -377,6 +364,7 @@ get_interface_address(const char* ifname, if_addr_vect* addrv, unsigned int mask
         }
     }
 
+    free_all_if_address(&av);
     return 0;
 }
 
@@ -401,8 +389,7 @@ resolve_host_or_ifname(const char* name, if_addr_vect* addrv, unsigned int mask)
     VECT_RESERVE(addrv, 8);
 
     // Degenerate cases
-    if (0 == strlen(name) || *name == '*')
-    {
+    if (0 == strlen(name) || *name == '*') {
         if_addr x;
         memset(&x, 0, sizeof x);
         u.sin.sin_addr.s_addr = INADDR_ANY;
@@ -412,21 +399,16 @@ resolve_host_or_ifname(const char* name, if_addr_vect* addrv, unsigned int mask)
 
         return 0;
     }
-    else
-    {
-        struct in_addr a;
 
+    struct in_addr a;
+    if (inet_aton(name, &a)) {
+        if_addr x;
+        memset(&x, 0, sizeof x);
+        u.sin.sin_addr = a;
+        x.sa = u.sa;
+        VECT_PUSH_BACK(addrv, x);
 
-        if (inet_aton(name, &a))
-        {
-            if_addr x;
-            memset(&x, 0, sizeof x);
-            u.sin.sin_addr = a;
-            x.sa = u.sa;
-            VECT_PUSH_BACK(addrv, x);
-
-            return 0;
-        }
+        return 0;
     }
 
     // if this is an interface name, we have a short-cut.
@@ -455,13 +437,11 @@ resolve_host_or_ifname(const char* name, if_addr_vect* addrv, unsigned int mask)
     if (n != 0)
         return -errno;
 
-    for (ptr = ai; ptr; ptr = ptr->ai_next)
-    {
+    for (ptr = ai; ptr; ptr = ptr->ai_next) {
         struct sockaddr* s = ptr->ai_addr;
         if_addr x;
 
-        switch (s->sa_family)
-        {
+        switch (s->sa_family) {
             default:
             case AF_INET:
                 if (!(mask & F_INET))
