@@ -85,17 +85,24 @@ include $(PORTABLE)/portablelib.mk
 # Include
 include $(PORTABLE)/tools.mk
 
-test:
+test: easytest hashtest
+
+easytest:
+	@echo "bins in ./$(objdir)/ for simple-tests .."; \
 	for t in $(autotests); do  \
         echo "TEST $$t:"; \
 		./$(objdir)/$$t || exit 1; \
     done || exit 1
+
+hashtest:
 ifneq ($(hash-input),)
-	@echo "Hash tests ..";\
+	@echo "bins in ./$(objdir)/ for hash-tests .."; \
 	for t in $(hashtests); do \
 		echo "HASH-TEST $$t:"; \
 		./$(objdir)/$$t $(hash-input) ; \
 	done || exit 1
+else
+	true
 endif
 
 

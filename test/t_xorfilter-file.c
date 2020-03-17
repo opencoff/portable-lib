@@ -103,7 +103,7 @@ main(int argc, char** argv)
            s16 = (_Second(1) * (_d(nn) / d16)) / 1000000.0;
 
 
-    printf("Input: %" PRIu64 " elements; Xor8: %3.2f M/s, Xor16: %3.2f M/s\n", nn, s8, s16);
+    printf("Input: %" PRIu64 " elements; Create speed Xor8: %3.2f M keys/s, Xor16: %3.2f M keys/s\n", nn, s8, s16);
 
     Xorfilter_delete(x8);
     Xorfilter_delete(x16);

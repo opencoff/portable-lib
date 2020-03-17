@@ -75,6 +75,18 @@ mix(uint64_t h)
     return h;
 }
 
+#if 0
+static inline uint64_t
+__mix(uint64_t h)
+{
+    h ^= 14695981039346656037ULL;
+    h += (h << 1) + (h << 4) + (h << 5) + (h << 7) + (h << 8) + (h << 40);
+    return h;
+}
+#else
+#define __mix(a) mix(a)
+#endif
+
 /*
  * fasthash64() - but tuned for exactly _one_ round and
  * one 64-bit word.
@@ -103,13 +115,13 @@ __geth0(uint64_t h, uint32_t size)
 static inline uint32_t
 __geth1(uint64_t h, uint32_t size)
 {
-    return mix(h) % size;
+    return __mix(h) % size;
 }
 
 static inline uint32_t
 __geth2(uint64_t h, uint32_t size)
 {
-    return mix(mix(h)) % size;
+    return __mix(__mix(h)) % size;
 }
 
 /*
