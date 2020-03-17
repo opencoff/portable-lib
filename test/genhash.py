@@ -26,7 +26,7 @@ def scan(fn):
 
     r = Re
     v = {}
-    fd = open(fn, 'rb')
+    fd = open(fn, 'r')
     for l in fd:
         l = l.strip()
         m = r.match(l)
@@ -87,7 +87,10 @@ class mpstate:
 
 
 darwin_paths = ['/Applications/Xcode.app/Contents', '/Library/DeveloperDA' ]
-paths  = ['/usr/include', '/usr/local/include', '/opt/local/include']
+paths  = ['/usr/include', '/usr/local/include',
+        '/opt/local/include',
+        'lib/gcc',
+        ]
 paths += darwin_paths
 
 # Let command line override
@@ -100,5 +103,5 @@ for pp in paths:
 
 r = ms.wait()
 for k, v in r.items():
-    print "%s %s" % (k, v)
+    print("%s %s" % (k, v))
 # EOF

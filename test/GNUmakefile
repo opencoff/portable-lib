@@ -51,10 +51,9 @@ autotests = strmatch t_arena t_str2hex t_esc \
 tests_with_input = mmaptest t_mkdirhier  \
                    t_readpass t_rotatefile
 
-hash-input = $(wildcard ./big.txt) # input for all the tests below
+hash-input = $(wildcard ./in*) # input for all the tests below
 hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_xorfilter-file
 
-autotests=
 tests = $(autotests) $(tests_with_input) $(hashtests) $($(platform)_tests)
 
 nettests =
