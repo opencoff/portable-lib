@@ -83,10 +83,8 @@ opt_parse(opt_option * opt, int argc, char * const *argv)
     if (argc < 0 || !argv || !argv[0])
         return 0;
 
-    while ((c = getopt_long(argc, argv, Short_options, Long_options, 0)) != EOF)
-    {
-        switch (c)
-        {
+    while ((c = getopt_long(argc, argv, Short_options, Long_options, 0)) != EOF) {
+        switch (c) {
         case 300:  /* help */
         case 'h':  /* help */
             opt->help = 1;
@@ -185,8 +183,7 @@ grok_int(const char * str, const char * option, char * present, int * err,
         unsigned long ul;
     } un;
 
-    if (*str == '-')
-    {
+    if (*str == '-') {
         ++str;
         isneg = 1;
     }
@@ -195,21 +192,16 @@ grok_int(const char * str, const char * option, char * present, int * err,
     if (xxend && *xxend)
         error(0, 0, "Ignoring trailing characters '%s' for option '%s'", xxend, option);
 
-    if (isneg)
-    {
+    if (isneg) {
         un.l *= -1;
     }
 
-    if (has_limit)
-    {
-        if (isneg && un.l < lim_neg)
-        {
+    if (has_limit) {
+        if (isneg && un.l < lim_neg) {
             *err += 1;
             error(0, 0, "Integer value '-%s' underflow for option '%s' (min %ld)",
                     str, option, lim_neg);
-        }
-        else if (!isneg && un.ul > (unsigned long)lim_pos)
-        {
+        } else if (!isneg && un.ul > (unsigned long)lim_pos) {
             *err += 1;
             error(0, 0, "Integer value '%s' overflow for option '%s' (max %lu)",
                     str, option, lim_pos);
@@ -262,10 +254,8 @@ grok_size(const char * str, const char * option, char * present, int * err)
     *present = 1;
     xxbase = strtoull(str, &xxend, 0);
 
-    if ( xxend && *xxend )
-    {
-        switch (*xxend)
-        {
+    if (xxend && *xxend) {
+        switch (*xxend) {
             case 'b': case 'B':
                 break;
             case 'k': case 'K':
@@ -292,16 +282,13 @@ grok_size(const char * str, const char * option, char * present, int * err)
         }
 
         xxval = xxbase * xxmult;
-        if ((xxbase == UL_MAX__ && errno == ERANGE) || 
-            (xxval < xxbase))
-        {
+        if ((xxbase == UL_MAX__ && errno == ERANGE) || (xxval < xxbase)) {
             errs++;
             error(0, 0, "Size value overflow for option '%s' (base %lu, multiplier %lu)",
                     option, xxbase, xxmult);
             *present = 0;
         }
-    }
-    else
+    } else
         xxval = xxbase;
 
     *err += errs;

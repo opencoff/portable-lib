@@ -9,12 +9,12 @@ import os, sys
 #
 def create_file(f):
     fd = open(f, "w")
-    print >>fd, f
+    print(f, file=fd)
     fd.close()
 
 n = len(sys.argv)
 if n < 3:
-    print >>sys.stderr, "Usage: %s FILENAME NSAVED" % sys.argv[0]
+    print("Usage: %s FILENAME NSAVED" % sys.argv[0], file=sys.stderr)
     sys.exit(0)
 
 filename = sys.argv[1]

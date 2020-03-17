@@ -114,9 +114,9 @@ class hashtable(object):
     def dump(self):
 
         i = 0
-        print "%s: %d buckets, %d nodes" % (self.name, self.N, self.nodes)
+        print("%s: %d buckets, %d nodes" % (self.name, self.N, self.nodes))
         for b in self.t:
-            print "  %3d: %s" % (i, ','.join(["%8.8x" % x for x in b]))
+            print("  %3d: %s" % (i, ','.join(["%8.8x" % x for x in b])))
             i += 1
 
     def printstats(self):
@@ -127,10 +127,10 @@ class hashtable(object):
              'avgchainlen': self.avgchainlen
              }
         t.update(self.__dict__)
-        print """%(name)s: %(N)d buckets, %(nodes)d nodes
+        print("""%(name)s: %(N)d buckets, %(nodes)d nodes
     Fill rate:    %(fillrate)3.2f %%
     Nodes/bucket: exp %(density)3.2f, actual %(realdensity)3.2f
-    Chain length: max %(maxchainlen)d, avg %(avgchainlen)d""" % t
+    Chain length: max %(maxchainlen)d, avg %(avgchainlen)d""" % t)
 
     def chainlen(self, b):
         """Return chainlen for bucket b"""
@@ -187,9 +187,9 @@ def find_collisions(fp, hashtab=False, N=0, R=0):
     have_coll = len([z for z in coll if z > 0]) > 0
 
     if have_coll:
-        print "Collisions:"
-        print "  ", "  ".join(["{:^8}".format(x) for x in names])
-        print "  ", "  ".join(["{:^8d}".format(x) for x in coll])
+        print("Collisions:")
+        print("  ", "  ".join(["{:^8}".format(x) for x in names]))
+        print("  ", "  ".join(["{:^8d}".format(x) for x in coll]))
 
 
     return dist

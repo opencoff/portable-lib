@@ -457,12 +457,13 @@ def groksize(str):
 def error(doex, fmt, *args):
     global Z
     sfmt = "%s: %s" % (Z, fmt)
-
     if args:
-        print >>sys.stderr, sfmt % args
-    else:
-        print >>sys.stderr, sfmt
+        sfmt = sfmt % args
 
+    if not sfmt.endswith("\n"):
+        sfmt += "\n"
+
+    sys.stderr.write(sfmt)
     if doex:
         sys.exit(doex)
 
@@ -627,36 +628,36 @@ class option:
             self.shortopt_str = ""
             return
 
-        str = self.short_opt
+        s = self.short_opt
         if self.hasarg:
-            str += ":"
+            s += ":"
         if self.optarg:
-            str += ":"
+            s += ":"
 
-        #print "SHORT: |%s|" % str
-        self.shortopt_str = str
+        #print "SHORT: |%s|" % s
+        self.shortopt_str = s
 
     def make_long_opt(self, opstate):
         if self.long_opt is None:
             self.longopt_str = ""
             return
 
-        str = '    , {"' + self.long_opt + '",'
-        str += ' ' * (32 - len(self.long_opt))
+        s = '    , {"' + self.long_opt + '",'
+        s += ' ' * (32 - len(self.long_opt))
         if self.hasarg:
             if self.optarg:
-                str += "optional_argument,"
+                s += "optional_argument,"
             else:
-                str += "required_argument,"
+                s += "required_argument,"
         else:
-            str += "no_argument,      "
+            s += "no_argument,      "
 
-        str += " 0, "
-        str += "%d" % self.optnum
-        str += "}\n"
+        s += " 0, "
+        s += "%d" % self.optnum
+        s += "}\n"
 
-        #print "LONG: |%s|" % str
-        self.longopt_str = str
+        #print "LONG: |%s|" % s
+        self.longopt_str = s
 
 
     def make_help_line(self, max_help_len):
@@ -665,7 +666,7 @@ class option:
             self.help_str = ""
             return
 
-        str = ' ' * 4
+        s = ' ' * 4
         arg = ""
         if self.long_opt:
             fc  = self.long_opt[0]
@@ -673,33 +674,33 @@ class option:
             if arg is None:
                 arg = fc
 
-            str += "--%s" % self.long_opt
+            s += "--%s" % self.long_opt
             if self.hasarg:
-                str += "=%s" % arg.lower()
+                s += "=%s" % arg.lower()
 
         if self.short_opt:
-            str += ", -%s" % self.short_opt
+            s += ", -%s" % self.short_opt
             if self.hasarg:
-                str += " %s" % arg.lower()
+                s += " %s" % arg.lower()
 
-        l = len(str)
-        str += ' ' * (max_help_len - l)
+        l = len(s)
+        s += ' ' * (max_help_len - l)
 
         tw = textwrap.TextWrapper(width=74, #initial_indent=' ' * (max_help_len-1),
                                      subsequent_indent=' ' * (max_help_len-1))
 
-        helpstr = self.help
+        helps = self.help
         if self.default != '-' and self.type != 'callback':
-            helpstr += " [%s]" % self.default
+            helps += " [%s]" % self.default
 
-        w = list(map(lambda x: x + '\\n"\n', tw.wrap(helpstr)))
+        w = list(map(lambda x: x + '\\n"\n', tw.wrap(helps)))
         l = w[:1]
         for x in w[1:]:
             x = '" ' + x
             l.append(x)
-        hstr = ''.join(l)
+        hs = ''.join(l)
 
-        self.help_str = '"%s%s' % (str, hstr)
+        self.help_str = '"%s%s' % (s, hs)
 
 
     def make_stmt(self, opstate):
@@ -712,18 +713,18 @@ class option:
             self.output.casestmt = ""
             return
 
-        str = ' ' * 8
+        s = ' ' * 8
         msg = self.long_opt
         if msg is None:
             msg = self.short_opt
 
-        str += "case %d:  /* %s */" % (self.optnum, msg)
+        s += "case %d:  /* %s */" % (self.optnum, msg)
         if self.short_opt:
-            str += '\n' + (' ' * 8) + "case '%s':  /* %s */" % (self.short_opt, msg)
+            s += '\n' + (' ' * 8) + "case '%s':  /* %s */" % (self.short_opt, msg)
 
 
         #print "Generating stmt for %s" % self.type
-        self.output.casestmt = str + self.output.casestmt
+        self.output.casestmt = s + self.output.casestmt
 
 
     def generate(self, opstate):
@@ -1421,10 +1422,8 @@ int
     if (argc < 0 || !argv || !argv[0])
         return 0;
 
-    while ((c = getopt_long(argc, argv, Short_options, Long_options, 0)) != EOF)
-    {
-        switch (c)
-        {
+    while ((c = getopt_long(argc, argv, Short_options, Long_options, 0)) != EOF) {
+        switch (c) {
 %(casestmt)s
 
         default:
@@ -1453,10 +1452,9 @@ Dupstr_template = """
 static char*
 dupstr(const char* s)
 {
-    int n    = 1 + strlen(s);
-    char * x = (char *)calloc(1, n);
-    if (x)
-        memcpy(x, s, n);
+    size_t n = 1 + strlen(s);
+    char  *x = (char *)calloc(1, n);
+    if (x) memcpy(x, s, n);
 
     return x;
 }
@@ -1528,8 +1526,7 @@ grok_int(const char * str, const char * option, char * present, int * err,
         unsigned long ul;
     } un;
 
-    if (*str == '-')
-    {
+    if (*str == '-') {
         ++str;
         isneg = 1;
     }
@@ -1538,21 +1535,16 @@ grok_int(const char * str, const char * option, char * present, int * err,
     if (xxend && *xxend)
         error(0, 0, "Ignoring trailing characters '%%s' for option '%%s'", xxend, option);
 
-    if (isneg)
-    {
+    if (isneg) {
         un.l *= -1;
     }
 
-    if (has_limit)
-    {
-        if (isneg && un.l < lim_neg)
-        {
+    if (has_limit) {
+        if (isneg && un.l < lim_neg) {
             *err += 1;
             error(0, 0, "Integer value '-%%s' underflow for option '%%s' (min %%ld)",
                     str, option, lim_neg);
-        }
-        else if (!isneg && un.ul > (unsigned long)lim_pos)
-        {
+        } else if (!isneg && un.ul > (unsigned long)lim_pos) {
             *err += 1;
             error(0, 0, "Integer value '%%s' overflow for option '%%s' (max %%lu)",
                     str, option, lim_pos);
@@ -1608,10 +1600,8 @@ grok_size(const char * str, const char * option, char * present, int * err)
     *present = 1;
     xxbase = strtoull(str, &xxend, 0);
 
-    if ( xxend && *xxend )
-    {
-        switch (*xxend)
-        {
+    if (xxend && *xxend) {
+        switch (*xxend) {
             case 'b': case 'B':
                 break;
             case 'k': case 'K':
@@ -1638,16 +1628,13 @@ grok_size(const char * str, const char * option, char * present, int * err)
         }
 
         xxval = xxbase * xxmult;
-        if ((xxbase == UL_MAX__ && errno == ERANGE) || 
-            (xxval < xxbase))
-        {
+        if ((xxbase == UL_MAX__ && errno == ERANGE) || (xxval < xxbase)) {
             errs++;
             error(0, 0, "Size value overflow for option '%%s' (base %%lu, multiplier %%lu)",
                     option, xxbase, xxmult);
             *present = 0;
         }
-    }
-    else
+    } else
         xxval = xxbase;
 
     *err += errs;

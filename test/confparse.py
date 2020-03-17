@@ -69,7 +69,7 @@ class bundle(object):
 
 def fatal(s, *args):
     ps = s % args
-    print >>sys.stderr, ps
+    sys.stderr.write(ps)
     sys.exit(1)
 
 class node:
@@ -90,7 +90,7 @@ class node:
             else:
                 pn = "NONE"
 
-            print "  %s += NEW Master %s at col %d" % (pn, self.name, col)
+            print("  %s += NEW Master %s at col %d" % (pn, self.name, col))
         else:
             sep = '=' if nm.find('=') > 0 else ' '
             w = nm.split(sep)
@@ -104,7 +104,7 @@ class node:
             else:
                 pn = "NONE"
 
-            print "  %s += NEW KV <%s = %s> at col %d" % (pn, k, v, col)
+            print("  %s += NEW KV <%s = %s> at col %d" % (pn, k, v, col))
 
 
     def __str__(self):
@@ -146,7 +146,7 @@ def parse(fd):
             if not prev.master:
                 fatal("%d: indented node <%12.12s...> doesn't have a parent", n, line)
 
-            print "%d: INDENT push %s col %d; new top %s" % (n, top.name, top.col, prev.name)
+            print("%d: INDENT push %s col %d; new top %s" % (n, top.name, top.col, prev.name))
 
             st.append(top)
             top = prev
@@ -157,12 +157,12 @@ def parse(fd):
             while len(st) > 0:
                 t  = st[-1]
                 st = st[:-1]
-                print "# top <%s> col %d ?" % (t.name, t.col)
+                print("# top <%s> col %d ?" % (t.name, t.col))
                 if t.col < c:
                     ok = True
                     break
 
-                print "%d: DEDENT %s col %d" % (n, t.name, t.col)
+                print("%d: DEDENT %s col %d" % (n, t.name, t.col))
 
             if not ok:
                 fatal("%d: Indent stack corrupted near %12.12s ..", n, line)
@@ -183,9 +183,9 @@ def dump(n, l):
     """Dump a node"""
 
     s = ' ' * (2 * l)
-    print "%s <%s>" % (s, n.name)
+    print("%s <%s>" % (s, n.name))
     for z in n.kv:
-        print "%s  %s %s" % (s, z.key, z.val)
+        print("%s  %s %s" % (s, z.key, z.val))
 
     for z in n.children:
         dump(z, l+1)

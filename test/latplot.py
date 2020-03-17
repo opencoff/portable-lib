@@ -22,19 +22,19 @@ class samples:
     def readcsv(self, fd):
         lat = []
         ymax = 0
-        ymin = 0xfffffffffL
+        ymin = 0xfffffffff
         for l in fd:
             if l.startswith('#'):
                 continue
 
-            z = long(l)
+            z = int(l)
             lat.append(z)
 
         if len(self.lat) == 0:
             self.lat  = lat
         else:
             # Otherwise, calculate average and update
-            print "# averaging %d existing with %d new seq" % (len(self.lat), len(lat))
+            print("# averaging %d existing with %d new seq" % (len(self.lat), len(lat)))
             self.lat = [ (a + b)/2.0 for a, b in zip(self.lat, lat) ]
 
     def result(self):
@@ -84,7 +84,7 @@ for f in sys.argv[1:]:
     fd.close()
 
 ymin, mm, ymax = ss.result()
-print "# %d samples, min %d max %d median %d" % (len(ss), ymin, ymax, mm)
+print("# %d samples, min %d max %d median %d" % (len(ss), ymin, ymax, mm))
 
 x = range(len(ss))
 y = ss.lat
