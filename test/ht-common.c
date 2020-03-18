@@ -25,19 +25,30 @@ typedef struct word word;
 
 VECT_TYPEDEF(strvect, word);
 
+extern void arc4random_buf(void *, size_t);
+
+static uint64_t
+rand64()
+{
+    uint64_t z = 0;
+    arc4random_buf(&z, sizeof z);
+    return z;
+}
+
 static void
 read_words(strvect* v, arena_t a, const char* filename)
 {
     unsigned char buf[1024];
     int n;
     FILE* fp = stdin;
-    uint64_t salt = 0;
+    uint64_t salt = rand64();
 
     if (0 != strcmp("-", filename)) {
         fp = fopen(filename, "r");
         if (!fp) error(1, errno, "Can't open %s", filename);
     }
 
+    int j = 0;
     while ((n = freadline(fp, buf, sizeof buf)) > 0) {
         if (n < 4) continue;
 
@@ -58,8 +69,10 @@ read_words(strvect* v, arena_t a, const char* filename)
                     .h = fasthash64(z, n, salt)
                   };
         VECT_PUSH_BACK(v, w);
+        j++;
     }
 
+    printf("%s: Read %d entries ..\n", filename, j);
     if (fp != stdin) fclose(fp);
 }
 

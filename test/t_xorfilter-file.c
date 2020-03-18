@@ -69,7 +69,7 @@ main(int argc, char** argv)
     }
 
     VECT_INIT(&v, 256*1024);
-    arena_new(&a, 1048576);
+    arena_new(&a, 32768);
 
     for (int i = 0; i < argc; ++i) {
         read_words(&v, a, argv[i]);
