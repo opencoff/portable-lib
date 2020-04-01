@@ -75,17 +75,13 @@ mix(uint64_t h)
     return h;
 }
 
-#if 0
 static inline uint64_t
 __mix(uint64_t h)
 {
-    h ^= 14695981039346656037ULL;
-    h += (h << 1) + (h << 4) + (h << 5) + (h << 7) + (h << 8) + (h << 40);
+    h = (h << 27) | (h >> (64 - 27));
+    h ^= h >> 32;
     return h;
 }
-#else
-#define __mix(a) mix(a)
-#endif
 
 /*
  * fasthash64() - but tuned for exactly _one_ round and
