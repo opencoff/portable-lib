@@ -63,10 +63,10 @@ extern "C" {
 
 #if    FASTHT_BAGSZ > 8
 
-#warn "FASTHT_BAGSZ is too large; clamping at 8"
+#warn "FASTHT_BAGSZ is too large; clamping at 7"
 #undef FASTHT_BAGSZ
 
-#define FASTHT_BAGSZ    8
+#define FASTHT_BAGSZ    7
 #endif
 
 /*
