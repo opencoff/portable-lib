@@ -189,6 +189,11 @@ static inline uint64_t sys_cpu_timestamp(void)
     return x;
 }
 
+static inline void sys_cpu_pause(void)
+{
+    __asm__ volatile ("pause" ::: "memory");
+}
+
 #elif defined(__x86_64__)
 
 
@@ -196,10 +201,43 @@ static inline uint64_t sys_cpu_timestamp(void)
 {
     uint64_t res;
     uint32_t hi, lo;
-    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+    __asm__ volatile ("rdtsc" : "=a"(lo), "=d"(hi));
 
     res = hi;
     return (res << 32) | lo;
+}
+
+
+static inline void sys_cpu_pause(void)
+{
+    __asm__ volatile ("pause" ::: "memory");
+}
+
+#elif defined(__arm64__) || defined(__aarch64__)
+
+// apple silicon
+//
+// cyc_count in cntvct_el0
+// cyc_freq  in cntfreq_el0
+
+#define __sys_read_reg(reg_) ({ \
+                                    uint64_t __res = 0;                                     \
+                                    __asm__ __volatile__("mrs %0," #reg_ : "=r"(__res));    \
+                                    __res;                                                  \
+                              })
+
+
+static inline uint64_t sys_cpu_timestamp(void)
+{
+    // XXX do we worry about freq? For short benchmarks, this is
+    // fine I guess?
+    return __sys_read_reg(cntvct_el0);
+}
+
+
+static inline void sys_cpu_pause(void)
+{
+    __asm__ volatile ("isb\n");
 }
 
 #else

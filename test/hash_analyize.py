@@ -29,18 +29,16 @@ class hashmap:
 
     def update(self, key):
         k = int(key, 16)
-        n = self.d.setdefault(k, 0)
-        n += 1
+        self.d.setdefault(k, 0)
+        self.d[k] += 1
 
     def collisions(self):
         """Return number of collisions"""
 
-        #r = []
         n = 0
-        for k, v in self.d.items():
+        for v in self.d.values():
             if v > 1:
                 n += 1
-                #r.append((k, v))
 
         return n
 
@@ -162,7 +160,7 @@ class hashtable(object):
 
 def find_collisions(fp, hashtab=False, N=0, R=0):
     header = fp.readline().strip()
-    names  = header.split(',')[:-1]
+    names  = header.split(',')
     hashes = [hashmap(x) for x in names]
     dist   = None
 
@@ -174,7 +172,7 @@ def find_collisions(fp, hashtab=False, N=0, R=0):
         if not l:
             break
 
-        vals = l.split(',')[:-1]
+        vals = l.split(',')
         for h, v in zip(hashes, vals):
             h.update(v)
 
@@ -183,10 +181,9 @@ def find_collisions(fp, hashtab=False, N=0, R=0):
                 h.update(v)
 
 
-    coll = [h.collisions() for h in hashes]
-    have_coll = len([z for z in coll if z > 0]) > 0
-
-    if have_coll:
+    coll =  [ h.collisions() for h in hashes ]
+    have_coll = [ z for z in coll if z > 0 ]
+    if len(have_coll) > 0:
         print("Collisions:")
         print("  ", "  ".join(["{:^8}".format(x) for x in names]))
         print("  ", "  ".join(["{:^8d}".format(x) for x in coll]))
@@ -207,7 +204,7 @@ def main():
     argc = len(args)
     fp = sys.stdin
     if argc > 0:
-        fp = open(args[0], 'rb')
+        fp = open(args[0], 'r')
 
 
     if opt.N > 0:

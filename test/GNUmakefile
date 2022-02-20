@@ -48,7 +48,7 @@ tests_with_input = mmaptest t_mkdirhier  \
                    t_readpass t_rotatefile
 
 hash-input = $(wildcard ./in*) # input for all the tests below
-hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_xorfilter-file
+hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_xorfilter-file t_top1m
 
 tests = $(autotests) $(tests_with_input) $(hashtests) $($(platform)_tests)
 
@@ -63,6 +63,13 @@ Linux_tests  += $(posix_tests) mt-dd-wipe
 Darwin_tests += $(posix_tests) mt-dd-wipe
 win32_tests += mmap_win32 t_socketpair
 DragonFly_tests += $(posix_tests)
+
+Linux_sanitize_tests = autotests
+
+# XXX Sanitize doesn't work on Darwin-arm64!
+Darwin_sanitize_tests =
+
+sanitize_tests = $($(platform)_sanitize_tests)
 
 
 define obj_def
@@ -86,7 +93,14 @@ include $(PORTABLE)/portablelib.mk
 # Include
 include $(PORTABLE)/tools.mk
 
-test: easytest hashtest
+test: easytest hashtest sanitize
+
+sanitize:
+	@echo "bins in ./$(objdir)/ for sanitize .."; \
+	for t in $(sanitize_tests); do  \
+        echo "TEST $$t:"; \
+	     ASAN_OPTIONS="detect_leaks=1" ./$(objdir)/$$t || exit 1; \
+    done || exit 1
 
 easytest:
 	@echo "bins in ./$(objdir)/ for simple-tests .."; \

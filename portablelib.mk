@@ -159,8 +159,11 @@ LDFLAGS += $(EXTRA_WARNINGS)
 
 win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
-sanitize = -D_FORTIFY_SOURCE=2 -fbounds-check -fsanitize=address \
+sanitize = -D_FORTIFY_SOURCE=2 -fsanitize=address \
 		   -fsanitize=leak -fsanitize=bounds
+Linux_CC =  clang
+Linux_CXX = clang++
+Linux_LD = clang++
 Linux_CFLAGS   += $(sanitize)
 Linux_CXXFLAGS += $(sanitize)
 Linux_LDFLAGS  += $(sanitize)
@@ -176,7 +179,7 @@ OpenBSD_CXXFLAGS += -std=c++17
 Darwin_CC = clang
 Darwin_CXX = clang++
 Darwin_LD = clang++
-Darwin_SANITIZE = -fsanitize=undefined -fsanitize=address
+Darwin_SANITIZE = -fsanitize=undefined -fsanitize=address -fsanitize=bounds -fsanitize=signed-integer-overflow
 Darwin_CXXFLAGS += -std=c++17 $(Darwin_SANITIZE)
 Darwin_CFLAGS += $(Darwin_SANITIZE)
 Darwin_LDFLAGS += $(Darwin_SANITIZE)
@@ -194,6 +197,10 @@ CXXFLAGS += $(CFLAGS) $($(platform)_CXXFLAGS)
 Linux_OFLAGS   =
 OpenBSD_OFLAGS =
 Darwin_OFLAGS  =
+
+ifeq ($(RELEASE),1)
+	OPTIMIZE := 1
+endif
 
 ifeq ($(OPTIMIZE),1)
 	CFLAGS  += -O3 $($(platform)_OFLAGS) $(OFLAGS) \

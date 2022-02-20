@@ -6,6 +6,7 @@
 
 #include "fast/bitset.h"
 
+extern uint32_t arc4random_uniform(uint32_t);
 
 int
 main()

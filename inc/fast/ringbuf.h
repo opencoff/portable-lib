@@ -77,6 +77,8 @@
 #include <errno.h>
 
 
+#include "utils/utils.h"
+
 /**
  * RTE Ring
  *
@@ -124,13 +126,10 @@ extern "C" {
 #error "Can't define __CACHELINE_ALIGNED for your compiler/machine"
 #endif /* __CACHELINE_ALIGNED */
 
-/*
- * Builtin gcc/clang intrinsics for pausing CPU execution for a
- * short while; it is used in tight loops while waiting for a shared
- * variable to update/
- */
-#include <emmintrin.h>
-#define rte_pause() _mm_pause()
+
+
+// sys_cpu_pause() is in utils/utils.h
+#define rte_pause() sys_cpu_pause()
 
 
 enum rte_ring_queue_behavior {
@@ -1082,11 +1081,11 @@ rte_ring_dump(char *buf, size_t n, struct rte_ring *r)
                   prod_tail = atomic_load_explicit(&r->cons.tail, memory_order_acquire);
 
     x = snprintf(buf, n, "ring <%p>: size=%u, used %u, avail %u\n"
-                         "   cons.tail=%lu, cons.head=%lu\n"
-                         "   prod.tail=%lu, prod.head=%lu\n",
+                         "   cons.tail=%u, cons.head=%u\n"
+                         "   prod.tail=%u, prod.head=%u\n",
                             r, r->size, rte_ring_count(r), rte_ring_free_count(r),
-                            cons_tail, cons_head,
-                            prod_tail, prod_head
+                            _U32(cons_tail), _U32(cons_head),
+                            _U32(prod_tail), _U32(prod_head)
            );
 
     if (x < 0 || ((size_t)x) >= n) buf[n-1] = 0;
