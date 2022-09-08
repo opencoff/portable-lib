@@ -42,6 +42,8 @@
 #define ARC4R_IVSZ      8
 #define ARC4R_BLOCKSZ   64
 #define ARC4R_RSBUFSZ   (16*ARC4R_BLOCKSZ)
+#define REKEY_BASE (1024*1024) //base 2
+
 
 typedef struct
 {
@@ -110,7 +112,7 @@ static void
 _rs_stir(rand_state* st)
 {
     u8 rnd[ARC4R_KEYSZ + ARC4R_IVSZ];
-
+    uint32_t rekey_fuzz = 0;
 
     int r = getentropy(rnd, sizeof rnd);
     assert(r == 0);
@@ -120,8 +122,10 @@ _rs_stir(rand_state* st)
     /* invalidate rs_buf */
     st->rs_have = 0;
     memset(st->rs_buf, 0, sizeof st->rs_buf);
-
-    st->rs_count = 1600000;
+    
+    //st->rs_count = 1600000;
+    chacha_encrypt_bytes(&st->rs_chacha, (uint8_t *)&rekey_fuzz,(uint8_t *)&rekey_fuzz, sizeof(rekey_fuzz));
+    st->rs_count = REKEY_BASE + (rekey_fuzz % REKEY_BASE);
 }
 
 
