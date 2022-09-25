@@ -43,6 +43,9 @@
 #define ARC4R_BLOCKSZ   64
 #define ARC4R_RSBUFSZ   (16*ARC4R_BLOCKSZ)
 
+// must be a power of 2
+#define REKEY_BASE      (1 << 10)
+
 typedef struct
 {
     uint32_t input[16]; /* could be compressed */
@@ -54,7 +57,7 @@ struct rand_state
     size_t          rs_count;   /* bytes till reseed */
     pid_t           rs_pid;     /* My PID */
     chacha_ctx      rs_chacha;  /* chacha context for random keystream */
-    u_char          rs_buf[ARC4R_RSBUFSZ];  /* keystream blocks */
+    uint8_t         rs_buf[ARC4R_RSBUFSZ];  /* keystream blocks */
 };
 typedef struct rand_state rand_state;
 
@@ -71,8 +74,10 @@ extern int getentropy(void* buf, size_t n);
 #include "utils/arc4random.h"
 
 
+
+
 static inline void
-_rs_init(rand_state* st, u8 *buf, size_t n)
+_rs_init(rand_state* st, uint8_t *buf, size_t n)
 {
     assert(n >= (ARC4R_KEYSZ + ARC4R_IVSZ));
 
@@ -83,23 +88,27 @@ _rs_init(rand_state* st, u8 *buf, size_t n)
 
 
 static inline void
-_rs_rekey(rand_state* st, u8 *dat, size_t datlen)
+_rs_rekey(rand_state* st, uint8_t *dat, size_t datlen)
 {
     /* fill rs_buf with the keystream */
     chacha_encrypt_bytes(&st->rs_chacha, st->rs_buf, st->rs_buf, sizeof st->rs_buf);
 
     /* mix in optional user provided data */
     if (dat) {
-        size_t i, m;
-
-        m = minimum(datlen, ARC4R_KEYSZ + ARC4R_IVSZ);
-        for (i = 0; i < m; i++)
+        size_t m = minimum(datlen, ARC4R_KEYSZ + ARC4R_IVSZ);
+        for (size_t i = 0; i < m; i++)
             st->rs_buf[i] ^= dat[i];
 
         memset(dat, 0, datlen);
     }
 
-    /* immediately reinit for backtracking resistance */
+    assert(sizeof(st->rs_buf) > (ARC4R_KEYSZ+ARC4R_IVSZ));
+
+    /*
+     * immediately reinit for backtracking resistance:
+     * We're consuming enough bytes to make a new chacha context (key+iv).
+     * Thus, we have those many fewer bytes in the entropy buf
+     */
     _rs_init(st, st->rs_buf, ARC4R_KEYSZ + ARC4R_IVSZ);
     memset(st->rs_buf, 0, ARC4R_KEYSZ + ARC4R_IVSZ);
     st->rs_have = (sizeof st->rs_buf) - ARC4R_KEYSZ - ARC4R_IVSZ;
@@ -109,7 +118,9 @@ _rs_rekey(rand_state* st, u8 *dat, size_t datlen)
 static void
 _rs_stir(rand_state* st)
 {
-    u8 rnd[ARC4R_KEYSZ + ARC4R_IVSZ];
+    uint8_t rnd[ARC4R_KEYSZ + ARC4R_IVSZ];
+    size_t rekey_fuzz = 0;
+    uint8_t *fuzzp    = (uint8_t*)&rekey_fuzz;
 
 
     int r = getentropy(rnd, sizeof rnd);
@@ -121,7 +132,8 @@ _rs_stir(rand_state* st)
     st->rs_have = 0;
     memset(st->rs_buf, 0, sizeof st->rs_buf);
 
-    st->rs_count = 1600000;
+    chacha_encrypt_bytes(&st->rs_chacha, fuzzp, fuzzp, sizeof rekey_fuzz);
+    st->rs_count = REKEY_BASE + (rekey_fuzz % REKEY_BASE);
 }
 
 
@@ -134,29 +146,58 @@ _rs_stir_if_needed(rand_state* st, size_t len)
     st->rs_count -= len;
 }
 
+// consume 'n' random btyes from the entropy buffer. Return total
+// actually consumed.
+static inline size_t
+_rs_consume(rand_state *rs, uint8_t *buf, size_t n)
+{
+    size_t m    = minimum(n, rs->rs_have);
+    uint8_t *ks = rs->rs_buf + sizeof(rs->rs_buf) - rs->rs_have;
+    memcpy(buf, ks, m);
+    memset(ks,  0,  m);
+    rs->rs_have -= m;
+    return m;
+}
 
 static inline void
 _rs_random_buf(rand_state* rs, void *_buf, size_t n)
 {
-    u8 *buf = (u8 *)_buf;
-    u8 *keystream;
-    size_t m;
+    uint8_t *buf = (uint8_t *)_buf;
 
     _rs_stir_if_needed(rs, n);
     while (n > 0) {
         if (rs->rs_have > 0) {
-            m = minimum(n, rs->rs_have);
-            keystream = rs->rs_buf + sizeof(rs->rs_buf) - rs->rs_have;
-            memcpy(buf, keystream, m);
-            memset(keystream, 0, m);
+            size_t m = _rs_consume(rs, buf, n);
             buf += m;
             n   -= m;
-            rs->rs_have -= m;
         } else 
             _rs_rekey(rs, NULL, 0);
     }
 }
 
+
+static inline void
+_rs_setup(rand_state *rs)
+{
+    uint8_t rnd[ARC4R_KEYSZ + ARC4R_IVSZ];
+    int r = getentropy(rnd, sizeof rnd);
+    assert(r == 0);
+
+    _rs_init(rs, rnd, sizeof rnd);
+    _rs_rekey(rs, 0, 0);
+}
+
+
+/* allocate a new rand_state and initialize it. */
+static rand_state*
+_rs_new(void)
+{
+    rand_state *rs = (rand_state*)calloc(sizeof *rs, 1);
+    assert(rs);
+
+    _rs_setup(rs);
+    return rs;
+}
 
 #if defined(__Darwin__) || defined(__APPLE__)
 
@@ -189,13 +230,6 @@ screate()
 {
     pthread_key_create(&Rkey, 0);
     pthread_atfork(0, 0, atfork);
-
-    /*
-     * Get entropy once to initialize the fd - for non OpenBSD
-     * systems.
-     */
-    uint8_t buf[8];
-    getentropy(buf, sizeof buf);
 }
 
 
@@ -210,10 +244,7 @@ sget()
     volatile pthread_key_t* k = &Rkey;
     rand_state * z = (rand_state *)pthread_getspecific(*k);
     if (!z) {
-        z = (rand_state*)calloc(sizeof *z, 1);
-        assert(z);
-
-        _rs_stir(z);
+        z = _rs_new();
         z->rs_pid = getpid();
 
         pthread_setspecific(*k, z);
@@ -223,7 +254,7 @@ sget()
     if (Rforked > 0 || getpid() != z->rs_pid) {
         Rforked   = 0;
         z->rs_pid = getpid();
-        _rs_stir(z);
+        _rs_setup(z);
     }
 
     return z;
@@ -238,14 +269,14 @@ sget()
  * essentially free for non .so use cases.
  *
  */
-static __thread rand_state st = { .rs_count = 0, .rs_pid = 0 };
+static __thread rand_state st = { .rs_count = 0, .rs_pid = -1, .rs_have = 0 };
 static inline rand_state*
 sget()
 {
     rand_state* s = &st;
 
     if (s->rs_count == 0 || getpid() != s->rs_pid) {
-        _rs_stir(s);
+        _rs_setup(s);
         s->rs_pid = getpid();
     }
     return s;
@@ -272,10 +303,7 @@ uint32_t
 arc4random()
 {
     rand_state* z = sget();
-    uint32_t v;
-
-    _rs_random_buf(z, &v, sizeof v);
-    return v;
+    return __rand32(z);
 }
 
 
