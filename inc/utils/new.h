@@ -51,10 +51,6 @@ extern "C" {
                                 (ptr) = 0;                  \
                             } while (0)
 
-/* Return the size of a initialized array of any type */
-#define ARRAY_SIZE(a)       (sizeof(a) / sizeof(a[0]))
-
-
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

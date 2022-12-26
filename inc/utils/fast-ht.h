@@ -57,11 +57,11 @@ extern "C" {
 
 
 
-#define FASTHT_BAGSZ       3
+#define FASTHT_BAGSZ       7
 #define FILLPCT            85
 
 
-#if    FASTHT_BAGSZ > 8
+#if    FASTHT_BAGSZ >= 8
 
 #warn "FASTHT_BAGSZ is too large; clamping at 7"
 #undef FASTHT_BAGSZ
@@ -83,7 +83,8 @@ struct bag
     // start of second  cache line
     void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 
-    uint64_t __pad0;    // cache line pad
+    // 8-bit hash fingerprint of each slot.
+    uint64_t fp;
 };
 typedef struct bag bag;
 
@@ -183,6 +184,12 @@ int ht_find(ht*, uint64_t hv, void** p_ret);
 int ht_remove(ht*, uint64_t hv, void** p_ret);
 
 
+
+/*
+ * Dump the hash table via caller provided output function.
+ * The 'start' string is printed at the beginning of the dump.
+ */
+void ht_dump(ht*, const char *start, void (*dump)(const char*, size_t));
 
 #ifdef __cplusplus
 }

@@ -38,7 +38,7 @@ rand64()
 static void
 read_words(strvect* v, arena_t a, const char* filename)
 {
-    unsigned char buf[1024];
+    char buf[1024];
     int n;
     FILE* fp = stdin;
     uint64_t salt = rand64();
@@ -49,20 +49,21 @@ read_words(strvect* v, arena_t a, const char* filename)
     }
 
     int j = 0;
-    while ((n = freadline(fp, buf, sizeof buf)) > 0) {
-        if (n < 4) continue;
+    while ((n = freadline(fp, (unsigned char *)&buf[0], sizeof buf)) > 0) {
+        char *s = strtrim(buf);
+        if (strlen(s) < 4 || *s == '#') continue;
 
-        unsigned char *x;
-        for (x=buf; *x; x++) {
-            if (isspace(*x)) {
-                *x = 0;
-                n  = x-buf;
-                break;
-            }
+        // we need to pick the first word if it exists as the "key"
+        for (char *x = s; *x; x++) {
+                if (isspace(*x)) {
+                        *x = 0;
+                        n = x - s + 1;  // incl trailing NUL
+                        break;
+                }
         }
 
-        char* z = (char *)arena_alloc(a, n+1);
-        memcpy(z, buf, n+1);
+        char* z = (char *)arena_alloc(a, n);
+        memcpy(z, s, n+1);
 
         word w  = { .w = z,
                     .n = (size_t)n,

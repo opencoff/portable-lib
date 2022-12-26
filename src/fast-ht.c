@@ -44,19 +44,76 @@ typedef struct tuple tuple;
 
 extern void arc4random_buf(void *, size_t);
 
+
+// Mix function from Zi Long Tan's superfast hash
+static inline uint64_t
+_hashmix(uint64_t h)
+{
+    h ^= h >> 23;
+    h *= 0x2127599bf4325c37ULL;
+    h ^= h >> 47;
+    return h;
+}
+
+
 /*
- * XXX Do we need anything more complex than this?
+ * One round of Zi Long Tan's superfast hash
  */
 static uint64_t
 __hash(uint64_t hv, uint64_t n, uint64_t salt)
 {
-    return (n-1) & (hv ^ salt);
+    const uint64_t m = 0x880355f21e6d1965ULL;
+
+    hv ^= _hashmix(salt);
+    hv *= m;
+    return (n-1) & hv;
 }
 
 
 // Given a ptr to key array and the corresponding bag,return the
 // index for the key (also is the index for value) array.
 #define _i(x, g)    (x - &(g)->hk[0])
+
+// given a hash 'k', return its 8-bit fingerprint
+static inline uint64_t
+_hash_fp(uint64_t h)
+{
+    uint64_t z = 0;
+
+    if ((z = 0xff & (h >> 58))) return z;
+    if ((z = 0xff & (h >> 48))) return z;
+    if ((z = 0xff & (h >> 40))) return z;
+    if ((z = 0xff & (h >> 32))) return z;
+
+    // If we can't find a non-zero byte, pretend it's this.
+    return 0xff;
+}
+
+
+// find first zero of a 64-bit word and return the "byte number"
+// within the word where the zero exists.
+//
+// This function counts ZERO from the msb. A return val of 8 implies
+// no zero found.
+// (Henry Warren's Hacker's Delight also counts ZERO from the MSB).
+static inline int
+__find_first_zero(uint64_t w)
+{
+    uint64_t y = (w & 0x7f7f7f7f7f7f7f7f) + 0x7f7f7f7f7f7f7f7f;
+    y = ~(y | w | 0x7f7f7f7f7f7f7f7f);
+    int z = __builtin_clzl(y) >> 3;
+
+    return z;
+}
+
+
+
+static inline uint64_t
+__update_fp(uint64_t oldfp, uint64_t fp, int slot)
+{
+    uint64_t x = (fp << ((8-slot-1) * 8));
+    return oldfp | x;
+}
 
 
 // Insert (k, v) into bucket 'b' - but only if 'k' doesn't already
@@ -65,46 +122,66 @@ static void*
 __insert(hb *b, uint64_t k, void *v)
 {
     bag *g;
-    void    **hv = 0;
-    uint64_t *hk = 0;
+    int slot = 0;
+    bag *bg  = 0;
 
 #define FIND(x) do { \
                     if (*x == k) {              \
                         return g->hv[_i(x,g)];  \
                     }                           \
-                    if (0 == *x && !hk) {       \
-                        hv = &g->hv[_i(x,g)];   \
-                        hk = x;                 \
-                    }                           \
                     x++;                        \
                 } while (0)
 
-    SL_FOREACH(g, &b->head, link) {
-        uint64_t *x = &g->hk[0];
+    // spread the top-byte of 'k' to all the remaining bytes of 'h_fp'
+    uint64_t fp   = _hash_fp(k);
+    uint64_t h_fp = fp * 0x0101010101010101;
 
-        switch (FASTHT_BAGSZ) {
-            default:                // fallthrough
-            case 8: FIND(x);        // fallthrough
-            case 7: FIND(x);        // fallthrough
-            case 6: FIND(x);        // fallthrough
-            case 5: FIND(x);        // fallthrough
-            case 4: FIND(x);        // fallthrough
-            case 3: FIND(x);        // fallthrough
-            case 2: FIND(x);        // fallthrough
-            case 1: FIND(x);        // fallthrough
+    SL_FOREACH(g, &b->head, link) {
+        uint64_t *x  = &g->hk[0];
+        int n = __find_first_zero(g->fp ^ h_fp);
+
+        // fp XOR key will zero-out the places where the fp may
+        // occur in g->fp; so, if we find such a zero, high prob
+        // that the key exists in this bag.
+
+        if (likely(n < FASTHT_BAGSZ)) {
+            // fast-path
+            if (likely(k == x[n])) {
+                return g->hv[n];
+            }
+
+            // slow path
+            switch (FASTHT_BAGSZ) {
+                default:                // fallthrough
+                case 7: FIND(x);        // fallthrough
+                case 6: FIND(x);        // fallthrough
+                case 5: FIND(x);        // fallthrough
+                case 4: FIND(x);        // fallthrough
+                case 3: FIND(x);        // fallthrough
+                case 2: FIND(x);        // fallthrough
+                case 1: FIND(x);        // fallthrough
+            }
+        }
+
+        // In case we need to find an empty slot for inserting this
+        // kv pair, lets find one in this bag
+        if (!bg && ((n = __find_first_zero(g->fp)) < FASTHT_BAGSZ)) {
+            bg = g;
+            slot = n;
         }
     }
 
-    if (!hk) {
-        g  = NEWZ(bag);
-        hk = &g->hk[0];
-        hv = &g->hv[0];
+    if (!bg) {
+        bg = NEWZ(bag);
+        slot = 0;
         b->bags++;
-        SL_INSERT_HEAD(&b->head, g, link);
+        SL_INSERT_HEAD(&b->head, bg, link);
     }
 
-    *hk = k;
-    *hv = v;
+
+    bg->hk[slot] = k;
+    bg->hv[slot] = v;
+    bg->fp       = __update_fp(bg->fp, fp, slot);
     b->nodes++;
     return 0;
 }
@@ -113,62 +190,44 @@ __insert(hb *b, uint64_t k, void *v)
 // Insert (k, v) into bucket 'b' quickly. In this case, we _know_
 // that we are being called when we are re-sized. So, the items
 // naturally don't exist in the new bucket. So, all we have to do is
-// find the first free slot.
-static int
+// find the first free slot in the _first_ bag.
+static void
 __insert_quick(hb *b, uint64_t k, void *v)
 {
-    bag *g;
-    void    **hv = 0;
-    uint64_t *hk = 0;
-
-#define PUT(x) do {     \
-                    if (*x == 0) {  \
-                        hk = x;     \
-                        hv = &g->hv[_i(x,g)]; \
-                        goto done;  \
-                    }               \
-                    x++; \
-               } while(0)
-
-    SL_FOREACH(g, &b->head, link) {
-        uint64_t *x = &g->hk[0];
-
-        switch (FASTHT_BAGSZ) {
-            default:            // fallthrough
-            case 8: PUT(x);     // fallthrough
-            case 7: PUT(x);     // fallthrough
-            case 6: PUT(x);     // fallthrough
-            case 5: PUT(x);     // fallthrough
-            case 4: PUT(x);     // fallthrough
-            case 3: PUT(x);     // fallthrough
-            case 2: PUT(x);     // fallthrough
-            case 1: PUT(x);     // fallthrough
+    uint64_t fp = _hash_fp(k);
+    bag *g = SL_FIRST(&b->head);
+    if (g) {
+        int n = __find_first_zero(g->fp);
+        if (n < FASTHT_BAGSZ) {
+            assert(!g->hk[n]);
+            g->hk[n] = k;
+            g->hv[n] = v;
+            g->fp    = __update_fp(g->fp, fp, n);
+            b->nodes++;
+            return;
         }
     }
 
-    // Make a new bag and put our element there.
-    g   = NEWZ(bag);
-    hk = &g->hk[0];
-    hv = &g->hv[0];
-    b->bags++;
-    SL_INSERT_HEAD(&b->head, g, link);
 
-done:
-    *hk = k;
-    *hv = v;
+    // Make a new bag and put our element there.
+    g = NEWZ(bag);
+    g->hk[0] = k;
+    g->hv[0] = v;
+    g->fp    = __update_fp(g->fp, fp, 0);
+    b->bags++;
     b->nodes++;
-    return 0;
+    SL_INSERT_HEAD(&b->head, g, link);
 }
 
-// Find key 'hv' in 'h'; return the value in 't'.
+// Find key 'hk' in 'b'; return the value in 't'.
 // Return 1 if key is found, 0 otherwise.
 static int
-__findx(tuple *t, hb *b, uint64_t hv)
+__findx(tuple *t, hb *b, uint64_t hk)
 {
     bag *g;
 
 #define SRCH(x) do { \
-                    if (likely(*x == hv)) { \
+                    if (likely(*x == hk)) { \
                         t->g = g;           \
                         t->i = _i(x,g);     \
                         return 1;           \
@@ -176,12 +235,36 @@ __findx(tuple *t, hb *b, uint64_t hv)
                     x++;                    \
                 } while(0)
 
+    // spread the top-byte of 'k' to all the remaining bytes of 'h_fp'
+    uint64_t   fp = _hash_fp(hk);
+    uint64_t h_fp = fp * 0x0101010101010101;
+
     SL_FOREACH(g, &b->head, link) {
         uint64_t *x = &g->hk[0];
 
+        // if this bag is empty - skip it.
+        if (unlikely(g->fp == 0)) continue;
+
+        // Maybe the key is in this bag?
+        int n = __find_first_zero(g->fp ^ h_fp);
+        if (unlikely(n >= FASTHT_BAGSZ)) continue;
+
+        // Here:
+        //  a) the key is in slot 'n'
+        //  b) maybe there are other slots that also match (ie have
+        //  "zeroes")
+
+
+        // We try the fast path first - then just unroll
+        if (likely(x[n] == hk)) {
+                t->g = g;
+                t->i = n;
+                return 1;
+        }
+
+        // Slow path: check every slot!
         switch (FASTHT_BAGSZ) {
             default:            // fallthrough
-            case 8: SRCH(x);    // fallthrough
             case 7: SRCH(x);    // fallthrough
             case 6: SRCH(x);    // fallthrough
             case 5: SRCH(x);    // fallthrough
@@ -339,9 +422,6 @@ ht_probe(ht* h, uint64_t k, void* v)
     if (b->nodes == 1) {
         uint64_t fpct = (++h->fill * 100)/h->n;
 
-        //printf("fill %d/%d (%d ceil %d)%s\n", 
-        //      h->fill, h->n, fpct, h->maxfill, fpct > h->maxfill ? " +split" : "");
-
         if (fpct > h->maxfill) {
             h->splits++;
             b = resize(h);
@@ -411,12 +491,16 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
     hb *b = &h->b[__hash(k, h->n, h->salt)];
 
     if (__findx(&x, b, k)) {
-        bag *g = x.g;
+        bag *g   = x.g;
+        int slot = x.i;
 
-        if (p_ret) *p_ret = g->hv[x.i];
+        // Erase this FP - by using 0x0 as the "new" FP
+        g->fp = __update_fp(g->fp, 0x00, slot);
 
-        g->hk[x.i] = 0;
-        g->hv[x.i] = 0;
+        if (p_ret) *p_ret = g->hv[slot];
+
+        g->hk[slot] = 0;
+        g->hv[slot] = 0;
 
         b->nodes--;
         h->nodes--;
@@ -424,6 +508,39 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
     }
 
     return 0;
+}
+
+
+void
+ht_dump(ht *h, const char *start, void (*dump)(const char *str, size_t n))
+{
+    char buf[256];
+
+    assert(dump);
+
+#define pr(a, ...) do { \
+    size_t n = snprintf(buf, sizeof buf, a, __VA_ARGS__); \
+    (*dump)(buf, n); \
+} while (0)
+
+
+    pr("%s: ht %p: %lld elems; %lld/%lld buckets filled\n",
+            start, h, h->nodes, h->n, h->fill);
+
+    for (uint64_t i = 0; i < h->n; i++) {
+        hb *b = &h->b[i];
+        pr("[%lld]: %u elems in %u bags\n", i, b->nodes, b->bags);
+
+        bag *g   = 0,
+            *tmp = 0;
+
+        SL_FOREACH_SAFE(g, &b->head, link, tmp) {
+            pr("  bag %p: fp %#16.16llx:\n", g, g->fp);
+            for (int j = 0; j < FASTHT_BAGSZ; j++) {
+                pr("     [%#16.16llx, %p]\n", g->hk[j], g->hv[j]);
+            }
+        }
+    }
 }
 
 /* EOF */

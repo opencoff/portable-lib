@@ -42,7 +42,7 @@ autotests = strmatch t_arena t_str2hex t_esc \
 		t_bits t_siphash24 t_progress \
 		t_frand t_ulid t_hashspeed \
 		t_xorfilter t_fixedsize t_mempool \
-		t_spscq t_prodcons t_mpmcq t_ringbuf
+		t_spscq t_prodcons t_mpmcq t_ringbuf t_fast-ht-basic
 
 tests_with_input = mmaptest t_mkdirhier  \
                    t_readpass t_rotatefile

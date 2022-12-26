@@ -207,6 +207,7 @@ perf_test(strvect* v, size_t Niters)
 
     double tot    = _d(n) * _d(Niters);
 
+#if 0
     // timenow() returns time in nanoseconds. So, to get in units of
     // "Million ops/sec", we multiply by 1000.
     double ispd   = 1000 * tot / _d(ti);
@@ -214,6 +215,13 @@ perf_test(strvect* v, size_t Niters)
     double xspd   = 1000 * tot / _d(tx);
     double yspd   = 1000 * tot / _d(ty);
     double sspd   = 1000 * tot / _d(ts);
+#else
+    double ispd = _d(ti) / tot;
+    double dspd = _d(td) / tot;
+    double xspd = _d(tx) / tot;
+    double yspd = _d(ty) / tot;
+    double sspd = _d(ts) / tot;
+#endif
 
     double ci     = _d(cyi)  / tot;
     double cd     = _d(cyd)  / tot;
@@ -229,11 +237,11 @@ perf_test(strvect* v, size_t Niters)
                cy, yspd, cd, dspd,
                cx, xspd);
     } else {
-        printf("Add-empty:      %4.1f cy/add   %8.2f M ops/sec\n"
-               "Find-existing:  %4.1f cy/find  %8.2f M ops/sec\n"
-               "Find-non-exist: %4.1f cy/find  %8.2f M ops/sec\n"
-               "Del-existing:   %4.1f cy/find  %8.2f M ops/sec\n"
-               "Del-non-exist:  %4.1f cy/find  %8.2f M ops/sec\n",
+        printf("Add-empty:      %4.1f cy/add   %8.2f ns/op\n"
+               "Find-existing:  %4.1f cy/find  %8.2f ns/op\n"
+               "Find-non-exist: %4.1f cy/find  %8.2f ns/op\n"
+               "Del-existing:   %4.1f cy/find  %8.2f ns/op\n"
+               "Del-non-exist:  %4.1f cy/find  %8.2f ns/op\n",
                ci, ispd,
                cs, sspd,
                cy, yspd,
