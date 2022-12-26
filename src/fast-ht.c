@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #include "utils/utils.h"
 #include "utils/fast-ht.h"
@@ -121,7 +122,7 @@ __update_fp(uint64_t oldfp, uint64_t fp, int slot)
 static void*
 __insert(hb *b, uint64_t k, void *v)
 {
-    bag *g;
+    bag *g  = 0;
     int slot = 0;
     bag *bg  = 0;
 
@@ -137,8 +138,8 @@ __insert(hb *b, uint64_t k, void *v)
     uint64_t h_fp = fp * 0x0101010101010101;
 
     SL_FOREACH(g, &b->head, link) {
-        uint64_t *x  = &g->hk[0];
-        int n = __find_first_zero(g->fp ^ h_fp);
+        int       n = __find_first_zero(g->fp ^ h_fp);
+        uint64_t *x = &g->hk[0];
 
         // fp XOR key will zero-out the places where the fp may
         // occur in g->fp; so, if we find such a zero, high prob
@@ -166,13 +167,13 @@ __insert(hb *b, uint64_t k, void *v)
         // In case we need to find an empty slot for inserting this
         // kv pair, lets find one in this bag
         if (!bg && ((n = __find_first_zero(g->fp)) < FASTHT_BAGSZ)) {
-            bg = g;
+            bg   = g;
             slot = n;
         }
     }
 
     if (!bg) {
-        bg = NEWZ(bag);
+        bg   = NEWZ(bag);
         slot = 0;
         b->bags++;
         SL_INSERT_HEAD(&b->head, bg, link);
@@ -195,7 +196,7 @@ static void
 __insert_quick(hb *b, uint64_t k, void *v)
 {
     uint64_t fp = _hash_fp(k);
-    bag *g = SL_FIRST(&b->head);
+    bag *g      = SL_FIRST(&b->head);
     if (g) {
         int n = __find_first_zero(g->fp);
         if (n < FASTHT_BAGSZ) {
@@ -224,7 +225,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
 static int
 __findx(tuple *t, hb *b, uint64_t hk)
 {
-    bag *g;
+    bag *g = 0;
 
 #define SRCH(x) do { \
                     if (likely(*x == hk)) { \
@@ -524,20 +525,20 @@ ht_dump(ht *h, const char *start, void (*dump)(const char *str, size_t n))
 } while (0)
 
 
-    pr("%s: ht %p: %lld elems; %lld/%lld buckets filled\n",
+    pr("%s: ht %p: %" PRIu64 " elems; %" PRIu64 "/%" PRIu64 " buckets filled\n",
             start, h, h->nodes, h->n, h->fill);
 
     for (uint64_t i = 0; i < h->n; i++) {
         hb *b = &h->b[i];
-        pr("[%lld]: %u elems in %u bags\n", i, b->nodes, b->bags);
+        pr("[%" PRIu64 "]: %u elems in %u bags\n", i, b->nodes, b->bags);
 
         bag *g   = 0,
             *tmp = 0;
 
         SL_FOREACH_SAFE(g, &b->head, link, tmp) {
-            pr("  bag %p: fp %#16.16llx:\n", g, g->fp);
+            pr("  bag %p: fp %#16.16" PRIx64 ":\n", g, g->fp);
             for (int j = 0; j < FASTHT_BAGSZ; j++) {
-                pr("     [%#16.16llx, %p]\n", g->hk[j], g->hv[j]);
+                pr("     [%#16.16" PRIx64 ", %p]\n", g->hk[j], g->hv[j]);
             }
         }
     }

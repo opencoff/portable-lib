@@ -1,30 +1,12 @@
 #! /usr/bin/env make -f
 
-# Platform specification
-uname   := $(shell uname -s)
-ifneq ($(OS),)
-	WIN32 	 := 1
-	platform := win32
-
-	# Cygwin is detestable
-	ifneq ($(findstring CYGWIN,$(uname)),)
-		cyg-cross  := mingw32-
-		cygwin := 1
-	endif
-else
-    ifneq ($(findstring mingw, $(CROSS)),)
-       WIN32    := 1
-       platform := win32
-    else
-       platform := $(uname)
-    endif
-endif
-
-
 CROSSPATH = /usr/bin/
 SRCDIR    = .
 PORTABLE := ..
 
+# Define common library objects needed for this project
+# PORTABLE must be defined above..
+include $(PORTABLE)/portablelib.mk
 
 # My test cases
 posix_tests +=
@@ -50,7 +32,7 @@ tests_with_input = mmaptest t_mkdirhier  \
 hash-input = $(wildcard ./in*) # input for all the tests below
 hashtests = t_hashtab t_fast-ht t_hashbench t_bloom t_xorfilter-file t_top1m
 
-tests = $(autotests) $(tests_with_input) $(hashtests) $($(platform)_tests)
+tests = $(autotests) $(tests_with_input) $(hashtests) $($(os)_tests)
 
 nettests =
 
@@ -59,17 +41,17 @@ target = $(tests)
 
 #CFLAGS += -mavx
 
-Linux_tests  += $(posix_tests) mt-dd-wipe
-Darwin_tests += $(posix_tests) mt-dd-wipe
+linux_tests  += $(posix_tests) mt-dd-wipe
+darwin_tests += $(posix_tests) mt-dd-wipe
 win32_tests += mmap_win32 t_socketpair
-DragonFly_tests += $(posix_tests)
+dragonfly_tests += $(posix_tests)
 
-Linux_sanitize_tests = autotests
+linux_sanitize_tests = autotests
 
 # XXX Sanitize doesn't work on Darwin-arm64!
-Darwin_sanitize_tests =
+darwin_sanitize_tests =
 
-sanitize_tests = $($(platform)_sanitize_tests)
+sanitize_tests = $($(os)_sanitize_tests)
 
 
 define obj_def
@@ -85,9 +67,6 @@ $(foreach p,$(target),$(eval $(call obj_def,$(p))))
 mt-dd-wipe_opt_objs = dd-wipe-opt.o
 mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 
-# Define common library objects needed for this project
-# PORTABLE must be defined above..
-include $(PORTABLE)/portablelib.mk
 
 
 # Include

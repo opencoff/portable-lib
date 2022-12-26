@@ -31,6 +31,8 @@
 # Debug files
 *.dSYM/
 *.su
+test/obj-*-rel/*
+test/obj-*-dbg/*
 *_objs_dbg
 *_objs_dbg/*
 *_objs_rel

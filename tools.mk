@@ -10,8 +10,8 @@ endif
 
 
 
-# obj files are kept in separate dir that is platform specific
-objdir := $(platform)_objs_$(objdira)
+# obj files are kept in separate dir that is os specific
+objdir := obj-$(os)-$(machine)-$(buildtype)
 
 __mkdir := $(shell test -d $(objdir) || mkdir -p $(objdir))
 
@@ -73,7 +73,7 @@ $(foreach prog,$(target),$(eval $(call link_template,$(prog))))
 #     I don't know how to pick the C++ linker only if there are C++ objs.
 $(realtargets):
 	@echo $@
-	$(LD) $(LDFLAGS) $^ -o $@ $($(platform)_ldlibs) $($(notdir $(basename $@))_LIBS)
+	$(LD) $(LDFLAGS) $^ -o $@ $($(os)_ldlibs) $($(notdir $(basename $@))_LIBS)
 	$(strip-cmd)
 
 

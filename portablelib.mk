@@ -9,10 +9,21 @@ ifeq ($(PORTABLE),)
 	junk := $(error ** Please define PORTABLE before including this makefile **)
 endif
 
-ifeq ($(platform),)
-	platform := $(shell uname -s)
+ifeq ($(os),)
+	os := $(shell uname -s | tr '[A-Z]' '[a-z]')
 endif
 
+
+_mach := $(shell uname -m)
+mach_x86_64 := amd64
+mach_aarch64 := aarch64
+mach_arm := arm
+
+ifneq ($(mach_$(_mach)),)
+	machine := $(mach_$(_mach))
+else
+	machine := $(_mach)
+endif
 
 all_win32_objs += gettimeofday.o truncate.o ndir.o \
 					ftruncate.o sleep.o basename.o dirname.o glob.o \
@@ -38,39 +49,39 @@ posix_tests    +=
 posix_ldlibs   +=
 posix_LDFLAGS  +=
 
-Linux_ldlibs     += -lsodium
-Linux_defs       += -D_GNU_SOURCE=1
+linux_ldlibs     += -lsodium
+linux_defs       += -D_GNU_SOURCE=1
 
-Darwin_incdirs   += /opt/local/include
-Darwin_ldlibs    += /opt/local/lib/libsodium.a
+darwin_incdirs   += /opt/local/include
+darwin_ldlibs    += /opt/local/lib/libsodium.a
 
-OpenBSD_incdirs  += /usr/local/include
-OpenBSD_ldlibs	 += -L/usr/local/lib -lsodium -lpthread
+openbsd_incdirs  += /usr/local/include
+openbsd_ldlibs	 += -L/usr/local/lib -lsodium -lpthread
 
 DragonFly_incdirs += /usr/local/include /usr/local/include/ncurses
 DragonFly_ldlibs  += -L/usr/local/lib -lsodium -lpthread
 
-posix_oses  = Linux Darwin Solaris OpenBSD FreeBSD NetBSD DragonFly
+posix_oses  = linux darwin solaris openbsd freebsd netbsd dragonfly
 
 # Helper for Posix OSes
-ifneq ($(findstring $(platform),$(posix_oses)),)
-	$(platform)_vpath   += $(posix_vpath)
-	$(platform)_incdirs += $(PORTABLE)/inc/$(platform) $(posix_incdirs)
-	$(platform)_defs    += $(posix_defs)
-	$(platform)_LDFLAGS += $(posix_LDFLAGS)
-	$(platform)_ldlibs  += $(posix_ldlibs)
+ifneq ($(findstring $(os),$(posix_oses)),)
+	$(os)_vpath   += $(posix_vpath)
+	$(os)_incdirs += $(PORTABLE)/inc/$(os) $(posix_incdirs)
+	$(os)_defs    += $(posix_defs)
+	$(os)_LDFLAGS += $(posix_LDFLAGS)
+	$(os)_ldlibs  += $(posix_ldlibs)
 endif
 
 
 # Default objs for linux 
-Linux_defobjs     = $(all_posix_objs) linux_cpu.o \
+linux_defobjs     = $(all_posix_objs) linux_cpu.o \
 					arc4random.o posix_entropy.o
-Darwin_defobjs    = $(all_posix_objs) darwin_cpu.o darwin_sem.o
+darwin_defobjs    = $(all_posix_objs) darwin_cpu.o darwin_sem.o
 win32_defobjs     = $(all_win32_objs) win32_rand.o
-OpenBSD_defobjs   = $(all_posix_objs) openbsd_cpu.o
+openbsd_defobjs   = $(all_posix_objs) openbsd_cpu.o
 
 # DragonFly BSD supports linux's sched_{get/set}affinity()
-DragonFly_defobjs = $(all_posix_objs) nofdatasync.o linux_cpu.o
+dragonfly_defobjs = $(all_posix_objs) nofdatasync.o linux_cpu.o
 
 
 
@@ -92,25 +103,25 @@ baseobjs = mempool.o dirname.o fts.o splitargs.o \
 		   gstring.o gstring_var.o freadline.o rotatefile.o \
 		   strsplit.o strsplit_csv.o strtrim.o \
 		   pack.o progbar.o \
-		   $($(platform)_objs)
+		   $($(os)_objs)
 
 
 
 
-default-libobjs = $(baseobjs) $($(platform)_defobjs)
+default-libobjs = $(baseobjs) $($(os)_defobjs)
 
 # Only assign if top level GNUmakefile hasn't done anything
 libobjs ?= $(default-libobjs)
 
 # Do this in the beginning so that VPATH etc. gets initialized
-INCDIRS = $($(platform)_incdirs)
-VPATH 	= $($(platform)_vpath)
+INCDIRS = $($(os)_incdirs)
+VPATH 	= $($(os)_vpath)
 
 INCDIRS += .  $(PORTABLE)/inc
 VPATH 	+= $(PORTABLE)/src
 
 INCS	= $(addprefix -I,$(INCDIRS))
-DEFS	= -D__$(platform)__=1 $($(platform)_defs)
+DEFS	= -D__$(os)__=1 -D__$(machine)__=1 $($(os)_defs)
 
 # Cross compiling Win32 binaries on Linux. Way cool :-)
 ifneq ($(CROSS),)
@@ -121,7 +132,7 @@ ifneq ($(CROSS),)
 
 	ifeq ($(mingw_ok),yes)
 		CROSSPATH := $(CROSS)
-		platform  := win32
+		os  := win32
 	else
 
 		# Check for debian cross compiler
@@ -129,7 +140,7 @@ ifneq ($(CROSS),)
 
 		ifeq ($(mingw_ok),yes)
 			CROSSPATH := i586-mingw32msvc-
-			platform  := win32
+			os  := win32
 		else
 			junk := $(error ** $(CROSS) Cross compiler  is not available!)
 		endif
@@ -142,7 +153,7 @@ else
 endif
 
 
-ifeq ($(platform),win32)
+ifeq ($(os),win32)
 	exe := .exe
 	WIN32 := 1
 endif
@@ -161,52 +172,54 @@ win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
 sanitize = -D_FORTIFY_SOURCE=2 -fsanitize=address \
 		   -fsanitize=leak -fsanitize=bounds
-Linux_CC =  clang
-Linux_CXX = clang++
-Linux_LD = clang++
-Linux_CFLAGS   += $(sanitize)
-Linux_CXXFLAGS += $(sanitize)
-Linux_LDFLAGS  += $(sanitize)
+linux_CC =  gcc
+linux_CXX = g++
+linux_LD = g++
+linux_CFLAGS   += $(sanitize)
+linux_CXXFLAGS += $(sanitize)
+linux_LDFLAGS  += $(sanitize)
 
-Linux_CXXFLAGS += -std=c++17
-Linux_ldlibs   += -lpthread
+linux_CXXFLAGS += -std=c++17
+linux_ldlibs   += -lpthread
 
-OpenBSD_CXX     = clang++
-OpenBSD_CC      = clang
-OpenBSD_LD      = clang++
-OpenBSD_CXXFLAGS += -std=c++17
+openbsd_CXX     = clang++
+openbsd_CC      = clang
+openbsd_LD      = clang++
+openbsd_CXXFLAGS += -std=c++17
 
-Darwin_CC = clang
-Darwin_CXX = clang++
-Darwin_LD = clang++
-Darwin_SANITIZE = -fsanitize=undefined -fsanitize=address -fsanitize=bounds -fsanitize=signed-integer-overflow
-Darwin_CXXFLAGS += -std=c++17 $(Darwin_SANITIZE)
-Darwin_CFLAGS += $(Darwin_SANITIZE)
-Darwin_LDFLAGS += $(Darwin_SANITIZE)
+darwin_CC = clang
+darwin_CXX = clang++
+darwin_LD = clang++
+darwin_SANITIZE = -fsanitize=undefined -fsanitize=address -fsanitize=bounds -fsanitize=signed-integer-overflow
+darwin_CXXFLAGS += -std=c++17 $(darwin_SANITIZE)
+darwin_CFLAGS += $(darwin_SANITIZE)
+darwin_LDFLAGS += $(darwin_SANITIZE)
 
 ARFLAGS  = rv
-CFLAGS  += $($(platform)_CFLAGS) $(WARNINGS) $(EXTRA_WARNINGS) $(INCS) $(DEFS)
-LDFLAGS += $($(platform)_LDFLAGS)
+CFLAGS  += $($(os)_CFLAGS) $(WARNINGS) $(EXTRA_WARNINGS) $(INCS) $(DEFS)
+LDFLAGS += $($(os)_LDFLAGS)
 
 
-CXXFLAGS += $(CFLAGS) $($(platform)_CXXFLAGS)
+CXXFLAGS += $(CFLAGS) $($(os)_CXXFLAGS)
 
 
 
 # XXX Can use better optimization on newer CPUs
-Linux_OFLAGS   =
-OpenBSD_OFLAGS =
-Darwin_OFLAGS  =
+linux_OFLAGS   =
+openbsd_OFLAGS =
+darwin_OFLAGS  =
 
 ifeq ($(RELEASE),1)
 	OPTIMIZE := 1
 endif
 
 ifeq ($(OPTIMIZE),1)
-	CFLAGS  += -O3 $($(platform)_OFLAGS) $(OFLAGS) \
+	CFLAGS  += -O3 $($(os)_OFLAGS) $(OFLAGS) \
 			   -g -Wuninitialized -D__MAKE_OPTIMIZE__=1
 
-	objdira := rel
+	LDFLAGS += -g
+
+	buildtype := rel
 
 # Strip the final executable
 define strip-cmd
@@ -224,7 +237,7 @@ else
 	CFLAGS  += -g
 	LDFLAGS += -g
 
-	objdira := dbg
+	buildtype := dbg
 
 # no-op
 define strip-cmd
@@ -233,20 +246,20 @@ endef
 
 endif
 
-ifneq ($($(platform)_CC),)
-	CC := $($(platform)_CC)
+ifneq ($($(os)_CC),)
+	CC := $($(os)_CC)
 else
 	CC = $(CROSSPATH)gcc
 endif
 
-ifneq ($($(platform)_CXX),)
-	CXX := $($(platform)_CXX)
+ifneq ($($(os)_CXX),)
+	CXX := $($(os)_CXX)
 else
 	CXX  = $(CROSSPATH)g++
 endif
 
-ifneq ($($(platform)_LD),)
-	LD := $($(platform)_LD)
+ifneq ($($(os)_LD),)
+	LD := $($(os)_LD)
 else
 	LD  = $(CXX)
 endif
