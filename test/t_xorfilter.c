@@ -149,18 +149,23 @@ perftest(int is16, size_t n)
     Xorfilter_delete(x);
     DEL(keys);
 
-    uint64_t tot = _d(n) * _d(trials);
-    double cr    = (_d(t_create) / _d(trials)) / _d(n);
-    double ff    = (_d(t_find)   / _d(trials)) / _d(n);
+    double tot = _d(n) * _d(trials);
+    double cr  = _d(t_create) / tot;
+    double ff  = _d(t_find)   / tot;
 
     // Speed of operation in Million ops/sec
     double spd_creat = (_Second(tot) / _d(d_create)) /  1000000.0,
            spd_find  = (_Second(tot) / _d(d_find))   /  1000000.0;
 
+    printf("n=%lu trials=%lu d_cr=%" PRIu64 " d_ff=%" PRIu64 "\n",
+            n, trials, d_create, d_find);
+
     printf("%s %lu items:\n"
            "  create %6.3f cy/elem, find %6.3f cy/elem\n"
            "  create  %4.1f M ops/sec, find %3.1f M ops/sec\n",
-            pref, n, cr, ff, spd_creat, spd_find);
+            pref, n,
+            cr, ff,
+            spd_creat, spd_find);
 }
 
 

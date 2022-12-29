@@ -63,7 +63,7 @@ read_words(strvect* v, arena_t a, const char* filename)
         }
 
         char* z = (char *)arena_alloc(a, n);
-        memcpy(z, s, n+1);
+        memcpy(z, s, n);
 
         word w  = { .w = z,
                     .n = (size_t)n,

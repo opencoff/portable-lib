@@ -188,6 +188,9 @@ _rs_setup(rand_state *rs)
 }
 
 
+
+#if defined(__Darwin__) || defined(__APPLE__)
+
 /* allocate a new rand_state and initialize it. */
 static rand_state*
 _rs_new(void)
@@ -198,8 +201,6 @@ _rs_new(void)
     _rs_setup(rs);
     return rs;
 }
-
-#if defined(__Darwin__) || defined(__APPLE__)
 
 /*
  * Multi-threaded support using pthread API. Needed for OS X:

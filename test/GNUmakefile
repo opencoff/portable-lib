@@ -46,7 +46,7 @@ darwin_tests += $(posix_tests) mt-dd-wipe
 win32_tests += mmap_win32 t_socketpair
 dragonfly_tests += $(posix_tests)
 
-linux_sanitize_tests = autotests
+linux_sanitize_tests = $(autotests)
 
 # XXX Sanitize doesn't work on Darwin-arm64!
 darwin_sanitize_tests =
@@ -72,19 +72,19 @@ mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 # Include
 include $(PORTABLE)/tools.mk
 
-test: easytest hashtest sanitize
+test: sanitize easytest hashtest
 
 sanitize:
 	@echo "bins in ./$(objdir)/ for sanitize .."; \
 	for t in $(sanitize_tests); do  \
-        echo "TEST $$t:"; \
+		echo "$@: TEST $$t:"; \
 	     ASAN_OPTIONS="detect_leaks=1" ./$(objdir)/$$t || exit 1; \
     done || exit 1
 
 easytest:
 	@echo "bins in ./$(objdir)/ for simple-tests .."; \
 	for t in $(autotests); do  \
-        echo "TEST $$t:"; \
+		echo "$@: TEST $$t:"; \
 		./$(objdir)/$$t || exit 1; \
     done || exit 1
 
@@ -92,7 +92,7 @@ hashtest:
 ifneq ($(hash-input),)
 	@echo "bins in ./$(objdir)/ for hash-tests .."; \
 	for t in $(hashtests); do \
-		echo "HASH-TEST $$t:"; \
+		echo "$@ $$t:"; \
 		./$(objdir)/$$t $(hash-input) ; \
 	done || exit 1
 else

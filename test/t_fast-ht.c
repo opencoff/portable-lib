@@ -173,7 +173,7 @@ perf_test(strvect* v, size_t Niters)
 
     VECT_SHUFFLE(v, arc4random);
     for (i = 0; i < Niters; ++i) {
-        ht_init(h, n, 75);
+        ht_init(h, n, 85);
         t0    = timenow();
         cyi  += insert_words(v, h);
         ti   += timenow() - t0;
@@ -207,46 +207,49 @@ perf_test(strvect* v, size_t Niters)
 
     double tot    = _d(n) * _d(Niters);
 
-#if 0
+    // this captures speed of operation (ns/op)
+    double ispd = _d(ti) / tot,
+           dspd = _d(td) / tot,
+           xspd = _d(tx) / tot,
+           yspd = _d(ty) / tot,
+           sspd = _d(ts) / tot;
+
     // timenow() returns time in nanoseconds. So, to get in units of
     // "Million ops/sec", we multiply by 1000.
-    double ispd   = 1000 * tot / _d(ti);
-    double dspd   = 1000 * tot / _d(td);
-    double xspd   = 1000 * tot / _d(tx);
-    double yspd   = 1000 * tot / _d(ty);
-    double sspd   = 1000 * tot / _d(ts);
-#else
-    double ispd = _d(ti) / tot;
-    double dspd = _d(td) / tot;
-    double xspd = _d(tx) / tot;
-    double yspd = _d(ty) / tot;
-    double sspd = _d(ts) / tot;
-#endif
+    double irate  = 1000 * (tot / _d(ti)),
+           drate  = 1000 * (tot / _d(td)),
+           xrate  = 1000 * (tot / _d(tx)),
+           yrate  = 1000 * (tot / _d(ty)),
+           srate  = 1000 * (tot / _d(ts));
 
-    double ci     = _d(cyi)  / tot;
-    double cd     = _d(cyd)  / tot;
-    double cx     = _d(cyx)  / tot;
-    double cy     = _d(cyy)  / tot;
-    double cs     = _d(cys)  / tot;
+    double ci = _d(cyi)  / tot,
+           cd = _d(cyd)  / tot,
+           cx = _d(cyx)  / tot,
+           cy = _d(cyy)  / tot,
+           cs = _d(cys)  / tot;
 
     if (Machine_output) {
-        printf("add %4.1f cy %4.2f M ops/s, find %4.1f cy %4.2f M ops/s,"
-               "findx %4.1f cy %4.2f M ops/s, del %4.1f cy %4.2f M ops/s,"
-               "delx %4.1f cy %4.2f M ops/s\n",
-               ci, ispd, cs, sspd,
-               cy, yspd, cd, dspd,
-               cx, xspd);
+        printf("add %4.1f cy %4.2f M ops/s %4.2f ns/op,"
+               "find %4.1f %4.2f M ops/s cy %4.2f ns/op,"
+               "findx %4.1f cy %4.2f M ops/s %4.2f ns/op,"
+               "del %4.1f %4.2f M ops/s cy %4.2f ns/op,"
+               "delx %4.1f cy %4.2f M ops/s %4.2f ns/op\n",
+               ci, irate, ispd,
+               cs, srate, sspd,
+               cy, yrate, yspd,
+               cd, drate, dspd,
+               cx, xrate, xspd);
     } else {
-        printf("Add-empty:      %4.1f cy/add   %8.2f ns/op\n"
-               "Find-existing:  %4.1f cy/find  %8.2f ns/op\n"
-               "Find-non-exist: %4.1f cy/find  %8.2f ns/op\n"
-               "Del-existing:   %4.1f cy/find  %8.2f ns/op\n"
-               "Del-non-exist:  %4.1f cy/find  %8.2f ns/op\n",
-               ci, ispd,
-               cs, sspd,
-               cy, yspd,
-               cd, dspd,
-               cx, xspd
+        printf("Add-empty:      %4.1f cy/add   %4.2f M/s %8.2f ns/op\n"
+               "Find-existing:  %4.1f cy/find  %4.2f M/s %8.2f ns/op\n"
+               "Find-non-exist: %4.1f cy/find  %4.2f M/s %8.2f ns/op\n"
+               "Del-existing:   %4.1f cy/find  %4.2f M/s %8.2f ns/op\n"
+               "Del-non-exist:  %4.1f cy/find  %4.2f M/s %8.2f ns/op\n",
+               ci, irate, ispd,
+               cs, srate, sspd,
+               cy, yrate, yspd,
+               cd, drate, dspd,
+               cx, xrate, xspd
                );
     }
 
@@ -304,7 +307,7 @@ main(int argc, char** argv)
     ht _h;
     ht *h = &_h;
 
-    ht_init(h, 4, 90);
+    ht_init(h, 128, 90);
 
     insert_words(&v, h);
 

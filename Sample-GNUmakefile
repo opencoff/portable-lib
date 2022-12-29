@@ -8,26 +8,6 @@
 # Placed in the public domain
 #
 
-uname   := $(shell uname -s)
-
-# Platform specification
-ifneq ($(OS),)
-	WIN32 	 := 1
-	platform := win32
-	exe		 := .exe
-
-
-	# Cygwin is detestable
-	ifneq ($(findstring CYGWIN,$(uname)),)
-		cyg-cross  := mingw32-
-		cygwin := 1
-	endif
-
-else
-	platform := $(uname)
-endif
-
-
 SRCDIR    = .
 PORTABLE := ../portable-utils
 

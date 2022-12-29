@@ -15,20 +15,18 @@ On most POSIX systems (including Darwin)::
 The object files and exe will be in a OS and build specific directory; the
 directory name will have the following convention::
 
-    ./${UNAME}_obj_${TYPE}/
+    ./obj-$UNAME-$ARCH-$TYPE/
 
-where ``${TYPE}`` is ``dbg``. This build will have optimizations
-disabled and will be built with full debug symbols (``-g``).
+Where:
+
+    - `$UNAME`: is the lowercase OS name
+    - `$ARCH`:  is the common arch name (amd64, aarch64, etc.)
+    - `$TYPE`:  is the release type `dbg` or `rel`; where the latter
+      have optimizations enabled.
 
 If you wish to build for benchmarking and full optimization, try::
 
     gmake OPTIMIZE=1 -j5
-
-Now, the output will be in the the directory with the suffix ``rel``
-(``${TYPE}`` is ``rel``).
-
-
-The files should build cleanly on Linux, Darwin and OpenBSD.
 
 Guide to Tests
 ==============
@@ -64,6 +62,9 @@ t_mempool.c
 
 t_fast-ht.c
     Test harness and benchmark for super-fast hash table.
+
+t_fast-ht-basic.c
+    Simple test harness for the super-fast hash table.
 
 t_arena.c
     Test harness and benchmark for object-lifetime based memory

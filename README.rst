@@ -46,11 +46,12 @@ What is available in this code base?
       several iterators to safely traverse the hash-table. This uses
       a doubly linked list for collision resolution.
 
-    * A very fast hash table that uses "linked list of arrays" for
-      collision resolution. Each such array has 8 elements. The idea
+    * A very fast, cache-friendly hash table that uses "linked list of arrays"
+      for collision resolution. Each such array has 7 elements. The idea
       is to exploit cache-locality when searching for nodes in the
-      same bucket. If the collision chain is more than 8 elements, a
-      new array of 8 elements is allocated.
+      same bucket. If the collision chain is more than 7 elements, a
+      new array of 7 elements is allocated. The hash table uses short
+      "fingerprints" of the hash-key to quickly select the array slot.
 
     * Open addressed hash table that uses a power-of-2 sized bucket
       list and a smaller power-of-2 sized bucket list for overflow.
@@ -170,13 +171,13 @@ Performance on a late 2018 15" MBP (6-Core i9, 2.9GHz):
 
 Fast Hash Table
 ---------------
-Performance on a late 2018 15" MBP (6-Core i9, 2.8GHz):
+Performance on a 2022 Core i7 on ChromeOS Linux env:
 
-    * insert: 148 cycles (~16M inserts/sec)
-    * find: 41 cycles    (~41M searches/sec)
-    * find non existant entry: 39 cycles (~40M searches/sec)
-    * delete: 42 cycles  (~38M deletes/sec)
-
+    * insert if not present: 1093 cycles (490 ns/insert)
+    * find existing element:  80 cycles (362.90 ns/find)
+    * find non-existing element: 235 cycles (252 ns/find)
+    * delete existing element: 112 cycles (367.39 ns/del)
+    * delete non-existent element: 163 element (216 ns/del)
 
 Memory Allocators
 -----------------
@@ -213,30 +214,30 @@ many idioms to make building for multiple platforms possible
 For each platform that is supported, ``portablelib.mk`` defines a
 set of macros for that platform like so::
 
-    Darwin_incdirs += /opt/local/include /usr/local/include
-    Darwin_ldlibs  += /opt/local/lib/libsodium.a
-    Darwin_objs    += darwin_cpu.o darwin_sem.o darwin_clock.o
+    darwin_incdirs += /opt/local/include /usr/local/include
+    darwin_ldlibs  += /opt/local/lib/libsodium.a
+    darwin_objs    += darwin_cpu.o darwin_sem.o darwin_clock.o
 
-    Linux_defs   += -D_GNU_SOURCE=1
-    Linux_ldlibs += -lpthread
-    Linux_objs   += linux_cpu.o arc4random.o
+    linux_defs   += -D_GNU_SOURCE=1
+    linux_ldlibs += -lpthread
+    linux_objs   += linux_cpu.o arc4random.o
 
-    OpenBSD_ldlibs += -L/usr/local/lib -lsodium -lpthread
-    OpenBSD_objs   += openbsd_cpu.o
+    openbsd_ldlibs += -L/usr/local/lib -lsodium -lpthread
+    openbsd_objs   += openbsd_cpu.o
 
 
 Then, these flags are used to set ``CFLAGS`` and ``objs`` via
 "double variable expansion"  like so::
 
-    platform := $(shell uname -s)
+    os := $(shell uname -s | tr '[A-Z]' '[a-z]')
 
-    INCDIRS = $($(platform)_incdirs) $(TOPDIR)/inc/$(platform) $(TOPDIR)/inc
+    INCDIRS = $($(os)_incdirs) $(TOPDIR)/inc/$(os) $(TOPDIR)/inc
 
     INCS = $(addprefix -I, $(INCDIRS))
-    DEFS = -D__$(platform)__=1 $($(platform)_defs)
+    DEFS = -D__$(os)__=1 $($(os)_defs)
 
     CFLAGS = -g -O2 $(INCS) $(DEFS)
-    LDFLAGS = $($(platform)_ldlibs)
+    LDFLAGS = $($(os)_ldlibs)
 
 
 In similar fashion, the list of object files to be built is expanded
@@ -266,5 +267,8 @@ deleted. This script is most-useful in a GNUmakefile: instead of
 
 This makes sure that invalid dependencies never make it into the
 Makefile.
+
+The sample ``Sample-GNUMakefile`` in the top-dir is a good reference for
+incorporating these ideas and library into a larger program.
 
 .. vim: ft=rst:sw=4:ts=4:expandtab:tw=78:

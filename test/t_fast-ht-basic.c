@@ -173,6 +173,16 @@ rand_tests()
            xspd = _d(tx) / _d(ndel);
 
 
+    // rate of operations in M/s
+    // ti is in ns; thus to get in units of Millions:
+    //    = (N/time) / 1000000
+    //    = (N/(t * 1e-9))/1e6
+    //    = 1000 * (N/t)
+    double irate = 1000 * (_d(VECT_LEN(&v)) / _d(ti)),
+           frate = 1000 * (_d(VECT_LEN(&v)) / _d(tf)),
+           drate = 1000 * (_d(ndel) / _d(td)),
+           xrate = 1000 * (_d(ndel) / _d(tx));
+
     // this calculates cycle count per op
     double clki = _d(cyi) / _d(VECT_LEN(&v)),
            clkf = _d(cyf) / _d(VECT_LEN(&v)),
@@ -180,14 +190,14 @@ rand_tests()
            clkx = _d(cyx) / _d(ndel);
 
 
-    printf("probe:   %5.2f ns/insert %5.2f clks/insert\n"
-           "find:    %5.2f ns/find %5.2f clks/find\n"
-           "find-x:  %5.2f ns/find-non-exist %5.2f clks/find-non-exist\n"
-           "del:     %5.2f ns/del %5.2f clks/del\n",
-            ispd, clki,
-            fspd, clkf,
-            xspd, clkx,
-            dspd, clkd);
+    printf("probe:   %5.2f ns/insert %5.2f M Ops/s %5.2f clks/insert\n"
+           "find:    %5.2f ns/find %5.2f M Ops/s %5.2f clks/find\n"
+           "find-x:  %5.2f ns/find-non-exist %5.2f M Ops/s %5.2f clks/find-non-exist\n"
+           "del:     %5.2f ns/del %5.2f %5.2f M Ops/s clks/del\n",
+            ispd, irate, clki,
+            fspd, frate, clkf,
+            xspd, xrate, clkx,
+            dspd, drate, clkd);
 
 
     // cleanup
