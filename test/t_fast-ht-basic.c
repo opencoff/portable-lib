@@ -14,7 +14,9 @@
 #include "utils/fast-ht.h"
 #include "fast/vect.h"
 #include "utils/utils.h"
-#include "utils/arc4random.h"
+
+
+extern void arc4random_buf(void *, size_t);
 
 
 struct kv {
