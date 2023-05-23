@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # merge input from multiple runs of genhash.py into a single file
 # Remove duplicates as needed

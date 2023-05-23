@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # MPMCQ Latency Plotter
 #  - Reads a list of latency numbers from command line files and

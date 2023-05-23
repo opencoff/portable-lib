@@ -395,8 +395,9 @@ __rte_ring_mp_do_enqueue(struct rte_ring *r, void * const *obj_table,
      * If there are other enqueues in progress that preceeded us,
      * we need to wait for them to complete
      */
-    while (unlikely(r->prod.tail != prod_head))
+    while (unlikely(r->prod.tail != prod_head)) {
         rte_pause();
+    }
 
 	atomic_store_explicit(&r->prod.tail, prod_next, memory_order_release);
 
@@ -531,8 +532,9 @@ __rte_ring_mc_do_dequeue(struct rte_ring *r, void **obj_table,
      * If there are other dequeues in progress that preceded us,
      * we need to wait for them to complete
      */
-    while (unlikely(r->cons.tail != cons_head))
+    while (unlikely(r->cons.tail != cons_head)) {
         rte_pause();
+    }
 
 	atomic_store_explicit(&r->cons.tail, cons_next, memory_order_release);
 

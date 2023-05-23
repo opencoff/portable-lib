@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # Simple script to analyze the output of t_hashfunc for collisions
 # etc. Later on we can add other tests to verify the ability of hash

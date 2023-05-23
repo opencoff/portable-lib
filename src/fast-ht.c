@@ -97,12 +97,12 @@ _hash_fp(uint64_t h)
 // This function counts ZERO from the msb. A return val of 8 implies
 // no zero found.
 // (Henry Warren's Hacker's Delight also counts ZERO from the MSB).
-static inline int
+static inline uint64_t
 __find_first_zero(uint64_t w)
 {
     uint64_t y = (w & 0x7f7f7f7f7f7f7f7f) + 0x7f7f7f7f7f7f7f7f;
     y = ~(y | w | 0x7f7f7f7f7f7f7f7f);
-    int z = __builtin_clzl(y) >> 3;
+    uint64_t z = __builtin_clzl(y) >> 3;
 
     return z;
 }
@@ -138,7 +138,7 @@ __insert(hb *b, uint64_t k, void *v)
     uint64_t h_fp = fp * 0x0101010101010101;
 
     SL_FOREACH(g, &b->head, link) {
-        int       n = __find_first_zero(g->fp ^ h_fp);
+        uint64_t       n = __find_first_zero(g->fp ^ h_fp);
         uint64_t *x = &g->hk[0];
 
         // fp XOR key will zero-out the places where the fp may
@@ -198,7 +198,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
     uint64_t fp = _hash_fp(k);
     bag *g      = SL_FIRST(&b->head);
     if (g) {
-        int n = __find_first_zero(g->fp);
+        uint64_t n = __find_first_zero(g->fp);
         if (n < FASTHT_BAGSZ) {
             assert(!g->hk[n]);
             g->hk[n] = k;
@@ -247,7 +247,7 @@ __findx(tuple *t, hb *b, uint64_t hk)
         if (unlikely(g->fp == 0)) continue;
 
         // Maybe the key is in this bag?
-        int n = __find_first_zero(g->fp ^ h_fp);
+        uint64_t n = __find_first_zero(g->fp ^ h_fp);
         if (unlikely(n >= FASTHT_BAGSZ)) continue;
 
         // Here:
