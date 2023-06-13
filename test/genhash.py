@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 #
 # Scan /usr/include or any other paths and return a unique list of

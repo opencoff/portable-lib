@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # mkgetopt.py - a simple generator of typesafe, 'C' command line option
 #               parsing code using getopt_long(3). 
