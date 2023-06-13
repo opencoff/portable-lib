@@ -65,7 +65,7 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
 {
     const uint64_t m = 0x880355f21e6d1965ULL;
 
-    hv ^= _hashmix(salt);
+    hv ^= (_hashmix(hv) ^ salt);
     hv *= m;
     return (n-1) & hv;
 }

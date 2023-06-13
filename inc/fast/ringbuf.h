@@ -173,11 +173,44 @@ struct __CACHELINE_ALIGNED rte_ring {
 
 
 /**
- * Create a new ring named *name* in memory.
+ * Return the size of a rte-ring struct to hold 'count' items.
  *
- * This function uses ``memzone_reserve()`` to allocate memory. Its size is
- * set to *count*, which must be a power of two. Water marking is
- * disabled by default.
+ * This function returns the size of the memory block needed to hold
+ * rte_ring and the actual queue of slots.
+ */
+static inline size_t
+rte_ring_size(unsigned count)
+{
+    size_t sz = 0;
+
+
+    sz = sizeof(*r) + (count * sizeof(void *));
+    sz = _ALIGN_UP(sz, CACHE_LINE_SIZE);
+    return sz;
+}
+
+
+/**
+ * Initialize and return an rte-ring struct
+ */
+static inline struct rte_ring *
+__rte_ring_init(struct rte_ring *r, unsigned count, unsigned flags)
+{
+    r->size   = count;
+    r->mask   = count-1;
+    r->sp_enq = (flags & RING_F_SP_ENQ) > 0;
+    r->sc_deq = (flags & RING_F_SC_DEQ) > 0;
+
+    r->prod.head  = r->prod.tail = 0;
+    r->cons.head  = r->cons.tail = 0;
+
+    return r;
+}
+
+/**
+ * Create a new ring from a new dynamically allocated memory
+ * segment.
+ *
  * Note that the real usable ring size is *count-1* instead of
  * *count*.
  *
@@ -192,31 +225,59 @@ struct __CACHELINE_ALIGNED rte_ring {
  *      using ``rte_ring_dequeue()`` or ``rte_ring_dequeue_bulk()``
  *      is "single-consumer". Otherwise, it is "multi-consumers".
  * @return
- *   On success, the pointer to the new allocated ring. NULL on error with
+ *   On success, the pointer to the new allocated ring. NULL on error
  */
 static inline struct rte_ring *
 rte_ring_create(unsigned count, unsigned flags)
 {
-    size_t sz  = 0;
-    struct rte_ring *r = 0;
-
     if (count & (count-1)) count = NEXTPOW2(count);
 
-    sz = sizeof(*r) + (count * sizeof(void *));
-    sz = _ALIGN_UP(sz, CACHE_LINE_SIZE);
+    size_t sz  = rte_ring_size(count);
+    struct rte_ring *r = (struct rte_ring *)NEWZA(uint8_t, sz);
 
-    r  = (struct rte_ring *)NEWZA(uint8_t, sz);
-
-    r->size   = count;
-    r->mask   = count-1;
-    r->sp_enq = (flags & RING_F_SP_ENQ) > 0;
-    r->sc_deq = (flags & RING_F_SC_DEQ) > 0;
-
-    r->prod.head  = r->prod.tail = 0;
-    r->cons.head  = r->cons.tail = 0;
-
-    return r;
+    return __rte_ring_init(r, count, flags);
 }
+
+
+/**
+ * Create a new ring from a user supplied memory buffer.
+ *
+ * Note that the real usable ring size is *count-1* instead of
+ * *count*.
+ *
+ * @param count
+ *   The size of the ring (must be a power of 2).
+ * @param flags
+ *   An OR of the following:
+ *    - RING_F_SP_ENQ: If this flag is set, the default behavior when
+ *      using ``rte_ring_enqueue()`` or ``rte_ring_enqueue_bulk()``
+ *      is "single-producer". Otherwise, it is "multi-producers".
+ *    - RING_F_SC_DEQ: If this flag is set, the default behavior when
+ *      using ``rte_ring_dequeue()`` or ``rte_ring_dequeue_bulk()``
+ *      is "single-consumer". Otherwise, it is "multi-consumers".
+ * @return
+ *   On success, the pointer to the new allocated ring. NULL on
+ *   error.
+ *
+ *   On success, the "memsz" parameter contains the remainder of the
+ *   user provided buffer size.
+ */
+static inline struct rte_ring *
+rte_ring_create_from(unsigned count, unsigned flags, void *mem, size_t *memsz)
+{
+    if (count & (count-1)) count = NEXTPOW2(count);
+
+    size_t sz  = rte_ring_size(count);
+
+    if (*memsz < sz) return 0;
+
+    *memsz -= sz;
+    struct rte_ring *r = (struct rte_ring *)mem;
+
+
+    return __rte_ring_init(r, count, flags);
+}
+
 
 
 /**
