@@ -208,6 +208,9 @@ pack(const char *fmt, pdata *pd, va_list ap)
         if (isspace(c)) continue;
 
         if (c == '*') {
+            // error to have consecutive '*'
+            if (have_vnum) return -EILSEQ;
+
             const packer *p = getpacker('I', pk);
             assert(p);
             assert(p->size > 1);
@@ -329,6 +332,8 @@ unpack(const char *fmt, pdata *pd, va_list ap)
         if (isspace(c)) continue;
 
         if (c == '*') {
+            if (have_vnum) return -EILSEQ;
+
             const packer *p = getpacker('I', pk);
             assert(p);
             assert(p->size > 1);

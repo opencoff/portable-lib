@@ -167,6 +167,7 @@ struct __CACHELINE_ALIGNED rte_ring {
 
     void * volatile ring[0] __CACHELINE_ALIGNED;
 };
+typedef struct __CACHELINE_ALIGNED rte_ring rte_ring;
 
 #define RING_F_SP_ENQ 0x0001 /**< The default enqueue is "single-producer". */
 #define RING_F_SC_DEQ 0x0002 /**< The default dequeue is "single-consumer". */
@@ -183,8 +184,7 @@ rte_ring_size(unsigned count)
 {
     size_t sz = 0;
 
-
-    sz = sizeof(*r) + (count * sizeof(void *));
+    sz = sizeof(struct rte_ring) + (count * sizeof(void *));
     sz = _ALIGN_UP(sz, CACHE_LINE_SIZE);
     return sz;
 }
