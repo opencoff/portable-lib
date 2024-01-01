@@ -262,11 +262,11 @@ new_chunk(mempool* a)
 static void *
 alloc_from_chunk(mempool* a)
 {
-    memchunk * ch = a->chunks; /* latest chunk */
-    void  * p  = 0;
+    memchunk *ch = a->chunks; /* latest chunk */
+    void  *p     = 0;
 
     if (ch->free_area < ch->end) {
-                    p  = ch->free_area;
+        p  = ch->free_area;
         ch->free_area += a->block_size;
     }
 

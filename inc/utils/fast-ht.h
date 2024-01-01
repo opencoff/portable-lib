@@ -78,10 +78,10 @@ extern "C" {
 struct bag
 {
     uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
-    SL_ENTRY(bag) link;
-
     // start of second  cache line
     void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
+
+    SL_ENTRY(bag) link;
 
     // 8-bit hash fingerprint of each slot.
     uint64_t fp;

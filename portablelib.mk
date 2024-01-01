@@ -170,8 +170,8 @@ LDFLAGS += $(EXTRA_WARNINGS)
 
 win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
-sanitize = -D_FORTIFY_SOURCE=2 -fsanitize=address \
-		   -fsanitize=leak -fsanitize=bounds
+sanitize = -fsanitize=address \
+		   -fsanitize=leak -fsanitize=bounds -fsanitize=unsigned-integer-overflow
 linux_CC =  gcc
 linux_CXX = g++
 linux_LD = g++
@@ -214,8 +214,10 @@ ifeq ($(RELEASE),1)
 endif
 
 ifeq ($(OPTIMIZE),1)
-	CFLAGS  += -O3 $($(os)_OFLAGS) $(OFLAGS) \
-			   -g -Wuninitialized -D__MAKE_OPTIMIZE__=1
+	# FORTIFY_SOURCE is a no-op when not optimizing
+	CFLAGS  += -O3 $($(os)_OFLAGS) $(OFLAGS) -D_FORTIFY_SOURCE=2 \
+			   -g -Wuninitialized -D__MAKE_OPTIMIZE__=1 \
+			   -mharden-sls=all
 
 	LDFLAGS += -g
 

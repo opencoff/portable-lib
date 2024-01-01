@@ -75,7 +75,7 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
 // index for the key (also is the index for value) array.
 #define _i(x, g)    (x - &(g)->hk[0])
 
-// given a hash 'k', return its 8-bit fingerprint
+// given a hash 'h', return its 8-bit fingerprint
 static inline uint64_t
 _hash_fp(uint64_t h)
 {
@@ -146,22 +146,23 @@ __insert(hb *b, uint64_t k, void *v)
         // that the key exists in this bag.
 
         if (likely(n < FASTHT_BAGSZ)) {
+            volatile uint64_t j = __builtin_speculation_safe_value(n);
             // fast-path
-            if (likely(k == x[n])) {
-                return g->hv[n];
+            if (likely(k == x[j])) {
+                return g->hv[j];
             }
+        }
 
-            // slow path
-            switch (FASTHT_BAGSZ) {
-                default:                // fallthrough
-                case 7: FIND(x);        // fallthrough
-                case 6: FIND(x);        // fallthrough
-                case 5: FIND(x);        // fallthrough
-                case 4: FIND(x);        // fallthrough
-                case 3: FIND(x);        // fallthrough
-                case 2: FIND(x);        // fallthrough
-                case 1: FIND(x);        // fallthrough
-            }
+        // slow path
+        switch (FASTHT_BAGSZ) {
+            default:                // fallthrough
+            case 7: FIND(x);        // fallthrough
+            case 6: FIND(x);        // fallthrough
+            case 5: FIND(x);        // fallthrough
+            case 4: FIND(x);        // fallthrough
+            case 3: FIND(x);        // fallthrough
+            case 2: FIND(x);        // fallthrough
+            case 1: FIND(x);        // fallthrough
         }
 
         // In case we need to find an empty slot for inserting this
@@ -200,10 +201,11 @@ __insert_quick(hb *b, uint64_t k, void *v)
     if (g) {
         uint64_t n = __find_first_zero(g->fp);
         if (n < FASTHT_BAGSZ) {
-            assert(!g->hk[n]);
-            g->hk[n] = k;
-            g->hv[n] = v;
-            g->fp    = __update_fp(g->fp, fp, n);
+            volatile uint64_t j = __builtin_speculation_safe_value(n);
+            assert(!g->hk[j]);
+            g->hk[j] = k;
+            g->hv[j] = v;
+            g->fp    = __update_fp(g->fp, fp, j);
             b->nodes++;
             return;
         }
@@ -255,11 +257,11 @@ __findx(tuple *t, hb *b, uint64_t hk)
         //  b) maybe there are other slots that also match (ie have
         //  "zeroes")
 
-
         // We try the fast path first - then just unroll
-        if (likely(x[n] == hk)) {
+        volatile uint64_t j = __builtin_speculation_safe_value(n);
+        if (likely(x[j] == hk)) {
                 t->g = g;
-                t->i = n;
+                t->i = j;
                 return 1;
         }
 
