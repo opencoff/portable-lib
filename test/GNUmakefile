@@ -72,6 +72,8 @@ mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
 # Include
 include $(PORTABLE)/tools.mk
 
+VPATH += $(PWD)
+
 test: sanitize easytest hashtest
 
 sanitize:

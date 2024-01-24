@@ -1,12 +1,10 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * mpmc_bounded_queue.h - Lock-Free, MPMC bounded queues.
+ * mpmc_bounded_queue.h - a generic MPMC Bounded Queue
  *
- * Inspired by Dmitry Vyukov's C++ code.
+ * Copyright (c) 2024 Sudhi Herle <sw at herle.net>
  *
- * Copyright (C) 2005-2010, Sudhi Herle <sw at herle.net>
- *
- * Licensing Terms: GPLv2
+ * Licensing Terms: GPLv2 
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -17,49 +15,45 @@
  *
  * Introduction
  * ============
- *   Macros to create and manipulate "type indepedent" fast,
- *   bounded, circular queues.
- *   - These are lock-free and require C11 <stdatomic.h>
- *   - The Q is lock-free but NOT wait-free.
- *   - Enq/Deq operations require one CAS.
+ * This is a bounded, MPMC Generic Queue; inspired by
+ * https://github.com/rigtorp/MPMCQueue.
  *
- *   Use:
- *     Make a type for your queue to hold objects of your
- *     interest. e.g.,
+ * C macros are used to create and manipulate type-safe
+ * queues. These are lock-free (not wait-free) and are
+ * fixed-size, multi-producer, multi-consumer queues.
  *
- *          MPMCQ_TYPE(typename, type, Q_SIZE);
- *
- *     This makes a new Queue data type (typedef) called 'typename'
- *     to hold objects of type 'type'. The size of the circular
- *     Queue is 'size' elements.
- *     Next, declare one or more objects of type 'typename':
- *          typename my_queue;
- *
- *     Operations allowed:
- *       o MPMCQ_INIT(my_queue, Q_size)
- *            MUST be called before any use of other macros. Q_size
- *            MUST be the same as the one used for MPMCQ_TYPE().
- *       o MPMCQ_DYN_INIT(my_queue, q_size)
- *            Call this function if you don't know the size of the
- *            queue at compile time. Only _ONE_ of MPMCQ_INIT() or
- *            MPMCQ_DYN_INIT() must be called.
- *       o MPMCQ_ENQ(my_queue, elem, status)
- *            Enqueue 'elem' into 'my_queue' and obtain result in
- *            'status'. If status != 0 then Queue-full.
- *       o MPMCQ_DEQ(my_queue, elem, status)
- *            Dequeue an element from 'my_queue' and put the element
- *            into 'elem'. If status != 0 then Queue-empty.
+ * The only dependency is a C11 compliant compiler & stdlib.
  *
  *
- *  The 'R' index tracks the next slot from which to read.
- *  The 'W' index tracks the next slot ready to accept a write.
+ * Usage:
+ *   - Let's say you want to instantiate a fixed-size queue to hold
+ *     'struct req' objects. We start by defining a type for 
+ *     "a queue of 'struct req'" objects. We will name this queue 
+ *     "req_q". 
  *
- *  Both 'R' and 'W' increment without wrapping; the only wrapping
- *  happens when they reach their boundaries.
+ *     MPMC_QUEUE_TYPE(req_q, struct req, REQ_Q_SIZE);
+ *
+ *  - Now, we can declare a queue of type 'req_q':
+ *
+ *          req_q Q;
+ *
+ *  - Enqueue: MPMC_QUEUE_ENQ_WAIT(&Q, *req)
+ *  - Enqueue without blocking:
+ *
+ *          if (!MPMC_QUEUE_ENQ(&Q, *req) {
+ *              panic("queue full");
+ *          }
+ *
+ *  - Dequeue: MPMC_QUEUE_DEQ_WAIT(&Q, *req)
+ *  - Dequeue without blocking:
+ *
+ *          if (!MPMC_QUEUE_DEQ(&Q, *req) {
+ *              panic("queue empty");
+ *          }
  */
 
-#ifndef __MPMC_BOUNDED_QUEUE_31741145_H__
-#define __MPMC_BOUNDED_QUEUE_31741145_H__ 1
+#ifndef ___MPMC2_H__vCbg0fx5IeW9lDA6___
+#define ___MPMC2_H__vCbg0fx5IeW9lDA6___ 1
 
     /* Provide C linkage for symbols declared here .. */
 #ifdef __cplusplus
@@ -93,322 +87,285 @@ extern "C" {
 #error "Can't define __CACHELINE_ALIGNED for your compiler/machine"
 #endif /* __CACHELINE_ALIGNED */
 
+#define __cachepad(n)   ((CACHELINE_SIZE - (n))/sizeof(uint64_t))
+
 #ifdef __cplusplus
 #ifndef typeof
 #define typeof(a)   __typeof__(a)
 #endif
 #endif
 
-/*
- * We put the rd, wr and sz elements in different cache lines by
- * forcibly padding the remaining space in this cache line.
- */
-#define __mpmc_padz(n)      ((CACHELINE_SIZE - (n))/sizeof(uint32_t))
-struct __mpmcq
-{
-    atomic_uint_fast64_t rd; /* Next slot from which to read */
-    uint32_t __pad0[__mpmc_padz(8)];
+struct __mpmc_q {
+    atomic_uint_fast64_t head;
+    uint64_t __pad0[__cachepad(8)];
 
-    atomic_uint_fast64_t wr; /* Last successful write */
-    uint32_t __pad1[__mpmc_padz(8)];
+    atomic_uint_fast64_t tail;
+    uint64_t __pad1[__cachepad(8)];
 
-    uint64_t sz;    /* Capacity of the queue: Always power of 2 */
-    uint64_t mask;  /* Mask to make future computation faster */
-    uint32_t __pad2[__mpmc_padz(16)];
+    uint64_t sz;
+    uint64_t mask;
+    uint64_t __pad2[__cachepad(16)];
 };
-typedef struct __mpmcq __mpmcq;
+typedef struct __mpmc_q __mpmc_q;
 
+static inline void
+__mpmc_q_init(__mpmc_q * q, size_t sz) {
+    assert((sz & (sz-1)) == 0);
 
-
-/*
- * MPMC Node. This captures the notion of a queue-element and a tag.
- */
-
-#define MPMCQ_NODETY(ty)        ty ## _node
-#define MPMCQ_NODE(typnm, ty)   struct __CACHELINE_ALIGNED MPMCQ_NODETY(typnm) \
-                                { \
-                                    atomic_uint_fast64_t seq; \
-                                    ty   d;\
-                                };\
-                                typedef struct __CACHELINE_ALIGNED MPMCQ_NODETY(typnm) MPMCQ_NODETY(typnm)
-
-
-
-
-/* Create a new queue called 'typnm' of a fixed size 'sz' to hold
- * elements of type * 'ty'. */
-#define MPMCQ_TYPEDEF(typnm_,ty_,sz_) \
-                                 MPMCQ_NODE(typnm_, ty_); \
-                                 struct typnm_            \
-                                 {                        \
-                                     __mpmcq q;           \
-                                     MPMCQ_NODETY(typnm_) elem[sz_];\
-                                 }; \
-                                 typedef struct typnm_ typnm_
-
-
-/*
- * Create a "dynamic" fast-queue whose size will be initialized
- * later. The actual memory will be allocated via malloc().
- */
-#define MPMCQ_DYN_TYPEDEF(typenm_,ty_) \
-                                 MPMCQ_NODE(typenm_, ty_); \
-                                 struct typenm_       \
-                                 {                    \
-                                     __mpmcq q;       \
-                                     MPMCQ_NODETY(typenm_) *elem;\
-                                 };                   \
-                                typedef struct typenm_ typenm_
-
-
-/* Handy shorthand for the type of the queue element */
-#define __mpmcqetyp(q)      typeof((q)->elem[0])
-
-
-/*
- * Initialize a queue.
- */
-static inline __mpmcq*
-__mpmcq_init(__mpmcq* q, size_t n)
-{
-    assert(0 == (n & (n-1)));   /* always a power of 2 */
-
-    atomic_init(&q->rd, 0);
-    atomic_init(&q->wr, 0);
-    q->sz   = n;
-    q->mask = n - 1;
-    return q;
+    memset(q, 0, sizeof *q);
+    q->sz = (uint64_t)sz;
+    q->mask = q->sz - 1;
 }
 
-
-/*
- * Return best guess for size of queue. This function cannot
- * guarantee accurate results in the presence of multiple concurrent
- * readers and writers.
- */
-static inline uint32_t
-__mpmcq_size(__mpmcq* q)
-{
-    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
-
-    uint64_t n = wr - rd;
-
-    // 64-bit seq# wrap around
-    if (rd > wr) n = ~0 - n;
-    return n;
+static inline void
+__mpmc_q_reset(__mpmc_q *q) {
+    atomic_store(&q->head, 0);
+    atomic_store(&q->tail, 0);
 }
 
+static inline void
+__mpmc_q_fini(__mpmc_q * q) {
+    memset(q, 0, sizeof *q);
+}
 
-/* Return true if queue is full */
+static inline size_t
+__mpmc_q_len(__mpmc_q *q) {
+    uint64_t hd = atomic_load_explicit(&q->head, memory_order_relaxed),
+             tl = atomic_load_explicit(&q->tail, memory_order_relaxed);
+
+    if (hd < tl) {
+        // wraparound
+        uint64_t diff = ~((uint64_t)0) - tl;
+        return diff + hd;
+    }
+    return (size_t)(hd - tl);
+}
+
+// best effort - since we have concurrent readers/writers
 static inline int
-__mpmcq_full_p(__mpmcq * q)
-{
-    return q->sz == __mpmcq_size(q);
+__mpmc_q_full_p(__mpmc_q *q) {
+    return __mpmc_q_len(q) == q->sz;
 }
 
-/* Return true if queue is empty */
+// best effort - since we have concurrent readers/writers
 static inline int
-__mpmcq_empty_p(__mpmcq * q)
-{
-    uint_fast64_t rd = atomic_load_explicit(&q->rd, memory_order_consume);
-    uint_fast64_t wr = atomic_load_explicit(&q->wr, memory_order_consume);
-
-    return rd == wr;
+__mpmc_q_empty_p(__mpmc_q *q) {
+    return __mpmc_q_len(q) == 0;
 }
 
 
-#define XCHG(a, b, c)   atomic_compare_exchange_weak_explicit(a, b, c, memory_order_relaxed, memory_order_relaxed)
+// Construct a name for the corresponding slot - but tie it to the
+// queue typename (ty_). We need this because in C, nested struct 
+// decl have no implied nested scope - it's as if the inner
+// struct was actually declared outside. So, to avoid type
+// collision, we construct distinct slot-types for each queue type.
+#define _MPMC_SLOT_TYPNM(ty_) ty_ ## __slot
 
-#ifndef _BACKOFF_MIN
-#define _BACKOFF_MIN    128
-#endif
-
-#ifndef _BACKOFF_MAX
-#define _BACKOFF_MAX    1024
-#endif
-
-
-/*
- * Exponential delay with max value.
- * This loop is run when we see contention on a cell.
- * Idea due to: Massimo Torquati (fastflow)
- */
-#define _exp_backoff(bk) do {                           \
-                            volatile unsigned int _i;   \
-                            for(_i = 0; _i < bk; ++_i); \
-                            bk <<= 1;                   \
-                            bk &= _BACKOFF_MAX;         \
-                         } while (0)
+// declare a type for the individual cache-aligned slots
+#define _MPMC_SLOT_TYPE(nm_, ty_)  struct __CACHELINE_ALIGNED _MPMC_SLOT_TYPNM(nm_) { \
+                                    atomic_uint_fast64_t turn __CACHELINE_ALIGNED; \
+                                    ty_ data;\
+                              }; \
+                              typedef struct __CACHELINE_ALIGNED _MPMC_SLOT_TYPNM(nm_) _MPMC_SLOT_TYPNM(nm_)
 
 
+#define MPMC_QUEUE_TYPE_FIXED(nm_, ty_, sz_)                    \
+                    _MPMC_SLOT_TYPE(nm_, ty_);                  \
+                    struct nm_ {                                \
+                        __mpmc_q q;                             \
+                        union {                                 \
+                            _MPMC_SLOT_TYPNM(nm_)  slot[sz_];   \
+                            void *ptr;                          \
+                        } u;                                    \
+                    };                                          \
+                    typedef struct nm_ nm_
 
-/*
- * Enqueue element 'e_'
- * Return:
- *    True  on success
- *    False on Queue full
- */
-#define MPMCQ_ENQ(q_, e_) ({                            \
-                    __mpmcq* _q = &(q_)->q;             \
-                    __mpmcqetyp(q_) * _nd;              \
-                    int _z = 0;                         \
-                    unsigned int _bk = _BACKOFF_MIN;    \
-                    uint_fast64_t _p, _seq;             \
-                    for (;;) {                          \
-                        _p   = atomic_load_explicit(&_q->wr, memory_order_relaxed);     \
-                        _nd  = &(q_)->elem[_p & _q->mask];                              \
-                        _seq = atomic_load_explicit(&_nd->seq, memory_order_acquire);   \
-                        if (_p == _seq) {                       \
-                            if (XCHG(&_q->wr, &_p, (_p+1))) {   \
-                                _z     = 1;                     \
-                                _nd->d = e_;                    \
-                                atomic_store_explicit(&_nd->seq, _seq+1, memory_order_release);\
-                                break;                  \
-                            } else _exp_backoff(_bk);   \
-                        } else if (_p > _seq) {         \
-                            _z = 0;                     \
-                            break;                      \
-                        }                               \
-                    }                                   \
-                    _z;})
+#define MPMC_QUEUE_TYPE(nm_, ty_)                               \
+                    _MPMC_SLOT_TYPE(nm_, ty_);                  \
+                    struct nm_ {                                \
+                        __mpmc_q q;                             \
+                        union {                                 \
+                            _MPMC_SLOT_TYPNM(nm_)  *slot;       \
+                            void *ptr;                          \
+                        } u;                                    \
+                    };                                          \
+                    typedef struct nm_ nm_
 
 
+// handy helpers
+#define __mpmc_slot_ty(q)   typeof((q)->u.slot[0])
+#define __mpmc_q_turn(q_, v_) ((v_) / (q_)->q.sz)
+#define __mpmc_q_idx(q_, i_)  ((i_) & (q_)->q.mask)
 
 
-/*
- * Dequeue into 'e_'
- * Return:
- *    True  on success
- *    False on Queue empty
- */
-#define MPMCQ_DEQ(q_, e_)   ({                          \
-                    __mpmcq* _q = &(q_)->q;             \
-                    __mpmcqetyp(q_) * _nd;              \
-                    int _z = 0;                         \
-                    unsigned int _bk = _BACKOFF_MIN;    \
-                    uint_fast64_t _p, _seq;             \
-                    for (;;) {                          \
-                        _p   = atomic_load_explicit(&_q->rd, memory_order_relaxed);     \
-                        _nd  = &(q_)->elem[_p & _q->mask];                              \
-                        _seq = atomic_load_explicit(&_nd->seq, memory_order_acquire);   \
-                        int64_t _diff = ((int64_t)_seq) - ((int64_t)(_p+1));            \
-                        if (_diff == 0) {                       \
-                            if (XCHG(&_q->rd, &_p, (_p+1))) {   \
-                                _z = 1;                         \
-                                e_ = _nd->d;                    \
-                                atomic_store_explicit(&_nd->seq, _p+_q->mask+1, memory_order_release);\
-                                break;                  \
-                            } else _exp_backoff(_bk);   \
-                        } else if (_diff < 0 ) {        \
-                            _z = 0;                     \
-                            break;                      \
-                        }                               \
-                    } \
-                    _z; })
+// Initialize 'q' for size 'sz'. This macro is common for
+// compile-time sized and runtime sized queues.
+// Compile-time sized queues _must_ be a power of 2 - this check 
+// is guarded by an assert().
+// For runtime sized queues, the 'sz_' is rounded-up to the
+// next power of 2 if needed.
+#define MPMC_QUEUE_INIT(q_, sz_) do {                   \
+        typeof(q_) _qc = (q_);                          \
+        size_t _sz     = sz_;                           \
+        size_t  _arrsz = sizeof(_qc->u) / sizeof(_qc->u.slot[0]); \
+        assert(_sz > 1);                                \
+        memset(_qc, 0, sizeof *_qc);                    \
+        if (_arrsz == 0) {                              \
+            _sz = NEXTPOW2(_sz);                        \
+            _qc->u.ptr = NEWZA(__mpmc_slot_ty(_qc), _sz); \
+        } else {                                        \
+            assert(0 == (_sz & (_sz -1)));              \
+        }                                               \
+        __mpmc_q_init(&_qc->q, _sz);                    \
+} while (0)
+
+
+// Finalize the queue and deallocate any memory
+#define MPMC_QUEUE_FINI(q_)     do {                    \
+        typeof(q_) _qc = (q_);                          \
+        size_t  _arrsz = sizeof(_qc->u) / sizeof(_qc->u.slot[0]); \
+        if (_arrsz == 0) {                              \
+            DEL(_qc->u.ptr);                            \
+            _qc->u.ptr = 0;                             \
+        }                                               \
+        __mpmc_q_fini(&_qc->q);                         \
+} while (0)
+
+
+// Reset the queue; Note - you should NOT call this from a
+// multi-threaded context.
+#define MPMC_QUEUE_RESET(q_)    do {                    \
+        typeof(q_) _qc = (q_);                          \
+        __mpmc_slot_ty(qc) *_p   = &qc->u.slot[0],      \
+                           *_end = p + qc->q.sz;        \
+        for (; _p < _end; _p++) {                       \
+            atomic_store(&_p->turn, 0);                 \
+            memset(_p->data, 0, sizeof _p->data);       \
+        }                                               \
+        __mpmc_q_reset(&_qc->q);                        \
+} while (0)
+
+
+// Enqueue 'e' in q; return true if successful, false otherwise
+// This function is NOT wait-free, but it is lock-free
+#define MPMC_QUEUE_ENQ(q_, e_) ({                                                           \
+        int _ret = 0;                                                                       \
+        typeof(q_) _qc = (q_);                                                              \
+        __mpmc_q *_q   = &_qc->q;                                                           \
+        uint64_t _hd   = atomic_load_explicit(&_q->head, memory_order_acquire);             \
+        for(;;) {                                                                           \
+            __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _hd)];              \
+            uint64_t _turn = __mpmc_q_turn(_qc, _hd) * 2;                                   \
+            if (atomic_load_explicit(&_slot->turn, memory_order_acquire) == _turn) {        \
+                if (atomic_compare_exchange_strong(&_q->head, &_hd, _hd+1)) {               \
+                        _slot->data = e_;                                                   \
+                        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release); \
+                        _ret = 1;                                                           \
+                        break;                                                              \
+                }                                                                           \
+            } else {                                                                        \
+                uint64_t _prev = _hd;                                                       \
+                _hd = atomic_load_explicit(&_q->head, memory_order_acquire);                \
+                if (_prev == _hd)  break;                                                   \
+            }                                                                               \
+        }                                                                                   \
+        _ret;                                                                               \
+    })
+
+
+// Dequeue the next element from the queue and return it in 'e_'.
+// Return true if successful, false otherwise
+#define MPMC_QUEUE_DEQ(q_, e_)  ({                                                          \
+        int _ret = 0;                                                                       \
+        typeof(q_) _qc = (q_);                                                              \
+        __mpmc_q *_q   = &_qc->q;                                                           \
+        uint64_t _tl = atomic_load_explicit(&_q->tail, memory_order_acquire);               \
+        for(;;) {                                                                           \
+            __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _tl)];              \
+            uint64_t _turn = 1 + (__mpmc_q_turn(_qc, _tl) * 2);                             \
+            if (atomic_load_explicit(&_slot->turn, memory_order_acquire) == _turn) {        \
+                if (atomic_compare_exchange_strong(&_q->tail, &_tl, _tl+1)) {               \
+                        _ret = 1;                                                           \
+                        e_ = _slot->data;                                                   \
+                        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release); \
+                        break;                                                              \
+                }                                                                           \
+            } else {                                                                        \
+                uint64_t _prev = _tl;                                                       \
+                _tl = atomic_load_explicit(&_q->tail, memory_order_acquire);                \
+                if (_prev == _tl)  break;                                                   \
+            }                                                                               \
+        }                                                                                   \
+        _ret;                                                                               \
+})
+
+
+// Block until 'q_' becomes non-full and then enqueue 'e_'
+// NB: atomic_fetch_add() returns the previous value.
+#define MPMC_QUEUE_ENQ_WAIT(q_, e_) do {                                            \
+        typeof(q_) _qc = (q_);                                                      \
+        __mpmc_q *_q   = &_qc->q;                                                   \
+        uint64_t _hd   = atomic_fetch_add(&_q->head, 1);                            \
+        __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _hd)];          \
+        uint64_t _turn = __mpmc_q_turn(_qc, _hd) * 2;                               \
+        while (_turn != atomic_load_explicit(&_slot->turn, memory_order_acquire)) { \
+        }                                                                           \
+        _slot->data = e_;                                                           \
+        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release);         \
+    } while(0)
+            
+
+// Block until queue is not-empty and dequeue next element into 'e_'
+#define MPMC_QUEUE_DEQ_WAIT(q_, e_) do {                                            \
+        typeof(q_) _qc = (q_);                                                      \
+        __mpmc_q *_q   = &_qc->q;                                                   \
+        uint64_t _tl   = atomic_fetch_add(&_q->tail, 1);                            \
+        __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _tl)];          \
+        uint64_t _turn = 1 + (__mpmc_q_turn(_qc, _tl) * 2);                         \
+        while (_turn != atomic_load_explicit(&_slot->turn, memory_order_acquire)) { \
+        }                                                                           \
+        e_ = _slot->data;                                                           \
+        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release);         \
+    } while(0)
 
 
 
 
-/*
- * Internal function for validating the sequence# of the elements in
- * the queue.
- *
- * Returns: # of errors detected.
- *
- * XXX Do NOT call this from a multi-threaded context!
- */
-#define __MPMCQ_CONSISTENCY_CHECK(qx) ({                \
-                        typeof(qx) q_ = (qx);           \
-                        __mpmcq* q0 = &q_->q;           \
-                        uint64_t z = __mpmcq_size(q0);  \
-                        uint64_t r = atomic_load_explicit(&q0->rd, memory_order_relaxed);     \
-                        uint64_t seq = atomic_load_explicit(&q_->elem[r & q0->mask].seq, memory_order_acquire);\
-                        uint64_t ii;                    \
-                        int err = 0;                    \
-                        for (ii = 0; ii < z; ii++) {    \
-                            r = ii+atomic_load_explicit(&q0->rd, memory_order_relaxed);     \
-                            uint64_t ss = atomic_load_explicit(&q_->elem[r & q0->mask].seq, memory_order_acquire);\
-                            if (ss == seq) seq++;       \
-                            else err++;                 \
-                        }       \
-                        err; })
+// Return the current occupied size of the queue. Note that this is
+// best-effort when we have concurrent readers/writers.
+#define MPMC_QUEUE_SIZE(q_)     __mpmc_q_len(&(q_)->q)
+
+// Return true if the queue is full, false otherwise. Note that this
+// is best effort when we have concurrent readers/writers.
+#define MPMC_QUEUE_FULL_P(q_)   __mpmc_q_full_p(&(q_)->q)
+
+// Return true if the queue is empty, false otherwise. Note that
+// this is best effort when we have concurrent readers/writers.
+#define MPMC_QUEUE_EMPTY_P(q_)  __mpmc_q_empty_p(&(q_)->q)
 
 
-
-/* Reset Queue to empty */
-#define MPMCQ_RESET(q_)                      \
-                            do {             \
-                                __mpmcq * _q = &(q_)->q;  \
-                                typeof(q_) _mq = q_;      \
-                                atomic_init(&_q->rd, 0);  \
-                                atomic_init(&_q->wr, 0);  \
-                                __mpmcq_node_init(_mq, _q->sz); \
-                            } while (0)
-
-
-/* Predicates that answer true/false */
-#define MPMCQ_FULL_P(q_)       __mpmcq_full_p(&(q_)->q)
-#define MPMCQ_EMPTY_P(q_)      __mpmcq_empty_p(&(q_)->q)
-
-
-/* Number of elements in the queue */
-#define MPMCQ_SIZE(q_)         __mpmcq_size(&(q_)->q)
-
-
-
-/*
- * Initialize a dynamic queue.
- */
-
-
-#define __mpmcq_node_init(q_, sz_)   do {                 \
-                size_t x_;                                \
-                for (x_ = 0; x_ < sz_; x_++)              \
-                    atomic_init(&(q_)->elem[x_].seq, x_); \
-            } while (0)
-
-
-/* Initialize queue 'q_' for size 'sz_' */
-#define MPMCQ_INIT(q_,sz_)  do {                             \
-                                size_t zz_ = NEXTPOW2(sz_);  \
-                                __mpmcq_init(&(q_)->q, zz_); \
-                                __mpmcq_node_init(q_, zz_);  \
-                            } while (0)
-
-
-
-// Nothing to free.
-// XXX Should we memset the space to something garbage?
-#define MPMCQ_FINI(q)       do {                            \
-                                memset(q, 0xaa, sizeof *q); \
-                            } while (0)
-
-
-#define MPMCQ_DYN_INIT(q_, sz_) do {                                \
-                                size_t zz_   = NEXTPOW2(sz_);       \
-                                __mpmcq_init(&(q_)->q, zz_);        \
-                                (q_)->elem   = NEWZA(__mpmcqetyp(q_), zz_); \
-                                __mpmcq_node_init(q_, zz_);         \
-                            } while (0)
-
-
-/*
- * Finalize a dynamic queue.
- */
-#define MPMCQ_DYN_FINI(q_)       do {                    \
-                                __mpmcq * _q = &(q_)->q; \
-                                _q->sz = 0;              \
-                                DEL((q_)->elem);         \
-                                (q_)->elem = 0;          \
-                            } while (0)
-
-
+#define MPMC_QUEUE_DESC(q_, str_, strsz_)  do {                                             \
+                typeof(q_) _qc = (q_);                                                      \
+                __mpmc_q *_q   = &_qc->q;                                                   \
+                char * _s      = (str_);                                                    \
+                size_t _sz     = (strsz_);                                                  \
+                __mpmc_slot_ty(_qc) *_sl = &_qc->u.slot[0];                                 \
+                size_t  _slsz  = sizeof(*_sl);                                              \
+                size_t  _arrsz = sizeof(_qc->u) / _slsz;                                    \
+                size_t  _dsz   = sizeof(_sl->data);                                         \
+                if (_arrsz > 0) {                                                           \
+                    snprintf(_s, _sz, "comptime-fixed cap %zd, slotsz %zd datum %zd",       \
+                            _q->sz, _slsz, _dsz);                                           \
+                } else {                                                                    \
+                    snprintf(_s, _sz, "cap %zd, slotsz %zd datum %zd",                      \
+                            _q->sz, _slsz, _dsz);                                           \
+                }                                                                           \
+} while (0)
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
-#endif /* ! __MPMC_BOUNDED_QUEUE_31741145_H__ */
+#endif /* ! ___MPMC2_H__vCbg0fx5IeW9lDA6___ */
 
 /* EOF */

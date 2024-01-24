@@ -171,7 +171,7 @@ LDFLAGS += $(EXTRA_WARNINGS)
 win32_CFLAGS   += -mno-cygwin -mwin32 -mthreads
 
 sanitize = -fsanitize=address \
-		   -fsanitize=leak -fsanitize=bounds -fsanitize=unsigned-integer-overflow
+		   -fsanitize=leak -fsanitize=bounds -fsanitize=signed-integer-overflow
 linux_CC =  gcc
 linux_CXX = g++
 linux_LD = g++

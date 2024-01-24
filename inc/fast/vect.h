@@ -65,6 +65,18 @@ extern "C" {
                                     v_->size = 0;                \
                                 } while (0)
 
+/*
+ * Initialize vector 'v' from the contents of vector 'w'
+ */
+#define VECT_INIT_FROM(v, w)  do {                                                              \
+                                    typeof(v) _v = (v);                                         \
+                                    typeof(w) _w = (w);                                         \
+                                    assert(sizeof(_v->arr[0]) == sizeof(_w->arr[0]));           \
+                                    _v->arr  = NEWZA(typeof(_v->arr[0]), _w->size);             \
+                                    memcpy(_v->arr, _w->arr, _w->size * sizeof(_w->arr[0]));    \
+                                    _v->cap  = _v->size = _w->size;                             \
+                                } while (0)
+
 
 /*
  * Delete a vector. Don't use the container after calling this

@@ -46,6 +46,7 @@ deps		= $(all-objs:.o=.d) $(_libobjs:.o=.d)
 libs		= $(addprefix $(objdir)/, utils.a)
 
 
+SUFFIXES += .c .i .s .cpp .h .o
 
 .PHONY: all clean realclean $(objdir)
 
@@ -125,6 +126,7 @@ endif
 echo:
 	@echo "VPATH=$(VPATH)"
 	@echo "CFLAGS=$(CFLAGS)"
+	@echo "CXXFLAGS=$(CXXFLAGS)"
 
 
 # Often, it is useful to be able to look at CPP output
@@ -153,16 +155,11 @@ echo:
 
 
 # Rules dependeng on objdir
-$(objdir)/%.i: %.c
-	$(CC) -E -dMD $(CFLAGS) $< > $@
-
-$(objdir)/%.i: %.cpp
-	$(CXX) -E -dMD $(CXXFLAGS) $< > $@
-
 
 #_MP := -MP
 
 $(objdir)/%.o: %.c
+	@echo $<
 	$(CC) -MMD $(_MP) -MT '$@ $(@:.o=.d)' -MF "$(@:.o=.d)" $(CFLAGS) $($(notdir $@)_CFLAGS) -c -o $@ $<
 
 $(objdir)/%.o: %.cpp
@@ -170,6 +167,12 @@ $(objdir)/%.o: %.cpp
 
 $(objdir)/%.o: %.cc
 	$(CXX) -MMD $(_MP) -MT '$@ $(@:.o=.d)' -MF "$(@:.o=.d)" $(CXXFLAGS) $($(notdir $@)_CFLAGS) -c -o $@ $<
+
+$(objdir)/%.i: %.c
+	$(CC) -dMD $(CFLAGS) $($(notdir $@)_CFLAGS) -E $< > $@
+
+$(objdir)/%.i: %.cpp
+	$(CXX) -MMD $(_MP) -MT '$@ $(@:.S=.d)' -MF "$(@:.o=.d)" $(CFLAGS) $($(notdir $@)_CFLAGS) -E $< > $@
 
 
 $(objdir)/%.S: %.c
