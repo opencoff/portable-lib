@@ -345,22 +345,6 @@ __mpmc_q_empty_p(__mpmc_q *q) {
 } while(0)
 
 
-// Return the current occupied size of the queue. Note that this is
-// best-effort when we have concurrent readers/writers.
-#define MPMC_QUEUE_SIZE(q_)     ((size_t)__mpmc_q_len(&(q_)->q))
-
-// Return the capacity of the mpmc queue
-#define MPMC_QUEUE_CAP(q_)      ((size_t)((q_)->sz))
-
-// Return true if the queue is full, false otherwise. Note that this
-// is best effort when we have concurrent readers/writers.
-#define MPMC_QUEUE_FULL_P(q_)   __mpmc_q_full_p(&(q_)->q)
-
-// Return true if the queue is empty, false otherwise. Note that
-// this is best effort when we have concurrent readers/writers.
-#define MPMC_QUEUE_EMPTY_P(q_)  __mpmc_q_empty_p(&(q_)->q)
-
-
 // Describe the queue metadata into string 'str_' whose size is
 // 'strsz_'.
 #define MPMC_QUEUE_DESC(q_, str_, strsz_)  do {                                             \
@@ -380,6 +364,24 @@ __mpmc_q_empty_p(__mpmc_q *q) {
                             _q->sz, _slsz, _dsz);                                           \
                 }                                                                           \
 } while (0)
+
+
+// Return the current occupied size of the queue. Note that this is
+// best-effort when we have concurrent readers/writers.
+#define MPMC_QUEUE_SIZE(q_)     ((size_t)__mpmc_q_len(&(q_)->q))
+
+// Return the capacity of the mpmc queue
+#define MPMC_QUEUE_CAP(q_)      ((size_t)((q_)->sz))
+
+// Return true if the queue is full, false otherwise. Note that this
+// is best effort when we have concurrent readers/writers.
+#define MPMC_QUEUE_FULL_P(q_)   __mpmc_q_full_p(&(q_)->q)
+
+// Return true if the queue is empty, false otherwise. Note that
+// this is best effort when we have concurrent readers/writers.
+#define MPMC_QUEUE_EMPTY_P(q_)  __mpmc_q_empty_p(&(q_)->q)
+
+
 
 #ifdef __cplusplus
 }
