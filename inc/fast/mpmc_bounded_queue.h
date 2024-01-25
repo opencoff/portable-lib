@@ -112,7 +112,6 @@ static inline void
 __mpmc_q_init(__mpmc_q * q, size_t sz) {
     assert((sz & (sz-1)) == 0);
 
-    memset(q, 0, sizeof *q);
     q->sz = (uint64_t)sz;
     q->mask = q->sz - 1;
 }
@@ -162,41 +161,50 @@ __mpmc_q_empty_p(__mpmc_q *q) {
 #define _MPMC_SLOT_TYPNM(ty_) ty_ ## __slot
 
 // declare a type for the individual cache-aligned slots
-#define _MPMC_SLOT_TYPE(nm_, ty_)  struct __CACHELINE_ALIGNED _MPMC_SLOT_TYPNM(nm_) { \
-                                    atomic_uint_fast64_t turn __CACHELINE_ALIGNED; \
-                                    ty_ data;\
-                              }; \
-                              typedef struct __CACHELINE_ALIGNED _MPMC_SLOT_TYPNM(nm_) _MPMC_SLOT_TYPNM(nm_)
+#define _MPMC_SLOT_TYPE(nm_, ty_)                                   \
+            struct __CACHELINE_ALIGNED _MPMC_SLOT_TYPNM(nm_) {      \
+                atomic_uint_fast64_t turn __CACHELINE_ALIGNED;      \
+                ty_ data;                                           \
+          };                                                        \
+          typedef struct __CACHELINE_ALIGNED _MPMC_SLOT_TYPNM(nm_) _MPMC_SLOT_TYPNM(nm_)
 
 
-#define MPMC_QUEUE_TYPE_FIXED(nm_, ty_, sz_)                    \
-                    _MPMC_SLOT_TYPE(nm_, ty_);                  \
-                    struct nm_ {                                \
-                        __mpmc_q q;                             \
-                        union {                                 \
-                            _MPMC_SLOT_TYPNM(nm_)  slot[sz_];   \
-                            void *ptr;                          \
-                        } u;                                    \
-                    };                                          \
+#define MPMC_QUEUE_TYPE_FIXED(nm_, ty_, sz_)                        \
+                    _MPMC_SLOT_TYPE(nm_, ty_);                      \
+                    struct nm_ {                                    \
+                        __mpmc_q q;                                 \
+                        union {                                     \
+                            _MPMC_SLOT_TYPNM(nm_)  slot[sz_];       \
+                            void *ptr;                              \
+                        } u;                                        \
+                    };                                              \
                     typedef struct nm_ nm_
 
-#define MPMC_QUEUE_TYPE(nm_, ty_)                               \
-                    _MPMC_SLOT_TYPE(nm_, ty_);                  \
-                    struct nm_ {                                \
-                        __mpmc_q q;                             \
-                        union {                                 \
-                            _MPMC_SLOT_TYPNM(nm_)  *slot;       \
-                            void *ptr;                          \
-                        } u;                                    \
-                    };                                          \
+#define MPMC_QUEUE_TYPE(nm_, ty_)                                   \
+                    _MPMC_SLOT_TYPE(nm_, ty_);                      \
+                    struct nm_ {                                    \
+                        __mpmc_q q;                                 \
+                        union {                                     \
+                            _MPMC_SLOT_TYPNM(nm_)  *slot;           \
+                            void *ptr;                              \
+                        } u;                                        \
+                    };                                              \
                     typedef struct nm_ nm_
 
 
 // handy helpers
-#define __mpmc_slot_ty(q)   typeof((q)->u.slot[0])
+#define __mpmc_slot_ty(q_)    typeof((q_)->u.slot[0])
 #define __mpmc_q_turn(q_, v_) ((v_) / (q_)->q.sz)
 #define __mpmc_q_idx(q_, i_)  ((i_) & (q_)->q.mask)
 
+// Predicate that returns true if this queue is comptime fixed-size
+// (ie it's an array and not a ptr)
+#define __mpmc_is_array_p(q_)                       ({              \
+        typeof(q_) _x  = (q_);                                      \
+        size_t  _arrsz = sizeof(_x->u) / sizeof(_x->u.slot[0]);     \
+        int     _ret   = _arrsz > 0;                                \
+        _ret;                                                       \
+})
 
 // Initialize 'q' for size 'sz'. This macro is common for
 // compile-time sized and runtime sized queues.
@@ -204,45 +212,47 @@ __mpmc_q_empty_p(__mpmc_q *q) {
 // is guarded by an assert().
 // For runtime sized queues, the 'sz_' is rounded-up to the
 // next power of 2 if needed.
-#define MPMC_QUEUE_INIT(q_, sz_) do {                   \
-        typeof(q_) _qc = (q_);                          \
-        size_t _sz     = sz_;                           \
-        size_t  _arrsz = sizeof(_qc->u) / sizeof(_qc->u.slot[0]); \
-        assert(_sz > 1);                                \
-        memset(_qc, 0, sizeof *_qc);                    \
-        if (_arrsz == 0) {                              \
-            _sz = NEXTPOW2(_sz);                        \
-            _qc->u.ptr = NEWZA(__mpmc_slot_ty(_qc), _sz); \
-        } else {                                        \
-            assert(0 == (_sz & (_sz -1)));              \
-        }                                               \
-        __mpmc_q_init(&_qc->q, _sz);                    \
+#define MPMC_QUEUE_INIT(q_, sz_) do {                               \
+        typeof(q_) _qc = (q_);                                      \
+        size_t _sz     = sz_;                                       \
+        assert(_sz > 1);                                            \
+                                                                    \
+        memset(_qc, 0, sizeof *_qc);                                \
+                                                                    \
+        if (! __mpmc_is_array_p(_qc)) {                             \
+            _sz = NEXTPOW2(_sz);                                    \
+            _qc->u.ptr = NEWZA(__mpmc_slot_ty(_qc), _sz);           \
+        } else {                                                    \
+            assert(0 == (_sz & (_sz -1)));                          \
+        }                                                           \
+        __mpmc_q_init(&_qc->q, _sz);                                \
 } while (0)
 
 
 // Finalize the queue and deallocate any memory
-#define MPMC_QUEUE_FINI(q_)     do {                    \
-        typeof(q_) _qc = (q_);                          \
-        size_t  _arrsz = sizeof(_qc->u) / sizeof(_qc->u.slot[0]); \
-        if (_arrsz == 0) {                              \
-            DEL(_qc->u.ptr);                            \
-            _qc->u.ptr = 0;                             \
-        }                                               \
-        __mpmc_q_fini(&_qc->q);                         \
+#define MPMC_QUEUE_FINI(q_)     do {                                \
+        typeof(q_) _qc = (q_);                                      \
+                                                                    \
+        if (! __mpmc_is_array_p(_qc)) {                             \
+            DEL(_qc->u.ptr);                                        \
+            _qc->u.ptr = 0;                                         \
+        }                                                           \
+        __mpmc_q_fini(&_qc->q);                                     \
 } while (0)
 
 
 // Reset the queue; Note - you should NOT call this from a
 // multi-threaded context.
-#define MPMC_QUEUE_RESET(q_)    do {                    \
-        typeof(q_) _qc = (q_);                          \
-        __mpmc_slot_ty(qc) *_p   = &qc->u.slot[0],      \
-                           *_end = p + qc->q.sz;        \
-        for (; _p < _end; _p++) {                       \
-            atomic_store(&_p->turn, 0);                 \
-            memset(_p->data, 0, sizeof _p->data);       \
-        }                                               \
-        __mpmc_q_reset(&_qc->q);                        \
+#define MPMC_QUEUE_RESET(q_)    do {                                \
+        typeof(q_) _qc = (q_);                                      \
+        __mpmc_slot_ty(qc) *_p   = &qc->u.slot[0],                  \
+                           *_end = p + qc->q.sz;                    \
+                                                                    \
+        for (; _p < _end; _p++) {                                   \
+            atomic_store(&_p->turn, 0);                             \
+            memset(_p->data, 0, sizeof _p->data);                   \
+        }                                                           \
+        __mpmc_q_reset(&_qc->q);                                    \
 } while (0)
 
 
@@ -253,9 +263,11 @@ __mpmc_q_empty_p(__mpmc_q *q) {
         typeof(q_) _qc = (q_);                                                              \
         __mpmc_q *_q   = &_qc->q;                                                           \
         uint64_t _hd   = atomic_load_explicit(&_q->head, memory_order_acquire);             \
+                                                                                            \
         for(;;) {                                                                           \
             __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _hd)];              \
             uint64_t _turn = __mpmc_q_turn(_qc, _hd) * 2;                                   \
+                                                                                            \
             if (atomic_load_explicit(&_slot->turn, memory_order_acquire) == _turn) {        \
                 if (atomic_compare_exchange_strong(&_q->head, &_hd, _hd+1)) {               \
                         _slot->data = e_;                                                   \
@@ -270,7 +282,7 @@ __mpmc_q_empty_p(__mpmc_q *q) {
             }                                                                               \
         }                                                                                   \
         _ret;                                                                               \
-    })
+})
 
 
 // Dequeue the next element from the queue and return it in 'e_'.
@@ -279,10 +291,12 @@ __mpmc_q_empty_p(__mpmc_q *q) {
         int _ret = 0;                                                                       \
         typeof(q_) _qc = (q_);                                                              \
         __mpmc_q *_q   = &_qc->q;                                                           \
-        uint64_t _tl = atomic_load_explicit(&_q->tail, memory_order_acquire);               \
+        uint64_t _tl   = atomic_load_explicit(&_q->tail, memory_order_acquire);             \
+                                                                                            \
         for(;;) {                                                                           \
             __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _tl)];              \
             uint64_t _turn = 1 + (__mpmc_q_turn(_qc, _tl) * 2);                             \
+                                                                                            \
             if (atomic_load_explicit(&_slot->turn, memory_order_acquire) == _turn) {        \
                 if (atomic_compare_exchange_strong(&_q->tail, &_tl, _tl+1)) {               \
                         _ret = 1;                                                           \
@@ -302,38 +316,41 @@ __mpmc_q_empty_p(__mpmc_q *q) {
 
 // Block until 'q_' becomes non-full and then enqueue 'e_'
 // NB: atomic_fetch_add() returns the previous value.
-#define MPMC_QUEUE_ENQ_WAIT(q_, e_) do {                                            \
-        typeof(q_) _qc = (q_);                                                      \
-        __mpmc_q *_q   = &_qc->q;                                                   \
-        uint64_t _hd   = atomic_fetch_add(&_q->head, 1);                            \
-        __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _hd)];          \
-        uint64_t _turn = __mpmc_q_turn(_qc, _hd) * 2;                               \
-        while (_turn != atomic_load_explicit(&_slot->turn, memory_order_acquire)) { \
-        }                                                                           \
-        _slot->data = e_;                                                           \
-        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release);         \
-    } while(0)
+#define MPMC_QUEUE_ENQ_WAIT(q_, e_) do {                                                    \
+        typeof(q_) _qc = (q_);                                                              \
+        __mpmc_q *_q   = &_qc->q;                                                           \
+        uint64_t _hd   = atomic_fetch_add(&_q->head, 1);                                    \
+        __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _hd)];                  \
+        uint64_t _turn = __mpmc_q_turn(_qc, _hd) * 2;                                       \
+                                                                                            \
+        while (_turn != atomic_load_explicit(&_slot->turn, memory_order_acquire)) { }       \
+                                                                                            \
+        _slot->data = e_;                                                                   \
+        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release);                 \
+} while(0)
             
 
 // Block until queue is not-empty and dequeue next element into 'e_'
-#define MPMC_QUEUE_DEQ_WAIT(q_, e_) do {                                            \
-        typeof(q_) _qc = (q_);                                                      \
-        __mpmc_q *_q   = &_qc->q;                                                   \
-        uint64_t _tl   = atomic_fetch_add(&_q->tail, 1);                            \
-        __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _tl)];          \
-        uint64_t _turn = 1 + (__mpmc_q_turn(_qc, _tl) * 2);                         \
-        while (_turn != atomic_load_explicit(&_slot->turn, memory_order_acquire)) { \
-        }                                                                           \
-        e_ = _slot->data;                                                           \
-        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release);         \
-    } while(0)
-
-
+#define MPMC_QUEUE_DEQ_WAIT(q_, e_) do {                                                    \
+        typeof(q_) _qc = (q_);                                                              \
+        __mpmc_q *_q   = &_qc->q;                                                           \
+        uint64_t _tl   = atomic_fetch_add(&_q->tail, 1);                                    \
+        __mpmc_slot_ty(_qc) *_slot = &_qc->u.slot[__mpmc_q_idx(_qc, _tl)];                  \
+        uint64_t _turn = 1 + (__mpmc_q_turn(_qc, _tl) * 2);                                 \
+                                                                                            \
+        while (_turn != atomic_load_explicit(&_slot->turn, memory_order_acquire)) { }       \
+                                                                                            \
+        e_ = _slot->data;                                                                   \
+        atomic_store_explicit(&_slot->turn, _turn+1, memory_order_release);                 \
+} while(0)
 
 
 // Return the current occupied size of the queue. Note that this is
 // best-effort when we have concurrent readers/writers.
-#define MPMC_QUEUE_SIZE(q_)     __mpmc_q_len(&(q_)->q)
+#define MPMC_QUEUE_SIZE(q_)     ((size_t)__mpmc_q_len(&(q_)->q))
+
+// Return the capacity of the mpmc queue
+#define MPMC_QUEUE_CAP(q_)      ((size_t)((q_)->sz))
 
 // Return true if the queue is full, false otherwise. Note that this
 // is best effort when we have concurrent readers/writers.
@@ -344,6 +361,8 @@ __mpmc_q_empty_p(__mpmc_q *q) {
 #define MPMC_QUEUE_EMPTY_P(q_)  __mpmc_q_empty_p(&(q_)->q)
 
 
+// Describe the queue metadata into string 'str_' whose size is
+// 'strsz_'.
 #define MPMC_QUEUE_DESC(q_, str_, strsz_)  do {                                             \
                 typeof(q_) _qc = (q_);                                                      \
                 __mpmc_q *_q   = &_qc->q;                                                   \

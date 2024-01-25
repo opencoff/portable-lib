@@ -32,6 +32,7 @@
 
 #include "utils/utils.h"
 #include "utils/fast-ht.h"
+#include "utils/nospec.h"
 
 // Return value from an internal function
 struct tuple
@@ -44,6 +45,7 @@ typedef struct tuple tuple;
 #define _d(z)       ((double)(z))
 
 extern void arc4random_buf(void *, size_t);
+
 
 
 // Mix function from Zi Long Tan's superfast hash
@@ -146,7 +148,7 @@ __insert(hb *b, uint64_t k, void *v)
         // that the key exists in this bag.
 
         if (likely(n < FASTHT_BAGSZ)) {
-            volatile uint64_t j = __builtin_speculation_safe_value(n);
+            volatile uint64_t j = array_index_nospec(n, FASTHT_BAGSZ);
             // fast-path
             if (likely(k == x[j])) {
                 return g->hv[j];
@@ -201,7 +203,8 @@ __insert_quick(hb *b, uint64_t k, void *v)
     if (g) {
         uint64_t n = __find_first_zero(g->fp);
         if (n < FASTHT_BAGSZ) {
-            volatile uint64_t j = __builtin_speculation_safe_value(n);
+            volatile uint64_t j = array_index_nospec(n, FASTHT_BAGSZ);
+
             assert(!g->hk[j]);
             g->hk[j] = k;
             g->hv[j] = v;
@@ -258,7 +261,7 @@ __findx(tuple *t, hb *b, uint64_t hk)
         //  "zeroes")
 
         // We try the fast path first - then just unroll
-        volatile uint64_t j = __builtin_speculation_safe_value(n);
+        volatile uint64_t j = array_index_nospec(n, FASTHT_BAGSZ);
         if (likely(x[j] == hk)) {
                 t->g = g;
                 t->i = j;
