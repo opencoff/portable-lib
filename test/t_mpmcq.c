@@ -40,8 +40,8 @@
 #include "fast/mpmc_bounded_queue.h"
 
 
-#define QSIZ        1024
-#define NITER       32768
+#define QSIZ        65536
+#define NITER       1048576
 
 
 #define _CPUMASK            (~(_U64(0xff) << 56))
@@ -68,7 +68,7 @@ struct lat {
 typedef struct lat lat;
 
 // Queue of time specs
-MPMC_QUEUE_TYPE_FIXED(pcq, qitem, QSIZ);
+MPMC_QUEUE_TYPE(pcq, qitem);
 
 
 // Array of latency structs
@@ -183,19 +183,16 @@ speed_desc(char *buf, size_t sz, double spd)
 }
 
 static void
-mt_setup(pcq* q)
+mt_setup()
 {
-    MPMC_QUEUE_INIT(q, QSIZ);
-
     atomic_init(&Done,   0);
     atomic_init(&Start,  0);
     sem_init(&Ending, 0, 0);
 }
 
 static void
-mt_fini(pcq* q)
+mt_fini()
 {
-    MPMC_QUEUE_FINI(q);
     sem_destroy(&Ending);
 
     atomic_init(&Done,   0);
@@ -555,7 +552,7 @@ perf_finisher(ctx** pp, int np, ctx** cc, int nc)
 static void
 mt_test(test_desc* tt, int np, int nc)
 {
-    pcq *q = NEWZ(pcq);
+    pcq *q = MPMC_QUEUE_NEW(pcq, QSIZ);
     int i, r;
     int nmax = sys_cpu_getavail();
     int cpu  = 0;
@@ -636,7 +633,7 @@ mt_test(test_desc* tt, int np, int nc)
     }
 
     mt_fini(q);
-    DEL(q);
+    MPMC_QUEUE_DEL(q);
 }
 
 
@@ -644,13 +641,11 @@ static void
 basic_test()
 {
     /* Declare a local queue of 4 slots */
-    MPMC_QUEUE_TYPE_FIXED(qq_type, int, 4);
-    qq_type qq;
-    qq_type *q = &qq;
+    MPMC_QUEUE_TYPE(qq_type, int);
+
+    qq_type *q = MPMC_QUEUE_NEW(qq_type, 4);
     int s = 0;
     char qdesc[256];
-
-    MPMC_QUEUE_INIT(q, 4);
 
     MPMC_QUEUE_DESC(q, qdesc, sizeof qdesc);
     
@@ -689,44 +684,10 @@ basic_test()
     // and we shouldn't be able to drain an empty queue
     s = MPMC_QUEUE_DEQ(q, j);       assert(s == 0);
 
-    MPMC_QUEUE_FINI(q);
+    MPMC_QUEUE_DEL(q);
 }
 
 
-
-static void
-basic_dyn_test()
-{
-    MPMC_QUEUE_TYPE(dq_type, int);
-    dq_type dq;
-    dq_type *q = &dq;
-    int s;
-    char qdesc[256];
-
-    MPMC_QUEUE_INIT(q, 4);
-    MPMC_QUEUE_DESC(q, qdesc, sizeof qdesc);
-
-    printf("# int-queue: %s\n", qdesc);
-
-    s = MPMC_QUEUE_ENQ(q, 10);      assert(s == 1);
-    s = MPMC_QUEUE_ENQ(q, 11);      assert(s == 1);
-    s = MPMC_QUEUE_ENQ(q, 12);      assert(s == 1);
-    s = MPMC_QUEUE_ENQ(q, 13);      assert(s == 1);
-
-    s = MPMC_QUEUE_ENQ(q, 14);      assert(s == 0);
-
-
-    int j;
-    s = MPMC_QUEUE_DEQ(q, j);       assert(s == 1); assert(j == 10);
-    s = MPMC_QUEUE_DEQ(q, j);       assert(s == 1); assert(j == 11);
-    s = MPMC_QUEUE_DEQ(q, j);       assert(s == 1); assert(j == 12);
-    s = MPMC_QUEUE_DEQ(q, j);       assert(s == 1); assert(j == 13);
-
-    s = MPMC_QUEUE_DEQ(q, j);       assert(s == 0);
-
-    MPMC_QUEUE_FINI(q);
-
-}
 
 int
 main(int argc, char** argv)
@@ -764,8 +725,6 @@ main(int argc, char** argv)
         p = half;
 
     basic_test();
-    basic_dyn_test();
-
 
     test_desc perf = { .prod = perf_producer,
                        .cons = perf_consumer,

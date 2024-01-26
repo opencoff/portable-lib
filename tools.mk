@@ -159,7 +159,6 @@ echo:
 #_MP := -MP
 
 $(objdir)/%.o: %.c
-	@echo $<
 	$(CC) -MMD $(_MP) -MT '$@ $(@:.o=.d)' -MF "$(@:.o=.d)" $(CFLAGS) $($(notdir $@)_CFLAGS) -c -o $@ $<
 
 $(objdir)/%.o: %.cpp
