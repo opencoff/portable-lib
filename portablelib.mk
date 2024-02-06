@@ -205,7 +205,7 @@ CXXFLAGS += $(CFLAGS) $($(os)_CXXFLAGS)
 
 
 # XXX Can use better optimization on newer CPUs
-linux_OFLAGS   =
+linux_OFLAGS   = -D_FORTIFY_SOURCE=2 -mharden-sls=all
 openbsd_OFLAGS =
 darwin_OFLAGS  =
 
@@ -215,9 +215,8 @@ endif
 
 ifeq ($(OPTIMIZE),1)
 	# FORTIFY_SOURCE is a no-op when not optimizing
-	CFLAGS  += -O3 $($(os)_OFLAGS) $(OFLAGS) -D_FORTIFY_SOURCE=2 \
-			   -g -Wuninitialized -D__MAKE_OPTIMIZE__=1 \
-			   -mharden-sls=all
+	CFLAGS  += -O3 $($(os)_OFLAGS) $(OFLAGS) \
+			   -g -Wuninitialized -D__MAKE_OPTIMIZE__=1
 
 	LDFLAGS += -g
 
