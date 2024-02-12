@@ -557,12 +557,16 @@ mt_test(test_desc* tt, int np, int nc)
     int nmax = sys_cpu_getavail();
     int cpu  = 0;
 
+    if ((np+nc) > nmax) {
+        error(1, 0, "Producers+consumers exceed max CPUs (nmax)\n", nmax);
+    }
+
     ctx*      cc[nc];
     ctx*      pp[np];
 
     printf("# [%s] %d CPUs; %d P, %d C, QSIZ %d N %d\n", tt->name, nmax, np, nc, QSIZ, NITER);
 
-    mt_setup(q);
+    mt_setup();
 
     for (i = 0; i < np; ++i) {
 
@@ -632,7 +636,7 @@ mt_test(test_desc* tt, int np, int nc)
             delctx(cc[i]);
     }
 
-    mt_fini(q);
+    mt_fini();
     MPMC_QUEUE_DEL(q);
 }
 
