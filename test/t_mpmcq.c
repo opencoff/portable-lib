@@ -558,7 +558,7 @@ mt_test(test_desc* tt, int np, int nc)
     int cpu  = 0;
 
     if ((np+nc) > nmax) {
-        error(1, 0, "Producers+consumers exceed max CPUs (nmax)\n", nmax);
+        error(1, 0, "Producers+consumers exceed max %d CPUs\n", nmax);
     }
 
     ctx*      cc[nc];
