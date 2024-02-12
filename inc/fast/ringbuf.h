@@ -189,6 +189,17 @@ rte_ring_size(unsigned count)
     return sz;
 }
 
+// allocate a cacheline aligned block of memory.
+static void *
+__alloc(size_t n)
+{
+    void *ptr = 0;
+    int r = posix_memalign(&ptr, CACHE_LINE_SIZE, n);
+    assert(r == 0);
+    assert(ptr);
+
+    return memset(ptr, 0, n);
+}
 
 /**
  * Initialize and return an rte-ring struct
@@ -233,7 +244,7 @@ rte_ring_create(unsigned count, unsigned flags)
     if (count & (count-1)) count = NEXTPOW2(count);
 
     size_t sz  = rte_ring_size(count);
-    struct rte_ring *r = (struct rte_ring *)NEWZA(uint8_t, sz);
+    struct rte_ring *r = (struct rte_ring *)__alloc(sz * sizeof(uint8_t));
 
     return __rte_ring_init(r, count, flags);
 }

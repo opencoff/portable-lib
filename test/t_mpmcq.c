@@ -40,8 +40,8 @@
 #include "fast/mpmc_bounded_queue.h"
 
 
-#define QSIZ        65536
-#define NITER       1048576
+#define QSIZ        16384
+#define NITER       65536
 
 
 #define _CPUMASK            (~(_U64(0xff) << 56))

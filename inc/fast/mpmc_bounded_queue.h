@@ -190,7 +190,9 @@ __alloc(size_t n)
     void *ptr = 0;
     int r = posix_memalign(&ptr, CACHELINE_SIZE, n);
     assert(r == 0);
-    return ptr;
+    assert(ptr);
+
+    return memset(ptr, 0, n);
 }
 
 // create a new queue of type 'ty' and size 'sz'
@@ -199,10 +201,7 @@ __alloc(size_t n)
         ty_ * _q = 0;                                               \
         _q = __alloc(sizeof *_q);                                   \
                                                                     \
-        assert(_q);                                                 \
-        memset(_q, 0, sizeof *_q);                                  \
         _q->slot = __alloc(_n  * sizeof *_q->slot);                 \
-        memset(_q->slot, 0, _n * sizeof *_q->slot);                 \
         __mpmc_q_init(&_q->q, _n);                                  \
         _q;                                                         \
         })
