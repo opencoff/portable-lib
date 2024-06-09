@@ -104,6 +104,7 @@ benchmark(const void* buf, int buflen, const hashfunc* hf)
 
     tot   = sys_cpu_timestamp() - st;
     tmtot = timenow() - tm;
+    hv = hv;
 
 #define _d(x)   ((double)(x))
 

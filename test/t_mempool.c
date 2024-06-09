@@ -36,6 +36,7 @@ struct obj
 {
     int v;
     void * ptr;
+    double d;
 };
 typedef struct obj obj;
 
@@ -124,13 +125,81 @@ perf_test(int run)
     VECT_FINI(&pv);
 }
 
+static void
+basic_test()
+{
+    mempool m;
+
+    int r = mempool_init(&m, 0, sizeof(obj), N, 0);
+    assert(r == 0);
+
+    void **ptrs = NEWZA(void *, N);
+
+    int i = 0;
+    for (i = 0; i < N; i++) {
+        void *p = mempool_alloc(&m);
+        assert(p);
+
+        ptrs[i] = p;
+    }
+
+    void *x = mempool_alloc(&m);
+    assert(!x);
+
+    for (i = N-1; i >= 0; i--) {
+        mempool_free(&m, ptrs[i]);
+    }
+
+    mempool_fini(&m);
+    DEL(ptrs);
+}
+
+static void
+prealloc_test()
+{
+    const unsigned int poolsz = (N * sizeof(obj)) + 64;
+    void *pool = NEWZA(uint8_t, poolsz);
+    mempool m;
+
+    int r = mempool_init_from_mem(&m, sizeof(obj), pool, poolsz);
+    assert(r == 0);
+
+    const int n = mempool_total_blocks(&m);
+    void **ptrs = NEWZA(void *, n);
+    int i = 0;
+
+    for (i = 0; i < n; i++) {
+        void *p = mempool_alloc(&m);
+        assert(p);
+
+        ptrs[i] = p;
+    }
+
+    void *x = mempool_alloc(&m);
+    assert(!x);
+
+    for (i = n-1; i >= 0; i--) {
+        mempool_free(&m, ptrs[i]);
+    }
+
+    mempool_fini(&m);
+    DEL(ptrs);
+    DEL(pool);
+}
+
+
 
 int
 main()
 {
-    perf_test(0);
-    perf_test(1);
-    perf_test(2);
+    int i = 0;
+
+    basic_test();
+    prealloc_test();
+
+    for (i = 0; i < 10; i++) {
+        perf_test(i);
+    }
 
     return 0;
 }

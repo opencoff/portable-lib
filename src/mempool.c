@@ -78,8 +78,13 @@
 
 
 /* Controls additional sanity checks. */
-#if 0
-#define MEMPOOL_DEBUG  1
+#ifdef __MAKE_OPTIMIZE__
+    #if __MAKE_OPTIMIZE__ == 1
+        #define MEMPOOL_DEBUG  0
+    #endif
+
+#else
+    #define MEMPOOL_DEBUG 1
 #endif
 
 
@@ -245,7 +250,6 @@ new_chunk(mempool* a)
      * ch->end will be an exact multiple of a->block_size and
      * properly aligned.
      */
-
     uint8_t *ptr  = pUCHAR(ch) + sizeof *ch;    /* start of free area */
     ch->free_area = _Align(uint8_t *, ptr);     /* aligned start of blocks */
     ch->end       = ch->free_area + chunk_size; /* end of chunk memory */
@@ -280,7 +284,7 @@ alloc_from_chunk(mempool* a)
  * Debug scaffolding - verify that a pointer that is freed actually
  * came from this state.
  */
-#ifdef MEMPOOL_DEBUG
+#if MEMPOOL_DEBUG > 0
 
 static int
 _valid_blk_p(mempool* a, uint8_t * ptr)
@@ -375,7 +379,7 @@ int
 mempool_new(mempool** p_a, const memmgr* tr, uint_t block_size,
                   uint_t max, uint_t min_alloc_units)
 {
-    mempool* a;
+    mempool* a = 0;
 
     if ( !p_a ) return -EINVAL;
 
@@ -405,27 +409,20 @@ int
 mempool_init_from_mem(mempool* a, uint_t block_size,
                            void* pool, uint_t poolsz)
 {
-    memchunk * ch;
-    uint8_t* ptr,
-           * end;
-    unsigned int nblocks;
-    uint64_t poolsize = poolsz;
+    memchunk *ch = 0;
+    uint8_t* ptr = 0,
+           * end = 0;
+    unsigned int nblocks = 0;
+    uint64_t poolsize    = poolsz;
 
     if (!(a && pool && poolsize)) return -EINVAL;
 
     memset(a, 0, sizeof *a);
 
-    /*
-     * the pool must be big enough to hold a chunk and at least one
-     * aligned block.
-     */
     if (block_size < MIN_OBJ_SIZE) block_size = MIN_OBJ_SIZE;
 
-
-    /*
-     * And make it conform to minimum alignment requirements as well
-     */
     block_size = _Align(uint_t, block_size);
+
 
     /*
      * Make sure pool is aligned to begin with. Most of the time, it
@@ -433,11 +430,16 @@ mempool_init_from_mem(mempool* a, uint_t block_size,
      */
     ptr       = _Align(uint8_t *, pool);
     poolsize -= (ptr - pUCHAR(pool));
-    pool      = ptr;
 
+    /*
+     * the pool must be big enough to hold a chunk and at least one
+     * aligned block.
+     */
     if (poolsize < (block_size + MINALIGNMENT + sizeof *ch)) return -ENOMEM;
 
-    ch = (memchunk*)pool;
+    ch = (memchunk*)ptr;
+    poolsize -= sizeof *ch;
+    ptr      += sizeof *ch;     // start of allocation area
 
     /*
      * Setup the pointers within this chunk so that all alignment
@@ -447,13 +449,13 @@ mempool_init_from_mem(mempool* a, uint_t block_size,
      * When we are done, all memory between ch->free_area and
      * ch->end will be an exact multiple of a->block_size;
      */
+    end            = ptr + poolsize;          // end of allocation area
+    ch->free_area  = _Align(uint8_t *, ptr);  // aligned start of "n" blocks
 
-
-    ptr            = pUCHAR(ch) + sizeof *ch;    /* start of free area */
-    end            = pUCHAR(ch) + poolsize;      /* end of the pool */
-    ch->free_area  = _Align(uint8_t *, ptr);     /* aligned start of blocks */
     nblocks        = (end - ch->free_area) / block_size;
     ch->end        = ch->free_area + (nblocks * block_size);
+
+    assert(ch->end <= end);
 
     ch->next       = 0;
     a->chunks      = ch;
@@ -472,8 +474,8 @@ int
 mempool_new_from_mem(mempool** p_a, uint_t block_size,
                            void* pool, uint_t poolsize)
 {
-    mempool* a;
-    uint8_t* ptr;
+    mempool* a   = 0;
+    uint8_t* ptr = 0;
 
     if (!(p_a && pool && poolsize)) return -EINVAL;
 
@@ -482,6 +484,7 @@ mempool_new_from_mem(mempool** p_a, uint_t block_size,
      * will be.
      */
     ptr       = _Align(uint8_t *, pool);
+    poolsize -= ptr - pUCHAR(pool);
     a         = (mempool* )ptr;
     ptr      += sizeof *a;
     poolsize -= sizeof *a;
@@ -508,6 +511,7 @@ mempool_fini(mempool *a)
         (*tr->free)(tr->context, ch);
         ch = next;
     }
+    memset(a, 0, sizeof *a);
 }
 
 
@@ -518,10 +522,10 @@ void
 mempool_delete(mempool* a)
 {
     if (a) {
-        const memmgr* tr = &a->traits;
+        const memmgr tr = a->traits;
 
         mempool_fini(a);
-        (*tr->free)(tr->context, a);
+        (*tr.free)(tr.context, a);
     }
 }
 
@@ -534,7 +538,7 @@ void *
 mempool_alloc(mempool* a)
 {
     mru_node * blk = 0;
-    void * ptr = 0;
+    void * ptr     = 0;
 
     assert(a);
 
@@ -577,9 +581,8 @@ mempool_free(mempool* a, void * ptr)
     mru_node * blk = (mru_node *)ptr;
 
     assert(a);
-    //assert(_valid_blk_p(a, pUCHAR(ptr)));
-
-    //clear_memory(a, ptr);
+    assert(_valid_blk_p(a, pUCHAR(ptr)));
+    clear_memory(a, ptr);
 
     DL_INSERT_HEAD(&a->mru_head, blk, link);
 }

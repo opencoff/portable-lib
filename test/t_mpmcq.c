@@ -211,6 +211,7 @@ upause(int n)
     {
         j += i;
     }
+    j = j;
 }
 
 
