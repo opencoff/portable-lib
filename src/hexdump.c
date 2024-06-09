@@ -2,12 +2,10 @@
  *
  * File: hexdump.c - portable binary stream dump
  *
- * Copyright (c) 2005-2007 Sudhi Herle <sw at herle.net>
+ * Copyright (c) 2001-2024 golang authors
+ * 'C' reimplementation  Copyright (c) 2024- Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
- *
- * If you need a commercial license for this work, please contact
- * the author.
+ * Licensing Terms: Same as golang sources.
  *
  * This software does not come with any express or implied
  * warranty; it is provided "as is". No claim  is made to its
@@ -22,24 +20,8 @@
 #include <string.h>
 #include "utils/utils.h"
 
-struct dumper {
-    FILE *fp;
-
-    int used;   // # of used bytes
-    int n;      // # of total bytes
-    char right[18];
-    char buf[32];
-};
-typedef struct dumper dumper;
 
 static const char hexchars[] = "0123456789abcdef";
-
-static void
-dumper_init(dumper *d, FILE *fp)
-{
-    memset(d, 0, sizeof *d);
-    d->fp = fp;
-}
 
 static inline char
 __tochar(uint8_t c)
@@ -50,7 +32,7 @@ __tochar(uint8_t c)
     return (char)c;
 }
 
-static char *
+static inline char *
 __do_byte(char *buf, uint8_t v)
 {
     *buf++ = hexchars[v >> 4];
@@ -60,8 +42,9 @@ __do_byte(char *buf, uint8_t v)
 
 
 
-// Write a maximum of 16 bytes
-static char *
+// encode an int of the right size; this is the 'offset' at the
+// start of the line.
+static inline char *
 __encode_int(char *out, int n)
 {
     uint64_t z = (uint64_t)n;
@@ -87,8 +70,9 @@ __encode_int(char *out, int n)
 }
 
 static int
-__safewrite(FILE *fp, void *buf, size_t n)
+__fp_writer(void *ctx, void *buf, size_t n)
 {
+    FILE *fp = ctx;
     size_t m = fwrite(buf, n, 1, fp);
     if (m != 1) {
         return feof(fp) ? -EOF : ferror(fp);
@@ -96,20 +80,40 @@ __safewrite(FILE *fp, void *buf, size_t n)
     return 0;
 }
 
-static int
-dumper_write(dumper *d, uint8_t *buf, size_t bufsz)
+
+// Initialize a dumper instance using the output function 'writer'
+// and it's context 'ctx'.
+void
+hex_dumper_init(hex_dumper *d, int (*writer)(void *ctx, void *buf, size_t n), void *ctx)
 {
-    size_t i;
-    char *p = d->buf;
-    for (i = 0; i < bufsz; i++) {
+    memset(d, 0, sizeof *d);
+    d->writer = writer;
+    d->ctx    = ctx;
+}
+
+#define __out(d, buf, n) do {                        \
+            hex_dumper *_d = d;                      \
+            int _r = (*_d->writer)(_d->ctx, buf, n); \
+            if (_r < 0) return _r;                   \
+        } while (0)
+
+
+// Dump 'nbytes' of data from 'vbuf' into the dumper instance 'd'
+int
+hex_dumper_write(hex_dumper *d, void *vbuf, size_t nbytes)
+{
+    size_t i     = 0;
+    char *p      = d->buf;
+    uint8_t *buf = vbuf;
+
+    for (i = 0; i < nbytes; i++) {
         if (d->used == 0) {
             p = __encode_int(d->buf, d->n);
             *p++ = ' ';
             *p++ = ' ';
             *p = 0;
 
-            int r = __safewrite(d->fp, d->buf, p - d->buf+1);
-            if (r < 0) return r;
+            __out(d, d->buf, p - d->buf + 1);
         }
 
         p = __do_byte(d->buf, buf[i]);
@@ -125,9 +129,7 @@ dumper_write(dumper *d, uint8_t *buf, size_t bufsz)
             n = 5;
         }
 
-        int r = __safewrite(d->fp, d->buf, n);
-        if (r < 0) return r;
-
+        __out(d, d->buf, n);
         d->right[d->used] = __tochar(buf[i]);
         d->used++;
         d->n++;
@@ -135,16 +137,16 @@ dumper_write(dumper *d, uint8_t *buf, size_t bufsz)
             d->right[16] = '|';
             d->right[17] = '\n';
 
-            int r = __safewrite(d->fp, d->right, sizeof d->right);
-            if (r < 0) return r;
+            __out(d, d->right, sizeof d->right);
             d->used = 0;
         }
     }
     return 0;
 }
 
-static int
-dumper_fini(dumper *d)
+// flush pending data and complete the dump session.
+int
+hex_dumper_close(hex_dumper *d)
 {
     if (d->used == 0) return 0;
 
@@ -163,28 +165,28 @@ dumper_fini(dumper *d)
             n = 5;
         }
 
-        int r = __safewrite(d->fp, d->buf, n);
-        if (r < 0) return r;
+        __out(d, d->buf, n);
         d->used++;
     }
     d->right[m] = '|';
     d->right[m+1] = '\n';
-    int r = __safewrite(d->fp, d->right, m+2);
-    if (r < 0) return r;
+    __out(d, d->right, m+2);
     return 0;
 }
 
 
 
+// convenience wrapper to dump 'nbytes' from 'buf' into FILE 'fp'.
 int
-fhexdump(FILE *fp, void *buf, size_t bufsz)
+fhexdump(FILE *fp, void *buf, size_t nbytes)
 {
-    dumper d;
+    hex_dumper d;
     int r = 0;
 
-    dumper_init(&d, fp);
-    if ((r = dumper_write(&d, pU8(buf), bufsz)) < 0) return r;
-    if ((r = dumper_fini(&d)) < 0) return r;
+    hex_dumper_init(&d, __fp_writer, fp);
+
+    if ((r = hex_dumper_write(&d, pU8(buf), nbytes)) < 0) return r;
+    if ((r = hex_dumper_close(&d)) < 0) return r;
     return 0;
 }
 
