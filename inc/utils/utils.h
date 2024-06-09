@@ -32,6 +32,19 @@
 #include "utils/strutils.h"
 #include "utils/typeutils.h"
 
+extern int strcasecmp(const char* src, const char* dest);
+
+/**
+ * Dump the contents of 'buf' to file 'fp' in the style of
+ * 'hexdump -C'.
+ *
+ * Returns:
+ *      0       on success
+ *      -errno  on error
+ */
+extern int fhexdump(FILE *fp, void *buf, size_t bufsz);
+
+
 #if defined(_WIN32) || defined(WIN32)
 
 #ifdef __cplusplus
@@ -56,7 +69,6 @@ extern const char* basename(const char* p);
  */
 extern char* dirname(char* p);
 
-extern int strcasecmp(const char* src, const char* dest);
 
 #ifdef __cplusplus
 }
@@ -77,47 +89,6 @@ extern "C" {
 
 
 
-/**
- * dump 'buflen' bytes of buffer in 'inbuf' as a series of hex bytes.
- * For each 16 bytes, call 'output' with the supplied cookie as the
- * first argument.
- *
- * @param inbuf     The input buffer to dump
- * @param buflen    Number of bytes to dump
- * @param output    Output function pointer to output hex bytes
- * @param cookie    Opaque cookie to be passed to output function
- * @param msg       Message to be prefixed to the dump
- * @param offsetonly Flag - if set will only print the offsets and
- *                   not actual pointer addresses.
- */
-extern void hex_dump_bytes(const void* inbuf, int buflen,
-                void (*output)(void*, const char* line, int nbytes),
-                void* cookie, const char* msg, int offsetonly);
-
-
-/**
- * Dump 'inlen' bytes from 'inbuf' into 'buf' which is 'bufsize'
- * bytes big.
- *
- * @param inbuf     The input buffer to dump
- * @param inlen     Number of bytes to dump
- * @param buf       Output buffer to hold the hex dump
- * @param bufsize   Size of output buffer
- * @param msg       Message to be prefixed to the dump
- * @param offsetonly Flag - if set will only print the offsets and
- *                   not actual pointer addresses.
- */
-extern void hex_dump_buf(char *buf, int bufsize, const void* inbuf, int inlen, const char* msg, int offsetonly);
-
-
-/**
- * dump 'buflen' bytes of buffer in 'inbuf' as a series of ascii hex
- * bytes to file 'fp'.
- *
- * @param offsetonly Flag - if set will only print the offsets and
- *                   not actual pointer addresses.
- */
-extern void hex_dump_bytes_file(const void* inbuf, int buflen, FILE* fp, const char* msg, int offsetonly);
 
 
 

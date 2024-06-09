@@ -19,7 +19,7 @@ autotests = strmatch t_arena t_str2hex t_esc \
 		t_pack t_strsplit_csv t_splitargs \
 		t_strsplit t_gvarexp t_dirname t_uuid \
 		t_list t_b64_c t_vect \
-		t_xorrand  t_strtosize \
+		t_xorrand  t_strtosize t_hexdump \
 		t_bitvect t_fts \
 		t_bits t_siphash24 t_progress \
 		t_frand t_ulid t_hashspeed \
