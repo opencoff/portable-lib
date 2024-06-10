@@ -56,18 +56,8 @@ extern "C" {
 #endif /* __CACHELINE_ALIGNED */
 
 
-
-#define FASTHT_BAGSZ       7
+#define FASTHT_BAGSZ       ((int)(CACHELINE_SIZE/sizeof(uint64_t)))
 #define FILLPCT            85
-
-
-#if    FASTHT_BAGSZ >= 8
-
-#warn "FASTHT_BAGSZ is too large; clamping at 7"
-#undef FASTHT_BAGSZ
-
-#define FASTHT_BAGSZ    7
-#endif
 
 /*
  * Hash Bucket: holds keys and values as separate arrays.
@@ -78,6 +68,7 @@ extern "C" {
 struct bag
 {
     uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
+
     // start of second  cache line
     void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 
@@ -85,6 +76,9 @@ struct bag
 
     // 8-bit hash fingerprint of each slot.
     uint64_t fp;
+
+    // count of number of valid items in this bag
+    uint64_t __pad0[2];
 };
 typedef struct bag bag;
 

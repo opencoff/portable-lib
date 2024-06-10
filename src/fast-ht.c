@@ -29,6 +29,13 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <unistd.h>
+
+// XXX Why doesn't darwin follow other OSes and put this in
+// <unistd.h>?!
+#ifdef __APPLE__
+#include <sys/random.h>
+#endif
 
 #include "utils/utils.h"
 #include "utils/fast-ht.h"
@@ -44,8 +51,16 @@ typedef struct tuple tuple;
 
 #define _d(z)       ((double)(z))
 
-extern void arc4random_buf(void *, size_t);
 
+// get me a random 64-bit number
+static inline uint64_t
+rand64()
+{
+    uint64_t v;
+
+    getentropy(&v, sizeof v);
+    return v;
+}
 
 
 // Mix function from Zi Long Tan's superfast hash
@@ -93,8 +108,8 @@ _hash_fp(uint64_t h)
 }
 
 
-// find first zero of a 64-bit word and return the "byte number"
-// within the word where the zero exists.
+// find first zero-byte of a 64-bit word and return the "byte number"
+// within the word where the zero-byte exists.
 //
 // This function counts ZERO from the msb. A return val of 8 implies
 // no zero found.
@@ -124,12 +139,12 @@ __update_fp(uint64_t oldfp, uint64_t fp, int slot)
 static void*
 __insert(hb *b, uint64_t k, void *v)
 {
-    bag *g  = 0;
+    bag *g   = 0;
     int slot = 0;
     bag *bg  = 0;
 
 #define FIND(x) do { \
-                    if (*x == k) {              \
+                    if (likely(*x == k)) {              \
                         return g->hv[_i(x,g)];  \
                     }                           \
                     x++;                        \
@@ -140,7 +155,12 @@ __insert(hb *b, uint64_t k, void *v)
     uint64_t h_fp = fp * 0x0101010101010101;
 
     SL_FOREACH(g, &b->head, link) {
-        uint64_t       n = __find_first_zero(g->fp ^ h_fp);
+        if (unlikely(g->fp) == 0) {
+            bg = g;
+            goto _end;
+        }
+
+        uint64_t  n = __find_first_zero(g->fp ^ h_fp);
         uint64_t *x = &g->hk[0];
 
         // fp XOR key will zero-out the places where the fp may
@@ -158,6 +178,7 @@ __insert(hb *b, uint64_t k, void *v)
         // slow path
         switch (FASTHT_BAGSZ) {
             default:                // fallthrough
+            case 8: FIND(x);        // fallthrough
             case 7: FIND(x);        // fallthrough
             case 6: FIND(x);        // fallthrough
             case 5: FIND(x);        // fallthrough
@@ -182,11 +203,12 @@ __insert(hb *b, uint64_t k, void *v)
         SL_INSERT_HEAD(&b->head, bg, link);
     }
 
-
+_end:
     bg->hk[slot] = k;
     bg->hv[slot] = v;
     bg->fp       = __update_fp(bg->fp, fp, slot);
     b->nodes++;
+
     return 0;
 }
 
@@ -213,7 +235,6 @@ __insert_quick(hb *b, uint64_t k, void *v)
             return;
         }
     }
-
 
     // Make a new bag and put our element there.
     g = NEWZ(bag);
@@ -246,10 +267,10 @@ __findx(tuple *t, hb *b, uint64_t hk)
     uint64_t h_fp = fp * 0x0101010101010101;
 
     SL_FOREACH(g, &b->head, link) {
-        uint64_t *x = &g->hk[0];
-
         // if this bag is empty - skip it.
         if (unlikely(g->fp == 0)) continue;
+
+        uint64_t *x = &g->hk[0];
 
         // Maybe the key is in this bag?
         uint64_t n = __find_first_zero(g->fp ^ h_fp);
@@ -271,6 +292,7 @@ __findx(tuple *t, hb *b, uint64_t hk)
         // Slow path: check every slot!
         switch (FASTHT_BAGSZ) {
             default:            // fallthrough
+            case 8: SRCH(x);    // fallthrough
             case 7: SRCH(x);    // fallthrough
             case 6: SRCH(x);    // fallthrough
             case 5: SRCH(x);    // fallthrough
@@ -292,22 +314,22 @@ __findx(tuple *t, hb *b, uint64_t hk)
 static hb*
 resize(ht* h)
 {
-    uint64_t salt;
-    uint64_t n = h->n * 2;
+    uint64_t salt = rand64();
+    uint64_t n    = h->n * 2;
+
     hb *b = NEWZA(hb, n),
        *o = h->b,
        *e = o + h->n;
     uint64_t maxbags = 0,
              maxn    = 0,
              fill    = 0;
-    int i;
 
-    arc4random_buf(&salt, sizeof salt);
 
     for (; o < e; o++) {
         bag *g, *tmp;
 
         SL_FOREACH_SAFE(g, &o->head, link, tmp) {
+            int i = 0;
             for (i = 0; i < FASTHT_BAGSZ; i++) {
                 uint64_t p = g->hk[i];
 
@@ -358,8 +380,9 @@ ht_init(ht* h, uint32_t size, uint32_t maxfill)
 
     h->n = size;
     h->b = NEWZA(hb, h->n);
+
     h->maxfill = maxfill;
-    arc4random_buf(&h->salt, sizeof h->salt);
+    h->salt    = rand64();
 
     return h;
 }
@@ -429,6 +452,10 @@ ht_probe(ht* h, uint64_t k, void* v)
         uint64_t fpct = (++h->fill * 100)/h->n;
 
         if (fpct > h->maxfill) {
+            // h will be updated by resize; we don't want clever
+            // compilers from caching h->n and h->salt.
+            OPTIMIZER_HIDE_VAR(h);
+
             h->splits++;
             b = resize(h);
             b = &b[__hash(k, h->n, h->salt)];

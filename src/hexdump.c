@@ -56,15 +56,18 @@ __encode_int(char *out, int n)
             buf = __do_byte(buf, z >> 48);
             buf = __do_byte(buf, z >> 40);
             buf = __do_byte(buf, z >> 32);
-
+            // fallthrough
         default:
+            // fallthrough
         case 4:
             buf = __do_byte(buf, z >> 24);
             buf = __do_byte(buf, z >> 16);
+            // fallthrough
 
         case 2:
             buf = __do_byte(buf, z >>  8);
             buf = __do_byte(buf, z & 0xff);
+            break;
     }
     return buf;
 }
@@ -111,9 +114,8 @@ hex_dumper_write(hex_dumper *d, void *vbuf, size_t nbytes)
             p = __encode_int(d->buf, d->n);
             *p++ = ' ';
             *p++ = ' ';
-            *p = 0;
 
-            __out(d, d->buf, p - d->buf + 1);
+            __out(d, d->buf, p - d->buf);
         }
 
         p = __do_byte(d->buf, buf[i]);
@@ -168,9 +170,9 @@ hex_dumper_close(hex_dumper *d)
         __out(d, d->buf, n);
         d->used++;
     }
-    d->right[m] = '|';
-    d->right[m+1] = '\n';
-    __out(d, d->right, m+2);
+    d->right[m++] = '|';
+    d->right[m++] = '\n';
+    __out(d, d->right, m);
     return 0;
 }
 
