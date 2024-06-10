@@ -88,24 +88,27 @@ dragonfly_defobjs = $(all_posix_objs) nofdatasync.o linux_cpu.o
 #timerobjs = timer.o timer_int.o ctimer.o
 
 
+hashfunc_objs = cityhash.o fasthash.o fnvhash.o \
+			frand.o hsieh_hash.o murmur3_hash.o \
+			romu-rand.o xoroshiro.o xorshift.o \
+			siphash24.o xxhash.o yorrike.o \
+
+hashtab_objs = bloom.o bloom_marshal.o \
+			fast-ht.o hashtab.o hashtab_iter.o \
+			xorfilter.o xorfilter_marshal.o \
+
 baseobjs = mempool.o dirname.o fts.o splitargs.o \
-           escape.o unescape.o mmap.o sysexception.o syserror.o \
-		   getopt_long.o error.o xorfilter.o xorfilter_marshal.o \
-		   bloom.o bloom_marshal.o str2hex.o frand.o fast-ht.o \
-		   b64_encode.o b64_decode.o humanize.o strtosize.o \
-		   cmutex.o arena.o memmgr.o hexdump.o \
-		   hashtab.o  hashtab_iter.o strunquote.o \
-		   readpass.o uuid.o ulid.o \
-		   hsieh_hash.o fnvhash.o murmur3_hash.o cityhash.o \
-		   fasthash.o siphash24.o yorrike.o xorshift.o xxhash.o \
-		   metrohash64.o metrohash128.o xoroshiro.o romu-rand.o \
-		   mkdirhier.o parse-ip.o strcopy.o \
-		   gstring.o gstring_var.o freadline.o rotatefile.o \
-		   strsplit.o strsplit_csv.o strtrim.o \
-		   pack.o progbar.o \
-		   $($(os)_objs)
-
-
+			escape.o unescape.o mmap.o sysexception.o syserror.o \
+			getopt_long.o error.o str2hex.o \
+			b64_encode.o b64_decode.o humanize.o strtosize.o \
+			cmutex.o arena.o memmgr.o hexdump.o \
+			strunquote.o readpass.o uuid.o ulid.o \
+			mkdirhier.o parse-ip.o strcopy.o \
+			gstring.o gstring_var.o freadline.o rotatefile.o \
+			strsplit.o strsplit_csv.o strtrim.o \
+			pack.o progbar.o \
+			$(hashfunc_objs) $(hashtab_objs) \
+			$($(os)_objs)
 
 
 default-libobjs = $(baseobjs) $($(os)_defobjs)
@@ -117,8 +120,8 @@ libobjs ?= $(default-libobjs)
 INCDIRS = $($(os)_incdirs)
 VPATH 	= $($(os)_vpath)
 
-INCDIRS += .  $(PORTABLE)/inc
-VPATH 	+= $(PORTABLE)/src
+INCDIRS += $(PORTABLE)/src $(PORTABLE)/src/hashfunc $(PORTABLE)/src/hashtable  $(PORTABLE)/inc
+VPATH 	+= $(PORTABLE)/src $(PORTABLE)/src/hashtable $(PORTABLE)/src/hashfunc
 
 INCS	= $(addprefix -I,$(INCDIRS))
 DEFS	= -D__$(os)__=1 -D__$(machine)__=1 $($(os)_defs)

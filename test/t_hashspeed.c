@@ -15,7 +15,6 @@
 #include "utils/hashfunc.h"
 #include "utils/siphash.h"
 #include "utils/xxhash.h"
-#include "utils/metrohash.h"
 
 static uint32_t
 city_hash32(const void* p, size_t len, uint32_t seed)
@@ -34,18 +33,6 @@ siphash24_32(const void* p, size_t len, uint32_t seed)
     return 0xffffffff & (v - (v >> 32));
 }
 
-static uint32_t
-metro32(const void* p, size_t len, uint32_t seed)
-{
-    union {
-        uint64_t v;
-        uint8_t  b[8];
-    } u;
-
-    (void)seed;
-    metrohash64_1(p, len, 0, u.b);
-    return 0xffffffff & (u.v - (u.v >> 32));
-}
 
 struct hashfunc
 {
@@ -72,7 +59,6 @@ static const hashfunc Hashes[] =
 {
       {"city", city_hash32 }
     , {"xxhash", XXH32 }
-    , {"metro",  metro32 }
     , {"murmur3", murmur3_hash_32 }
     , {"hsieh", hsieh_hash }
     , {"fnv", fnv_hash }

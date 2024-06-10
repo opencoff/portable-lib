@@ -48,13 +48,13 @@ __is_delim(DELIM_TYPE *v, word c)
 
 
 void
-PRINT_DELIM(DELIM_TYPE *v)
+print_delim(DELIM_TYPE *v)
 {
     int i;
     int n = 0;
-    fputc(' ', stdout);
+    printf("Delim map:\n ");
     for (i = 0; i < 256; i++) {
-        fputc(IS_DELIM(v, i) ? '1': '.', stdout);
+        fputc(IS_DELIM(v, i) ? 'X': '.', stdout);
         ++n;
 
         if ((n % 4) == 0) fputc(' ', stdout);
@@ -76,7 +76,7 @@ main()
 
     ADD_DELIM(&v, ',');
 
-    PRINT_DELIM(&v);
+    print_delim(&v);
 
     assert(IS_DELIM(&v, ','));
 
