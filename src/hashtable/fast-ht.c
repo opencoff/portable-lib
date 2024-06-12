@@ -83,11 +83,6 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
 }
 
 
-// Given a ptr to key array and the corresponding bag,return the
-// index for the key (also is the index for value) array.
-#define _i(x, g)    (x - &(g)->hk[0])
-
-
 static void *
 __alloc(size_t n)
 {
@@ -129,6 +124,7 @@ __find_empty_slot(uint64_t *x)
         case 2: __FIND2(x, 6);  // fallthrough
         case 1: __FIND2(x, 7);  // fallthrough
         default:
+                break;
     }
     return -1;
 }
@@ -142,9 +138,9 @@ __insert(hb *b, uint64_t k, void *v)
     int slot = 0;
     bag *bg  = 0;
 
-#define FIND(x) do { \
+#define FIND(x,y) do {                          \
                     if (likely(*x == k)) {      \
-                        return g->hv[_i(x,g)];  \
+                        return g->hv[y];        \
                     }                           \
                     x++;                        \
                 } while (0)
@@ -152,15 +148,16 @@ __insert(hb *b, uint64_t k, void *v)
     SL_FOREACH(g, &b->head, link) {
         uint64_t *x = &g->hk[0];
         switch (FASTHT_BAGSZ) {
-            default:                // fallthrough
-            case 8: FIND(x);        // fallthrough
-            case 7: FIND(x);        // fallthrough
-            case 6: FIND(x);        // fallthrough
-            case 5: FIND(x);        // fallthrough
-            case 4: FIND(x);        // fallthrough
-            case 3: FIND(x);        // fallthrough
-            case 2: FIND(x);        // fallthrough
-            case 1: FIND(x);        // fallthrough
+            case 8: FIND(x, 0);        // fallthrough
+            case 7: FIND(x, 1);        // fallthrough
+            case 6: FIND(x, 2);        // fallthrough
+            case 5: FIND(x, 3);        // fallthrough
+            case 4: FIND(x, 4);        // fallthrough
+            case 3: FIND(x, 5);        // fallthrough
+            case 2: FIND(x, 6);        // fallthrough
+            case 1: FIND(x, 7);        // fallthrough
+            default:
+                    break;
         }
 
         x = &g->hk[0];
@@ -221,10 +218,10 @@ __findx(tuple *t, hb *b, uint64_t hk)
 {
     bag *g = 0;
 
-#define SRCH(x) do { \
+#define SRCH(x,y) do {                      \
                     if (likely(*x == hk)) { \
                         t->g = g;           \
-                        t->i = _i(x,g);     \
+                        t->i = y;           \
                         return 1;           \
                     }                       \
                     x++;                    \
@@ -233,15 +230,16 @@ __findx(tuple *t, hb *b, uint64_t hk)
     SL_FOREACH(g, &b->head, link) {
         uint64_t *x = &g->hk[0];
         switch (FASTHT_BAGSZ) {
-            default:            // fallthrough
-            case 8: SRCH(x);    // fallthrough
-            case 7: SRCH(x);    // fallthrough
-            case 6: SRCH(x);    // fallthrough
-            case 5: SRCH(x);    // fallthrough
-            case 4: SRCH(x);    // fallthrough
-            case 3: SRCH(x);    // fallthrough
-            case 2: SRCH(x);    // fallthrough
-            case 1: SRCH(x);    // fallthrough
+            case 8: SRCH(x, 0);    // fallthrough
+            case 7: SRCH(x, 1);    // fallthrough
+            case 6: SRCH(x, 2);    // fallthrough
+            case 5: SRCH(x, 3);    // fallthrough
+            case 4: SRCH(x, 4);    // fallthrough
+            case 3: SRCH(x, 5);    // fallthrough
+            case 2: SRCH(x, 6);    // fallthrough
+            case 1: SRCH(x, 7);    // fallthrough
+            default:
+                    break;
         }
     }
 
