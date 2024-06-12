@@ -25,6 +25,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <stdint.h>
+#include <sys/random.h>
 
 /*
  * SplitMix64 PRNG
@@ -55,20 +56,9 @@ rotl(const uint64_t x, unsigned int k)
 static uint64_t
 makeseed()
 {
-    uint64_t c = sys_cpu_timestamp();
-    uint64_t m = c & 0xff;
-    uint64_t i, j, n;
-    uint64_t z = sys_cpu_timestamp();
-
-    for (i = 0; i < m; i++) {
-        c = sys_cpu_timestamp();
-        n = c & 63;
-        for (j = 0; j < n; ++j) {
-            z = rotl(z, n);
-            z ^= c * (j+1);
-        }
-    }
-    return splitmix64(&z);
+    uint64_t x;
+    getentropy(&x, sizeof x);
+    return x;
 }
 
 

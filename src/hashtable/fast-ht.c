@@ -30,12 +30,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
-
-// XXX Why doesn't darwin follow other OSes and put this in
-// <unistd.h>?!
-#ifdef __APPLE__
 #include <sys/random.h>
-#endif
 
 #include "utils/utils.h"
 #include "utils/fast-ht.h"

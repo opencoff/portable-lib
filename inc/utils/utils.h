@@ -34,60 +34,6 @@
 
 extern int strcasecmp(const char* src, const char* dest);
 
-/**
- * Dump the contents of 'buf' to file 'fp' in the style of
- * 'hexdump -C'.
- *
- * Returns:
- *      0       on success
- *      -errno  on error
- */
-extern int fhexdump(FILE *fp, void *buf, size_t bufsz);
-
-
-/*
- * hex_dumper holds the state for a hexdump session.
- * Each session starts with hex_dumper_init() and ends
- * with hex_dumper_close().
- *
- * Callers can call hex_dumper_write() multiple times before calling
- * hex_dumper_close().
- */
-struct hex_dumper {
-    int (*writer)(void *ctx, void *buf, size_t nbytes);
-    void *ctx;
-
-    int used;   // # of used bytes
-    int n;      // # of total bytes
-    char right[18];
-    char buf[32];
-};
-typedef struct hex_dumper hex_dumper;
-
-
-/**
- * initialize a dumper with a custom write function.
- *
- * The 'writer' should return 0 on success and negative number
- * (-errno) on error. Errors are passed back to the caller intact.
- */
-extern void hex_dumper_init(hex_dumper *d, int (*writer)(void *ctx, void *buf, size_t nbytes), void *ctx);
-
-
-/**
- * Dump 'n' bytes of data from buffer 'buf'
- *
- * Returns 0 on success or the error from the writer.
- */
-extern int hex_dumper_write(hex_dumper *d, void *buf, size_t n);
-
-
-/**
- * flush any pending writes and close the dumper.
- *
- * Returns 0 on success or the error from the writer.
- */
-extern int hex_dumper_close(hex_dumper *d);
 
 
 #if defined(_WIN32) || defined(WIN32)

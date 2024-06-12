@@ -42,11 +42,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <math.h>
+#include <sys/random.h>
 #include "fast/vect.h"
 #include "utils/xorfilter.h"
 #include "xorfilt_internal.h"
-
-extern void arc4random_buf(void *, size_t);
 
 /*
  * Index into the linear Fingerprint array.
@@ -61,7 +60,7 @@ static uint64_t
 rand64()
 {
     uint64_t x;
-    arc4random_buf(&x, sizeof x);
+    getentropy(&x, sizeof x);
     return x;
 }
 

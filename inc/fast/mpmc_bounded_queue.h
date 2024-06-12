@@ -61,6 +61,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdatomic.h>
 #include <assert.h>
 #include "utils/utils.h"
@@ -334,7 +335,7 @@ __alloc(size_t n)
                 __mpmc_slot_ty(_qc) *_sl = &_qc->slot[0];                                   \
                 size_t  _dsz   = sizeof(_sl->data);                                         \
                 size_t  _slsz  = sizeof(*_sl);                                              \
-                snprintf(_s, _sz, "cap %zd, slotsz %zd datum %zd",                          \
+                snprintf(_s, _sz, "cap %" PRIu64 ", slotsz %zu datum %zu",                          \
                         _q->sz, _slsz, _dsz);                                               \
 } while (0)
 

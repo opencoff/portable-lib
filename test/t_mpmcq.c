@@ -452,7 +452,7 @@ verify_correctness(ctx **pp, int np, latv *all)
             assert(pseq == (c->nelem-1));
         } else if (vcpu == pcpu) {
             if (vseq != (pseq+1)) {
-                fprintf(stderr, "[%zd] cpu %zd; seq %#zx != %#zx (saw %#zx)\n",
+                fprintf(stderr, "[%zu] cpu %" PRIu64 "; seq %#" PRIx64 " != %#" PRIx64 " (saw %#" PRIx64 ")\n",
                         i, pcpu, vseq, pseq+1, pseq);
             }
         }

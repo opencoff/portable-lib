@@ -75,7 +75,7 @@ endif
 
 # Default objs for linux 
 linux_defobjs     = $(all_posix_objs) linux_cpu.o \
-					arc4random.o posix_entropy.o
+					arc4random.o
 darwin_defobjs    = $(all_posix_objs) darwin_cpu.o darwin_sem.o
 win32_defobjs     = $(all_win32_objs) win32_rand.o
 openbsd_defobjs   = $(all_posix_objs) openbsd_cpu.o
@@ -83,7 +83,8 @@ openbsd_defobjs   = $(all_posix_objs) openbsd_cpu.o
 # DragonFly BSD supports linux's sched_{get/set}affinity()
 dragonfly_defobjs = $(all_posix_objs) nofdatasync.o linux_cpu.o
 
-
+# Add posix_entropy.o  if your posix platform doesn't have
+# getentropy(2)
 
 #timerobjs = timer.o timer_int.o ctimer.o
 
@@ -120,8 +121,9 @@ libobjs ?= $(default-libobjs)
 INCDIRS = $($(os)_incdirs)
 VPATH 	= $($(os)_vpath)
 
-INCDIRS += $(PORTABLE)/src $(PORTABLE)/src/hashfunc $(PORTABLE)/src/hashtable  $(PORTABLE)/inc
-VPATH 	+= $(PORTABLE)/src $(PORTABLE)/src/hashtable $(PORTABLE)/src/hashfunc
+psrc = $(PORTABLE)/src
+INCDIRS += $(psrc) $(psrc)/hashtable $(PORTABLE)/inc
+VPATH   += $(psrc) $(psrc)/hashtable $(psrc)/hashfunc $(psrc)/prng
 
 INCS	= $(addprefix -I,$(INCDIRS))
 DEFS	= -D__$(os)__=1 -D__$(machine)__=1 $($(os)_defs)

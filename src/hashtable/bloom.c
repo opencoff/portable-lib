@@ -121,16 +121,12 @@
 #include <assert.h>
 #include <limits.h>
 #include <inttypes.h>
+#include <sys/random.h>
 
 #include "utils/utils.h"
 #include "utils/bloom.h"
 
 #include "bloom_internal.h"
-
-
-// Common on OS X and *BSD. Not so on Linux.
-extern void arc4random_buf(void* out, size_t n);
-
 
 
 // Compression function from fasthash
@@ -330,9 +326,7 @@ counting_bloom_init(bloom* b, size_t n, double e)
     b->flags  = 0;
 
     // use a random salt for the seeded hash function.
-    // If your OS doesn't have this - try:
-    //   http://github.com/opencoff/mt-arc4random
-    arc4random_buf(&b->salt, sizeof b->salt);
+    getentropy(&b->salt, sizeof b->salt);
 
     return b;
 }
@@ -361,7 +355,7 @@ standard_bloom_init(bloom* b, size_t n, double e)
     b->flags   = 0;
 
     // use a random salt for the seeded hash function.
-    arc4random_buf(&b->salt, sizeof b->salt);
+    getentropy(&b->salt, sizeof b->salt);
 
     return b;
 }

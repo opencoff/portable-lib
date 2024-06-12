@@ -17,10 +17,10 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
+#include <sys/random.h>
 
 #include "utils/uuid.h"
 
-extern int arc4random_buf(uint8_t* buf, size_t bsiz);
 
 // Generate a random UUID
 int
@@ -29,7 +29,7 @@ uuid_generate(uint8_t *buf, size_t bsiz)
     if (bsiz == 0) return -EINVAL;
     if (bsiz < 16) return -ENOSPC;
 
-    arc4random_buf(buf, 16);
+    getentropy(buf, 16);
 
     buf[6] = 0x4f & (buf[6] | 0x40);
     buf[8] = 0xbf & (buf[8] | 0x80);

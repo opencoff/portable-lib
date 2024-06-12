@@ -10,23 +10,24 @@
 #include <ctype.h>
 
 #include "error.h"
-#include "utils/utils.h"
 #include "utils/pack.h"
+#include "utils/new.h"
+#include "utils/hexdump.h"
 
 static void test1(void);
 static void testmulti(void);
 static void testvararg(void);
 static void teststr(void);
 static void testerr(void);
-static void hexdump(const char* prefix, const void * buf, size_t bufsiz);
 
 
-#define xassert(a,fmt,...) do {\
-                                if (!(a)) { \
-                                    fprintf(stderr, fmt "\n", __VA_ARGS__);\
-                                    hexdump(#a, pbuf, psz);\
-                                }\
-                                assert(a);\
+#define xassert(a,fmt,...) do {                                                         \
+                                if (!(a)) {                                             \
+                                    fprintf(stderr, fmt "\n", __VA_ARGS__);             \
+                                    fprintf(stdout, "%s: %p %zu bytes\n", #a, pbuf, psz);\
+                                    fhexdump(stdout, pbuf, psz);                        \
+                                }                                                       \
+                                assert(a);                                              \
                             } while (0)
 
 int
@@ -145,21 +146,21 @@ teststr()
 
     // Invalid.
     psz = Pack(pbuf, sizeof pbuf, "* 2Z", 4, ps);
-    xassert(psz < 0, "psz=%ld", psz);
+    xassert(psz < 0, "psz=%zd", psz);
 
     psz = Pack(pbuf, sizeof pbuf, "> Z", ps);
     assert((size_t)psz == (1 + pslen));
     assert(0 == memcmp(pbuf, ps, pslen));
 
     psz = Unpack(pbuf, psz, "> Z", &us);
-    xassert((size_t)psz == (1 + pslen), "psz=%ld", psz);
+    xassert((size_t)psz == (1 + pslen), "psz=%zd", psz);
     assert(us);
     assert(strlen(us) == pslen);
     assert(0 == strcmp(us, ps));
     free(us);
 
     psz = Pack(pbuf, sizeof pbuf, "3Z", ps);
-    xassert(psz == 3, "psz=%ld", psz);
+    xassert(psz == 3, "psz=%zd", psz);
 
     psz = Unpack(pbuf, psz, "3Z", &us);
     assert(psz == 3);
@@ -168,10 +169,10 @@ teststr()
     free(us);
 
     psz = Pack(pbuf, sizeof pbuf, "* Z", 4, ps);
-    xassert(psz == 8, "psz=%ld", psz);
+    xassert(psz == 8, "psz=%zd", psz);
 
     psz = Unpack(pbuf, psz, "* Z", &slen, &us);
-    xassert(psz == 8, "psz=%ld", psz);
+    xassert(psz == 8, "psz=%zd", psz);
     assert(us);
     xassert(slen == 4, "slen=%u", slen);
     xassert(strlen(us) == 4, "us=|%s|", us);
@@ -311,46 +312,3 @@ test1(void)
     xtest4( int64_t, 8, ">4l", -3,       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfd);
 }
 
-static void
-hexdump(const char* prefix, const void * buf, size_t bufsiz)
-{
-    const char hex[]   = "0123456789abcdef";
-    const uint8_t * p  = (const uint8_t*)buf;
-    size_t rem         = bufsiz;
-    char bb[128];
-
-    printf("%s: %p %zu bytes\n", prefix, buf, bufsiz);
-
-    while (rem > 0)
-    {
-        char * ptr   = &bb[0];
-        char * ascii = ptr + ((8 * 2 + 7) * 2) + 4;
-        size_t n = rem > 16 ? 16 : rem;
-        const uint8_t * pe = p + n;
-        int z = 0;
-
-        rem -= n;
-        memset(bb, ' ', sizeof bb);
-
-        for (z = 0; p < pe; ++p, ++z)
-        {
-            unsigned char c = *p;
-            *ptr++ = hex[c >> 4];
-            *ptr++ = hex[c & 0xf];
-            *ptr++ = ' ';
-            if (isprint(c))
-                *ascii++ = c;
-            else
-                *ascii++ = '.';
-
-            if (z == 7)
-            {
-                *ptr++   = ' ';
-                *ascii++ = ' ';
-            }
-        }
-        *ascii = 0;
-
-        printf("%p %s\n", p, bb);
-    }
-}

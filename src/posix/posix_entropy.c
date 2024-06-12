@@ -19,41 +19,38 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include <stdint.h>
-#include <stdarg.h>
-#include <string.h>
-#include <stdlib.h>
-
-extern void error(int doexit, int err, const char* fmt, ...);
+#include <pthread.h>
 
 
-static int
-randopen(const char* name)
+static int _Randfd = -1;
+static pthread_once_t _Rand_once = PTHREAD_ONCE_INIT;
+
+static void
+__randopen(void)
 {
-    int fd = open(name, O_RDONLY);
-    if (fd < 0)
-        error(1, errno, "Cannot open system random number dev %s", name);
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0) {
+        fprintf(stderr, "can't open /dev/urandom: %s (%d)\n", strerror(errno), errno);
+        exit(1);
+    }
 
-    return fd;
+    _Randfd = fd;
 }
 
 
 int
 getentropy(void* buf, size_t n)
 {
-    static int fd = -1;
     uint8_t* b    = (uint8_t*)buf;
 
-    if (fd < 0)
-        fd = randopen("/dev/urandom");
+    pthread_once(&_Rand_once, __randopen);
 
-    while (n > 0)
-    {
+    while (n > 0) {
         ssize_t m = (read)(fd, b, n);
 
         if (m < 0) {
             if (errno == EINTR) continue;
-            error(1, errno, "Fatal read error while reading rand dev");
+            return -1;
         }
         b += m;
         n -= m;

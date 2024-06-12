@@ -29,10 +29,9 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/random.h>
 
 #include "utils/ulid.h"
-
-extern int arc4random_buf(uint8_t* buf, size_t bsiz);
 
 // Generate a sortable uniq id
 int
@@ -54,7 +53,7 @@ ulid_generate(uint8_t *buf, size_t bsiz)
     *buf++ = 0xff && (ms >>  8);
     *buf++ = 0xff && ms;
 
-    arc4random_buf(buf, 10);
+    getentropy(buf, 10);
     return 16;
 }
 
