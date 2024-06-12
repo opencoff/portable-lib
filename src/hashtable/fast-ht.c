@@ -87,51 +87,51 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
 // index for the key (also is the index for value) array.
 #define _i(x, g)    (x - &(g)->hk[0])
 
-// given a hash 'h', return its 8-bit fingerprint
-static inline uint64_t
-_hash_fp(uint64_t h)
+
+static void *
+__alloc(size_t n)
 {
-    uint64_t z = 0;
+    void *ptr = 0;
+    int     r = posix_memalign(&ptr, CACHELINE_SIZE, n);
+    assert(r == 0);
+    assert(ptr);
 
-    if ((z = 0xff & (h >> 56))) return z;
-    if ((z = 0xff & (h >> 48))) return z;
-    if ((z = 0xff & (h >> 40))) return z;
-    if ((z = 0xff & (h >> 32))) return z;
-    if ((z = 0xff & (h >> 24))) return z;
-    if ((z = 0xff & (h >> 16))) return z;
-    if ((z = 0xff & (h >>  8))) return z;
-    if ((z = 0xff & (h >>  0))) return z;
-
-    // If we can't find a non-zero byte, pretend it's this.
-    return 0xff;
+    return memset(ptr, 0, n);
 }
 
+#define __NEWZ(ty) ({                           \
+                ty *_x = __alloc(sizeof(ty));   \
+                _x;                             \
+                })
 
-// find first zero-byte of a 64-bit word and return the "byte number"
-// within the word where the zero-byte exists.
-//
-// This function counts ZERO from the msb. A return val of 8 implies
-// no zero found.
-// (Henry Warren's Hacker's Delight also counts ZERO from the MSB).
-static inline uint64_t
-__find_first_zero(uint64_t w)
+#define __NEWZA(ty, n) ({                           \
+                ty *_x = __alloc((n) * sizeof(ty)); \
+                _x;                                 \
+                })
+
+#define __FIND2(x,y) do {   \
+            if (*x == 0) {  \
+                return y;   \
+            }               \
+            x++;            \
+        } while (0)
+
+static inline int
+__find_empty_slot(uint64_t *x)
 {
-    uint64_t y = (w & 0x7f7f7f7f7f7f7f7f) + 0x7f7f7f7f7f7f7f7f;
-    y = ~(y | w | 0x7f7f7f7f7f7f7f7f);
-    uint64_t z = __builtin_clzl(y) >> 3;
-
-    return z;
+    switch (FASTHT_BAGSZ) {
+        case 8: __FIND2(x, 0);  // fallthrough
+        case 7: __FIND2(x, 1);  // fallthrough
+        case 6: __FIND2(x, 2);  // fallthrough
+        case 5: __FIND2(x, 3);  // fallthrough
+        case 4: __FIND2(x, 4);  // fallthrough
+        case 3: __FIND2(x, 5);  // fallthrough
+        case 2: __FIND2(x, 6);  // fallthrough
+        case 1: __FIND2(x, 7);  // fallthrough
+        default:
+    }
+    return -1;
 }
-
-
-
-static inline uint64_t
-__update_fp(uint64_t oldfp, uint64_t fp, int slot)
-{
-    uint64_t x = (fp << ((8-slot-1) * 8));
-    return oldfp | x;
-}
-
 
 // Insert (k, v) into bucket 'b' - but only if 'k' doesn't already
 // exist in the bucket.
@@ -143,40 +143,14 @@ __insert(hb *b, uint64_t k, void *v)
     bag *bg  = 0;
 
 #define FIND(x) do { \
-                    if (likely(*x == k)) {              \
+                    if (likely(*x == k)) {      \
                         return g->hv[_i(x,g)];  \
                     }                           \
                     x++;                        \
                 } while (0)
 
-    // spread the top-byte of 'k' to all the remaining bytes of 'h_fp'
-    uint64_t fp   = _hash_fp(k);
-    uint64_t h_fp = fp * 0x0101010101010101;
-
     SL_FOREACH(g, &b->head, link) {
-        assert(g->count <= FASTHT_BAGSZ);
-        if (unlikely(g->count) == 0) {
-            bg = g;
-            slot = 0;
-            goto _end;
-        }
-
-        uint64_t  n = __find_first_zero(g->fp ^ h_fp);
         uint64_t *x = &g->hk[0];
-
-        // fp XOR key will zero-out the places where the fp may
-        // occur in g->fp; so, if we find such a zero, high prob
-        // that the key exists in this bag.
-
-        if (likely(n < FASTHT_BAGSZ)) {
-            volatile uint64_t j = array_index_nospec(n, FASTHT_BAGSZ);
-            // fast-path
-            if (likely(k == x[j])) {
-                return g->hv[j];
-            }
-        }
-
-        // slow path
         switch (FASTHT_BAGSZ) {
             default:                // fallthrough
             case 8: FIND(x);        // fallthrough
@@ -189,17 +163,15 @@ __insert(hb *b, uint64_t k, void *v)
             case 1: FIND(x);        // fallthrough
         }
 
-        // In case we need to find an empty slot for inserting this
-        // kv pair, lets find one in this bag
-        if (!bg && ((n = __find_first_zero(g->fp)) < FASTHT_BAGSZ)) {
-            bg   = g;
-            slot = n;
+        x = &g->hk[0];
+        if ((slot = __find_empty_slot(x)) >= 0) {
+            bg = g;
             goto _end;
         }
     }
 
     if (!bg) {
-        bg   = NEWZ(bag);
+        bg   = __NEWZ(bag);
         slot = 0;
         b->bags++;
         SL_INSERT_HEAD(&b->head, bg, link);
@@ -208,10 +180,7 @@ __insert(hb *b, uint64_t k, void *v)
 _end:
     bg->hk[slot] = k;
     bg->hv[slot] = v;
-    bg->fp       = __update_fp(bg->fp, fp, slot);
-    bg->count++;
     b->nodes++;
-
     return 0;
 }
 
@@ -223,30 +192,23 @@ _end:
 static void
 __insert_quick(hb *b, uint64_t k, void *v)
 {
-    uint64_t fp = _hash_fp(k);
     bag *g      = SL_FIRST(&b->head);
     if (g) {
-        assert(g->count <= FASTHT_BAGSZ);
-        uint64_t n = __find_first_zero(g->fp);
-        if (n < FASTHT_BAGSZ) {
-            volatile uint64_t j = array_index_nospec(n, FASTHT_BAGSZ);
-
+        uint64_t *x = &g->hk[0];
+        int j       = __find_empty_slot(x);
+        if (j >= 0) {
             assert(!g->hk[j]);
             g->hk[j] = k;
             g->hv[j] = v;
-            g->fp    = __update_fp(g->fp, fp, j);
-            g->count++;
             b->nodes++;
             return;
         }
     }
 
     // Make a new bag and put our element there.
-    g = NEWZ(bag);
+    g = __NEWZ(bag);
     g->hk[0] = k;
     g->hv[0] = v;
-    g->fp    = __update_fp(g->fp, fp, 0);
-    g->count++;
     b->bags++;
     b->nodes++;
     SL_INSERT_HEAD(&b->head, g, link);
@@ -268,34 +230,8 @@ __findx(tuple *t, hb *b, uint64_t hk)
                     x++;                    \
                 } while(0)
 
-    // spread the top-byte of 'k' to all the remaining bytes of 'h_fp'
-    uint64_t   fp = _hash_fp(hk);
-    uint64_t h_fp = fp * 0x0101010101010101;
-
     SL_FOREACH(g, &b->head, link) {
-        assert(g->count <= FASTHT_BAGSZ);
-        // if this bag is empty - skip it.
-        //if (unlikely(g->count == 0)) continue;
-
         uint64_t *x = &g->hk[0];
-        uint64_t n = __find_first_zero(g->fp ^ h_fp);
-
-        if (unlikely(n >= FASTHT_BAGSZ)) continue;
-
-        // Here:
-        //  a) the key is in slot 'n'
-        //  b) maybe there are other slots that also match (ie have
-        //  "zeroes")
-
-        // We try the fast path first - then just unroll
-        volatile uint64_t j = array_index_nospec(n, FASTHT_BAGSZ);
-        if (likely(x[j] == hk)) {
-                t->g = g;
-                t->i = j;
-                return 1;
-        }
-
-        // Slow path: check every slot!
         switch (FASTHT_BAGSZ) {
             default:            // fallthrough
             case 8: SRCH(x);    // fallthrough
@@ -323,7 +259,7 @@ resize(ht* h)
     uint64_t salt = rand64();
     uint64_t n    = h->n * 2;
 
-    hb *b = NEWZA(hb, n),
+    hb *b = __NEWZA(hb, n),
        *o = h->b,
        *e = o + h->n;
     uint64_t maxbags = 0,
@@ -385,7 +321,7 @@ ht_init(ht* h, uint32_t size, uint32_t maxfill)
     memset(h, 0, sizeof *h);
 
     h->n = size;
-    h->b = NEWZA(hb, h->n);
+    h->b = __NEWZA(hb, h->n);
 
     h->maxfill = maxfill;
     h->salt    = rand64();
@@ -420,7 +356,7 @@ ht_fini(ht* h)
 ht*
 ht_new(uint32_t size, uint32_t maxfill)
 {
-    ht* h = NEWZ(ht);
+    ht* h = __NEWZ(ht);
 
     return ht_init(h, size, maxfill);
 }
@@ -446,7 +382,8 @@ ht_del(ht* h)
 void*
 ht_probe(ht* h, uint64_t k, void* v)
 {
-    hb   *b  = &h->b[__hash(k, h->n, h->salt)];
+    uint64_t hh  =__hash(k, h->n, h->salt);
+    hb   *b  = &h->b[hh];
     void *nv = __insert(b, k, v);
 
     if (nv) return nv;
@@ -532,54 +469,17 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
     if (__findx(&x, b, k)) {
         bag *g   = x.g;
         int slot = x.i;
-        assert(g->count <= FASTHT_BAGSZ);
-
-        // Erase this FP - by using 0x0 as the "new" FP
-        g->fp = __update_fp(g->fp, 0x00, slot);
 
         if (p_ret) *p_ret = g->hv[slot];
 
         g->hk[slot] = 0;
         g->hv[slot] = 0;
-        g->count--;
         b->nodes--;
         h->nodes--;
         return 1;
     }
 
     return 0;
-}
-
-
-/*
- * Consistency check of the hash table.
- */
-void
-ht_consistency_check(ht *h)
-{
-    for (uint64_t i = 0; i < h->n; i++) {
-        hb *b  = &h->b[i];
-        bag *g = 0;
-        SL_FOREACH(g, &b->head, link) {
-            assert(g->count <= FASTHT_BAGSZ);
-            if (g->count == 0) {
-                for (int j = 0; j < FASTHT_BAGSZ; j++) {
-                    if (g->hk[j]) {
-                        printf("bucket %" PRIu64 ": bag %p slot %d not empty! [%#" PRIx64 "]\n",
-                                i, g, j, g->hk[j]);
-                        assert(!g->hk[j]);
-                    }
-                }
-            } else {
-                uint64_t saw = 0;
-                for (int j = 0; j < FASTHT_BAGSZ; j++) {
-                    if (g->hk[j]) saw++;
-                }
-
-                assert(saw == g->count);
-            }
-        }
-    }
 }
 
 
@@ -600,7 +500,7 @@ ht_dump(ht *h, const char *start, void (*dump)(const char *str, size_t n))
 
 
     pr("%s: ht %p: %" PRIu64 " elems; %" PRIu64 "/%" PRIu64 " buckets filled\n",
-            start, h, h->nodes, h->n, h->fill);
+            start, h, h->nodes, h->fill, h->n);
 
     for (uint64_t i = 0; i < h->n; i++) {
         hb *b = &h->b[i];
@@ -610,7 +510,7 @@ ht_dump(ht *h, const char *start, void (*dump)(const char *str, size_t n))
             *tmp = 0;
 
         SL_FOREACH_SAFE(g, &b->head, link, tmp) {
-            pr("  bag %p: fp %#16.16" PRIx64 ":\n", g, g->fp);
+            pr("  bag %p:\n", g);
             for (int j = 0; j < FASTHT_BAGSZ; j++) {
                 pr("     [%#16.16" PRIx64 ", %p]\n", g->hk[j], g->hv[j]);
             }

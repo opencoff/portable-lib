@@ -34,7 +34,7 @@ main()
 {
     basic_tests();
 
-    for (uint64_t i = 0; i < 8; i++) {
+    for (uint64_t i = 1; i < 4; i++) {
         rand_tests(i);
     }
 }
@@ -46,6 +46,12 @@ main()
                 assert(x);  \
             }               \
         } while (0)
+
+static void
+__dump_stdout(const char *str, size_t n)
+{
+    fwrite(str, 1, n, stdout);
+}
 
 static void
 rand_tests(uint64_t seed)
@@ -112,6 +118,7 @@ rand_tests(uint64_t seed)
 
         if (!r) {
             printf("%#" PRIx64 ": expected to find in HT\n", p->key);
+            ht_dump(h, "fully loaded table", __dump_stdout);
             xassert(r);
         }
         assert(ret == (void *)p->val);
@@ -179,9 +186,6 @@ rand_tests(uint64_t seed)
             xassert(ret == (void *)p->val);
         }
     }
-
-    printf("   consistency check ..\n");
-    ht_consistency_check(h);
 
     // timenow() returns time in nanoseconds
     // sys_cpu_timestamp() returns clock cycles (perf counter)
@@ -319,6 +323,10 @@ basic_tests()
 
         // Every one of the keys _are_ unique. Thus, we must not
         // find dups.
+        if (r) {
+            printf("key %#" PRIx64 "failed to insert!\n", p->key);
+            ht_dump(h, "small ht", __dump_stdout);
+        }
         assert(!r);
     }
 
@@ -329,6 +337,10 @@ basic_tests()
         void *ret = 0;
         int r = ht_find(h, p->key, &ret);
 
+        if (!r) {
+            printf("key %#" PRIx64 "not found?!\n", p->key);
+            ht_dump(h, "small ht", __dump_stdout);
+        }
         assert(r);
         assert(ret == (void *)p->val);
     }

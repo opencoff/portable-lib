@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2015 Sudhi Herle <sw at herle.net>
  *
- * Licensing Terms: GPLv2 
+ * Licensing Terms: GPLv2
  *
  * If you need a commercial license for this work, please contact
  * the author.
@@ -65,15 +65,9 @@ extern "C" {
  */
 struct bag
 {
-    // 8-bit hash fingerprint of each slot.
-    uint64_t fp;
-
-    // count of number of valid items in this bag
-    uint64_t count;
-
     SL_ENTRY(bag) link;
 
-    uint64_t __pad0;
+    uint64_t __pad0[3];
 
     // Next two arrays take up two entire cachelines.
 
@@ -187,11 +181,6 @@ int ht_remove(ht*, uint64_t hv, void** p_ret);
  */
 void ht_dump(ht*, const char *start, void (*dump)(const char*, size_t));
 
-
-/*
- * Consistency check of the hash table.
- */
-void ht_consistency_check(ht *);
 
 #ifdef __cplusplus
 }
