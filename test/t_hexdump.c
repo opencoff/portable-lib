@@ -1,5 +1,6 @@
 // test harness for hexdump
-
+#include <stdio.h>
+#include <stdint.h>
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
