@@ -14,9 +14,7 @@
 #include "utils/fast-ht.h"
 #include "fast/vect.h"
 #include "utils/utils.h"
-
-
-extern void arc4random_buf(void *, size_t);
+#include "utils/xoroshiro.h"
 
 
 struct kv {
@@ -28,45 +26,47 @@ typedef struct kv kv;
 VECT_TYPEDEF(kvv, kv);
 
 static void basic_tests(void);
-static void rand_tests(void);
+static void rand_tests(uint64_t);
 
-static uint64_t
-rand64()
-{
-    union z {
-        uint64_t v;
-        uint8_t  b[8];
-    } u;
-
-
-    u.v = 0;
-    arc4random_buf(u.b, sizeof u.b);
-    return u.v;
-}
 
 int
 main()
 {
     basic_tests();
-    rand_tests();
+
+    for (uint64_t i = 0; i < 8; i++) {
+        rand_tests(i);
+    }
 }
 
 
+#define xassert(x) do {     \
+            if (!(x)) {     \
+                printf("rand test: seed %" PRIu64 "; failed for key %#" PRIx64 "\n", seed, p->key);\
+                assert(x);  \
+            }               \
+        } while (0)
+
 static void
-rand_tests()
+rand_tests(uint64_t seed)
 {
     ht  _h;
     ht *h = &_h;
     kvv  v;
     kv *p;
+    xoro128plus xoro;
 
 #define NELEM    1048576
+
+    xoro128plus_init(&xoro, seed);
+
+    printf("rand tests: %d elements; seed %#" PRIx64 "\n", NELEM, seed);
 
     // generate N random numbers
     VECT_INIT(&v, NELEM);
     for (int i = 0; i < NELEM; i++) {
         kv w = {
-            .key = rand64(),
+            .key = xoro128plus_u64(&xoro),
             .val = (uint64_t)i,
         };
 
@@ -109,7 +109,11 @@ rand_tests()
         tf  += timenow() - t0;
         cyf += sys_cpu_timestamp() - c0;
 
-        assert(r);
+
+        if (!r) {
+            printf("%#" PRIx64 ": expected to find in HT\n", p->key);
+            xassert(r);
+        }
         assert(ret == (void *)p->val);
     }
 
@@ -121,6 +125,7 @@ rand_tests()
            h->bagmax, h->splits);
 
     // now delete some of them.
+    printf("   deleting odd keys ..\n");
     uint64_t ndel = 0;
     VECT_FOR_EACH(&v, p) {
         void *ret = 0;
@@ -135,11 +140,12 @@ rand_tests()
 
             td  += timenow() - t0;
             cyd += sys_cpu_timestamp() - c0;
-            assert(r);
-            assert(ret == (void *)p->val);
+            xassert(r);
+            xassert(ret == (void *)p->val);
         }
     }
 
+    printf("   searching for odd & even keys ..\n");
     // now search again.
     VECT_FOR_EACH(&v, p) {
         void *ret = 0;
@@ -152,17 +158,30 @@ rand_tests()
             cyx += sys_cpu_timestamp() - c0;
 
             // we shouldn't find these keys
-            assert(!r);
+            xassert(!r);
         } else {
             int r = ht_find(h, p->key, &ret);
 
             // even valued keys must be found
-            assert(r);
-            assert(ret == (void *)p->val);
+            xassert(r);
+            xassert(ret == (void *)p->val);
         }
     }
 
+    printf("   deleting even keys ..\n");
 
+    // now delete the rest
+    VECT_FOR_EACH(&v, p) {
+        if (!(p->key & 1)) {
+            void *ret = 0;
+            int r = ht_remove(h, p->key, &ret);
+            xassert(r);
+            xassert(ret == (void *)p->val);
+        }
+    }
+
+    printf("   consistency check ..\n");
+    ht_consistency_check(h);
 
     // timenow() returns time in nanoseconds
     // sys_cpu_timestamp() returns clock cycles (perf counter)
@@ -192,10 +211,10 @@ rand_tests()
            clkx = _d(cyx) / _d(ndel);
 
 
-    printf("probe:   %5.2f ns/insert %5.2f M Ops/s %5.2f clks/insert\n"
-           "find:    %5.2f ns/find %5.2f M Ops/s %5.2f clks/find\n"
-           "find-x:  %5.2f ns/find-non-exist %5.2f M Ops/s %5.2f clks/find-non-exist\n"
-           "del:     %5.2f ns/del %5.2f %5.2f M Ops/s clks/del\n",
+    printf("probe:   %5.2f ns/op %5.2f M Ops/s %5.2f clks/op\n"
+           "find:    %5.2f ns/op %5.2f M Ops/s %5.2f clks/op\n"
+           "find-x:  %5.2f ns/op %5.2f M Ops/s %5.2f clks/op\n"
+           "del:     %5.2f ns/op %5.2f M Ops/s %5.2f clks/op\n---\n",
             ispd, irate, clki,
             fspd, frate, clkf,
             xspd, xrate, clkx,

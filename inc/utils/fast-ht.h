@@ -61,24 +61,26 @@ extern "C" {
 
 /*
  * Hash Bucket: holds keys and values as separate arrays.
- *
- * with BAGZ==3, it occupies exactly _one_ cacheline.
- * with BAGSZ==7, it occupies two cachlines.
+ * The keys and values are carefully placed to occupy cachelines.
  */
 struct bag
 {
-    uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
-
-    // start of second  cache line
-    void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
-
-    SL_ENTRY(bag) link;
-
     // 8-bit hash fingerprint of each slot.
     uint64_t fp;
 
     // count of number of valid items in this bag
-    uint64_t __pad0[2];
+    uint64_t count;
+
+    SL_ENTRY(bag) link;
+
+    uint64_t __pad0;
+
+    // Next two arrays take up two entire cachelines.
+
+    uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
+
+    // start of second  cache line
+    void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 };
 typedef struct bag bag;
 
@@ -89,7 +91,7 @@ SL_HEAD_TYPEDEF(bag_head, bag);
  */
 struct hb
 {
-    bag_head  head __CACHELINE_ALIGNED;
+    bag_head  head;     // start of bags
     uint32_t  nodes;    // number of nodes in this list
     uint32_t  bags;     // number of bags
 };
@@ -104,14 +106,14 @@ struct ht
     hb      *b;         // array of buckets
     uint64_t n;         // number of buckets
     uint64_t salt;      // random seed
-
-    uint64_t nodes;     // number of nodes in the hash table
     uint64_t fill;      // number of buckets occupied.
-    uint64_t maxfill;   // maximum allowed load factor % before splitting table
 
+    uint64_t maxfill;   // maximum allowed load factor % before splitting table
+    uint64_t nodes;     // number of nodes in the hash table
     uint32_t splits;    // number of times HT is doubled
     uint32_t bagmax;    // max number of bags in a bucket
     uint32_t maxn;      // max number of items in a bucket
+    uint32_t pad0;      // alignment
 };
 typedef struct ht ht;
 
@@ -184,6 +186,12 @@ int ht_remove(ht*, uint64_t hv, void** p_ret);
  * The 'start' string is printed at the beginning of the dump.
  */
 void ht_dump(ht*, const char *start, void (*dump)(const char*, size_t));
+
+
+/*
+ * Consistency check of the hash table.
+ */
+void ht_consistency_check(ht *);
 
 #ifdef __cplusplus
 }

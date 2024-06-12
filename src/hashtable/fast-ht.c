@@ -93,10 +93,14 @@ _hash_fp(uint64_t h)
 {
     uint64_t z = 0;
 
-    if ((z = 0xff & (h >> 58))) return z;
+    if ((z = 0xff & (h >> 56))) return z;
     if ((z = 0xff & (h >> 48))) return z;
     if ((z = 0xff & (h >> 40))) return z;
     if ((z = 0xff & (h >> 32))) return z;
+    if ((z = 0xff & (h >> 24))) return z;
+    if ((z = 0xff & (h >> 16))) return z;
+    if ((z = 0xff & (h >>  8))) return z;
+    if ((z = 0xff & (h >>  0))) return z;
 
     // If we can't find a non-zero byte, pretend it's this.
     return 0xff;
@@ -150,8 +154,10 @@ __insert(hb *b, uint64_t k, void *v)
     uint64_t h_fp = fp * 0x0101010101010101;
 
     SL_FOREACH(g, &b->head, link) {
-        if (unlikely(g->fp) == 0) {
+        assert(g->count <= FASTHT_BAGSZ);
+        if (unlikely(g->count) == 0) {
             bg = g;
+            slot = 0;
             goto _end;
         }
 
@@ -188,6 +194,7 @@ __insert(hb *b, uint64_t k, void *v)
         if (!bg && ((n = __find_first_zero(g->fp)) < FASTHT_BAGSZ)) {
             bg   = g;
             slot = n;
+            goto _end;
         }
     }
 
@@ -202,6 +209,7 @@ _end:
     bg->hk[slot] = k;
     bg->hv[slot] = v;
     bg->fp       = __update_fp(bg->fp, fp, slot);
+    bg->count++;
     b->nodes++;
 
     return 0;
@@ -218,6 +226,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
     uint64_t fp = _hash_fp(k);
     bag *g      = SL_FIRST(&b->head);
     if (g) {
+        assert(g->count <= FASTHT_BAGSZ);
         uint64_t n = __find_first_zero(g->fp);
         if (n < FASTHT_BAGSZ) {
             volatile uint64_t j = array_index_nospec(n, FASTHT_BAGSZ);
@@ -226,6 +235,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
             g->hk[j] = k;
             g->hv[j] = v;
             g->fp    = __update_fp(g->fp, fp, j);
+            g->count++;
             b->nodes++;
             return;
         }
@@ -236,6 +246,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
     g->hk[0] = k;
     g->hv[0] = v;
     g->fp    = __update_fp(g->fp, fp, 0);
+    g->count++;
     b->bags++;
     b->nodes++;
     SL_INSERT_HEAD(&b->head, g, link);
@@ -262,13 +273,13 @@ __findx(tuple *t, hb *b, uint64_t hk)
     uint64_t h_fp = fp * 0x0101010101010101;
 
     SL_FOREACH(g, &b->head, link) {
+        assert(g->count <= FASTHT_BAGSZ);
         // if this bag is empty - skip it.
-        if (unlikely(g->fp == 0)) continue;
+        //if (unlikely(g->count == 0)) continue;
 
         uint64_t *x = &g->hk[0];
-
-        // Maybe the key is in this bag?
         uint64_t n = __find_first_zero(g->fp ^ h_fp);
+
         if (unlikely(n >= FASTHT_BAGSZ)) continue;
 
         // Here:
@@ -521,6 +532,7 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
     if (__findx(&x, b, k)) {
         bag *g   = x.g;
         int slot = x.i;
+        assert(g->count <= FASTHT_BAGSZ);
 
         // Erase this FP - by using 0x0 as the "new" FP
         g->fp = __update_fp(g->fp, 0x00, slot);
@@ -529,7 +541,7 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
 
         g->hk[slot] = 0;
         g->hv[slot] = 0;
-
+        g->count--;
         b->nodes--;
         h->nodes--;
         return 1;
@@ -539,6 +551,41 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
 }
 
 
+/*
+ * Consistency check of the hash table.
+ */
+void
+ht_consistency_check(ht *h)
+{
+    for (uint64_t i = 0; i < h->n; i++) {
+        hb *b  = &h->b[i];
+        bag *g = 0;
+        SL_FOREACH(g, &b->head, link) {
+            assert(g->count <= FASTHT_BAGSZ);
+            if (g->count == 0) {
+                for (int j = 0; j < FASTHT_BAGSZ; j++) {
+                    if (g->hk[j]) {
+                        printf("bucket %" PRIu64 ": bag %p slot %d not empty! [%#" PRIx64 "]\n",
+                                i, g, j, g->hk[j]);
+                        assert(!g->hk[j]);
+                    }
+                }
+            } else {
+                uint64_t saw = 0;
+                for (int j = 0; j < FASTHT_BAGSZ; j++) {
+                    if (g->hk[j]) saw++;
+                }
+
+                assert(saw == g->count);
+            }
+        }
+    }
+}
+
+
+/*
+ * Dump hash table via caller provided output function.
+ */
 void
 ht_dump(ht *h, const char *start, void (*dump)(const char *str, size_t n))
 {
