@@ -110,8 +110,8 @@ print_ht(ht* h)
     if (Machine_output) return;
 
     printf("stats: %d items/bag; %" PRIu64 "%% max fill\n"
-           "  %" PRIu64 " buckets; %" PRIu64 " nodes, fill %4.2f%% density %4.2f (exp %4.2f)\n"
-           "  max-bags %u, max-nodes-per-bucket %u, splits %u\n",
+           "  %" PRIu64 " buckets; %" PRIu64 " items, fill %4.2f%% density %4.2f (exp %4.2f)\n"
+           "  max-bags %u, max-items-per-bucket %u, splits %u\n",
            FASTHT_BAGSZ, h->maxfill,
            h->n, h->nodes, fill(h), density(h), exp_density(h),
            h->bagmax, h->maxn, h->splits);
@@ -173,7 +173,7 @@ perf_test(strvect* v, size_t Niters)
 
     VECT_SHUFFLE(v, arc4random);
     for (i = 0; i < Niters; ++i) {
-        ht_init(h, n, 85);
+        ht_init(h, n*2, 85);
         t0    = timenow();
         cyi  += insert_words(v, h);
         ti   += timenow() - t0;

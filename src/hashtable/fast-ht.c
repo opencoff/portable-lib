@@ -104,25 +104,29 @@ __alloc(size_t n)
                 _x;                                 \
                 })
 
+
+static inline int
+__find_empty_slot(uint64_t *x)
+{
+
 #define __FIND2(x,y) do {   \
             if (*x == 0) {  \
                 return y;   \
             }               \
             x++;            \
+            y++;            \
         } while (0)
 
-static inline int
-__find_empty_slot(uint64_t *x)
-{
+    int i = 0;
     switch (FASTHT_BAGSZ) {
-        case 8: __FIND2(x, 0);  // fallthrough
-        case 7: __FIND2(x, 1);  // fallthrough
-        case 6: __FIND2(x, 2);  // fallthrough
-        case 5: __FIND2(x, 3);  // fallthrough
-        case 4: __FIND2(x, 4);  // fallthrough
-        case 3: __FIND2(x, 5);  // fallthrough
-        case 2: __FIND2(x, 6);  // fallthrough
-        case 1: __FIND2(x, 7);  // fallthrough
+        case 8: __FIND2(x, i);  // fallthrough
+        case 7: __FIND2(x, i);  // fallthrough
+        case 6: __FIND2(x, i);  // fallthrough
+        case 5: __FIND2(x, i);  // fallthrough
+        case 4: __FIND2(x, i);  // fallthrough
+        case 3: __FIND2(x, i);  // fallthrough
+        case 2: __FIND2(x, i);  // fallthrough
+        case 1: __FIND2(x, i);  // fallthrough
         default:
                 break;
     }
@@ -140,22 +144,24 @@ __insert(hb *b, uint64_t k, void *v)
 
 #define FIND(x,y) do {                          \
                     if (likely(*x == k)) {      \
-                        return g->hv[y];        \
+                        return *y;              \
                     }                           \
                     x++;                        \
+                    y++;                        \
                 } while (0)
 
     SL_FOREACH(g, &b->head, link) {
         uint64_t *x = &g->hk[0];
+        void    **y = &g->hv[0];
         switch (FASTHT_BAGSZ) {
-            case 8: FIND(x, 0);        // fallthrough
-            case 7: FIND(x, 1);        // fallthrough
-            case 6: FIND(x, 2);        // fallthrough
-            case 5: FIND(x, 3);        // fallthrough
-            case 4: FIND(x, 4);        // fallthrough
-            case 3: FIND(x, 5);        // fallthrough
-            case 2: FIND(x, 6);        // fallthrough
-            case 1: FIND(x, 7);        // fallthrough
+            case 8: FIND(x, y);        // fallthrough
+            case 7: FIND(x, y);        // fallthrough
+            case 6: FIND(x, y);        // fallthrough
+            case 5: FIND(x, y);        // fallthrough
+            case 4: FIND(x, y);        // fallthrough
+            case 3: FIND(x, y);        // fallthrough
+            case 2: FIND(x, y);        // fallthrough
+            case 1: FIND(x, y);        // fallthrough
             default:
                     break;
         }
@@ -221,23 +227,25 @@ __findx(tuple *t, hb *b, uint64_t hk)
 #define SRCH(x,y) do {                      \
                     if (likely(*x == hk)) { \
                         t->g = g;           \
-                        t->i = y;           \
+                        t->i = i;           \
                         return 1;           \
                     }                       \
                     x++;                    \
+                    i++;                    \
                 } while(0)
 
     SL_FOREACH(g, &b->head, link) {
         uint64_t *x = &g->hk[0];
+        uint64_t  i = 0;
         switch (FASTHT_BAGSZ) {
-            case 8: SRCH(x, 0);    // fallthrough
-            case 7: SRCH(x, 1);    // fallthrough
-            case 6: SRCH(x, 2);    // fallthrough
-            case 5: SRCH(x, 3);    // fallthrough
-            case 4: SRCH(x, 4);    // fallthrough
-            case 3: SRCH(x, 5);    // fallthrough
-            case 2: SRCH(x, 6);    // fallthrough
-            case 1: SRCH(x, 7);    // fallthrough
+            case 8: SRCH(x, i);    // fallthrough
+            case 7: SRCH(x, i);    // fallthrough
+            case 6: SRCH(x, i);    // fallthrough
+            case 5: SRCH(x, i);    // fallthrough
+            case 4: SRCH(x, i);    // fallthrough
+            case 3: SRCH(x, i);    // fallthrough
+            case 2: SRCH(x, i);    // fallthrough
+            case 1: SRCH(x, i);    // fallthrough
             default:
                     break;
         }
@@ -507,11 +515,13 @@ ht_dump(ht *h, const char *start, void (*dump)(const char *str, size_t n))
         bag *g   = 0,
             *tmp = 0;
 
+        int bn = 0;
         SL_FOREACH_SAFE(g, &b->head, link, tmp) {
-            pr("  bag %p:\n", g);
+            pr("  bag.%d %p:\n", bn, g);
             for (int j = 0; j < FASTHT_BAGSZ; j++) {
                 pr("     [%#16.16" PRIx64 ", %p]\n", g->hk[j], g->hv[j]);
             }
+            bn++;
         }
     }
 }

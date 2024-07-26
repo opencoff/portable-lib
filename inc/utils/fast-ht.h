@@ -56,7 +56,7 @@ extern "C" {
 #endif /* __CACHELINE_ALIGNED */
 
 
-#define FASTHT_BAGSZ       ((int)(CACHELINE_SIZE/sizeof(uint64_t)))
+#define FASTHT_BAGSZ        4
 #define FILLPCT            85
 
 /*
@@ -69,14 +69,12 @@ struct bag
 
     uint64_t __pad0[3];
 
-    // Next two arrays take up two entire cachelines.
-
     uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 
     // start of second  cache line
     void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 };
-typedef struct bag bag;
+typedef struct bag __CACHELINE_ALIGNED bag;
 
 SL_HEAD_TYPEDEF(bag_head, bag);
 

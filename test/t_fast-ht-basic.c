@@ -232,7 +232,7 @@ rand_tests(uint64_t seed)
 
 
 const kv Kvpairs[] = {
-      {0x3154943e5c03bd69, 64}
+          {0x3154943e5c03bd69, 64}
 	, {0xa896836ae76aa1e2, 63}
 	, {0xaaebb342645e58fd, 62}
 	, {0xb1113fd30ce5eb95, 61}
@@ -330,7 +330,7 @@ basic_tests()
         assert(!r);
     }
 
-   // ht_dump(h, "after insert", dump);
+    //ht_dump(h, "after insert", dump);
 
     // now search
     for (p = &Kvpairs[0]; p < e; p++) {
