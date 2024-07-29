@@ -66,12 +66,10 @@ extern "C" {
 struct bag
 {
     SL_ENTRY(bag) link;
-
-    uint64_t __pad0[3];
+    uint64_t  fp;
+    uint64_t  __pad0[2];
 
     uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
-
-    // start of second  cache line
     void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
 };
 typedef struct bag __CACHELINE_ALIGNED bag;

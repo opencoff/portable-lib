@@ -166,10 +166,11 @@ __insert(hb *b, uint64_t k, void *v)
                     break;
         }
 
-        x = &g->hk[0];
-        if ((slot = __find_empty_slot(x)) >= 0) {
-            bg = g;
-            goto _end;
+        if (!bg) {
+            x = &g->hk[0];
+            if ((slot = __find_empty_slot(x)) >= 0) {
+                bg = g;
+            }
         }
     }
 
