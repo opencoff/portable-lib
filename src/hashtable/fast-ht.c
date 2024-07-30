@@ -72,7 +72,7 @@ _hashmix(uint64_t h)
 /*
  * One round of Zi Long Tan's superfast hash
  */
-static uint64_t
+static inline uint64_t
 __hash(uint64_t hv, uint64_t n, uint64_t salt)
 {
     const uint64_t m = 0x880355f21e6d1965ULL;
@@ -83,7 +83,7 @@ __hash(uint64_t hv, uint64_t n, uint64_t salt)
 }
 
 
-static void *
+static inline void *
 __alloc(size_t n)
 {
     void *ptr = 0;
@@ -109,24 +109,23 @@ static inline int
 __find_empty_slot(uint64_t *x)
 {
 
-#define __FIND2(x,y) do {   \
-            if (*x == 0) {  \
-                return y;   \
-            }               \
-            x++;            \
-            y++;            \
+#define __FIND2(i) do {                 \
+            if (likely(x[i] == 0)) {    \
+                return i;               \
+            }                           \
+            i++;                        \
         } while (0)
 
     int i = 0;
     switch (FASTHT_BAGSZ) {
-        case 8: __FIND2(x, i);  // fallthrough
-        case 7: __FIND2(x, i);  // fallthrough
-        case 6: __FIND2(x, i);  // fallthrough
-        case 5: __FIND2(x, i);  // fallthrough
-        case 4: __FIND2(x, i);  // fallthrough
-        case 3: __FIND2(x, i);  // fallthrough
-        case 2: __FIND2(x, i);  // fallthrough
-        case 1: __FIND2(x, i);  // fallthrough
+        case 8: __FIND2(i);  // fallthrough
+        case 7: __FIND2(i);  // fallthrough
+        case 6: __FIND2(i);  // fallthrough
+        case 5: __FIND2(i);  // fallthrough
+        case 4: __FIND2(i);  // fallthrough
+        case 3: __FIND2(i);  // fallthrough
+        case 2: __FIND2(i);  // fallthrough
+        case 1: __FIND2(i);  // fallthrough
         default:
                 break;
     }
@@ -135,42 +134,42 @@ __find_empty_slot(uint64_t *x)
 
 // Insert (k, v) into bucket 'b' - but only if 'k' doesn't already
 // exist in the bucket.
-static void*
+static inline void*
 __insert(hb *b, uint64_t k, void *v)
 {
     bag *g   = 0;
     int slot = 0;
     bag *bg  = 0;
 
-#define FIND(x,y) do {                          \
-                    if (likely(*x == k)) {      \
-                        return *y;              \
-                    }                           \
-                    x++;                        \
-                    y++;                        \
+#define FIND(i) do {                                \
+                    if (likely(x[i] == k)) {        \
+                        return y[i];                \
+                    }                               \
+                    if (!bg) {                      \
+                        if (unlikely(x[i] == 0)) {  \
+                            bg   = g;               \
+                            slot = i;               \
+                        }                           \
+                    }                               \
+                    i++;                            \
                 } while (0)
 
     SL_FOREACH(g, &b->head, link) {
         uint64_t *x = &g->hk[0];
         void    **y = &g->hv[0];
+        int       i = 0;
+
         switch (FASTHT_BAGSZ) {
-            case 8: FIND(x, y);        // fallthrough
-            case 7: FIND(x, y);        // fallthrough
-            case 6: FIND(x, y);        // fallthrough
-            case 5: FIND(x, y);        // fallthrough
-            case 4: FIND(x, y);        // fallthrough
-            case 3: FIND(x, y);        // fallthrough
-            case 2: FIND(x, y);        // fallthrough
-            case 1: FIND(x, y);        // fallthrough
+            case 8: FIND(i);        // fallthrough
+            case 7: FIND(i);        // fallthrough
+            case 6: FIND(i);        // fallthrough
+            case 5: FIND(i);        // fallthrough
+            case 4: FIND(i);        // fallthrough
+            case 3: FIND(i);        // fallthrough
+            case 2: FIND(i);        // fallthrough
+            case 1: FIND(i);        // fallthrough
             default:
                     break;
-        }
-
-        if (!bg) {
-            x = &g->hk[0];
-            if ((slot = __find_empty_slot(x)) >= 0) {
-                bg = g;
-            }
         }
     }
 
@@ -181,7 +180,6 @@ __insert(hb *b, uint64_t k, void *v)
         SL_INSERT_HEAD(&b->head, bg, link);
     }
 
-_end:
     bg->hk[slot] = k;
     bg->hv[slot] = v;
     b->nodes++;
@@ -193,13 +191,13 @@ _end:
 // that we are being called when we are re-sized. So, the items
 // naturally don't exist in the new bucket. So, all we have to do is
 // find the first free slot in the _first_ bag.
-static void
+static inline void
 __insert_quick(hb *b, uint64_t k, void *v)
 {
-    bag *g      = SL_FIRST(&b->head);
+    bag *g  = SL_FIRST(&b->head);
+
     if (g) {
-        uint64_t *x = &g->hk[0];
-        int j       = __find_empty_slot(x);
+        int j = __find_empty_slot(&g->hk[0]);
         if (j >= 0) {
             assert(!g->hk[j]);
             g->hk[j] = k;
@@ -220,33 +218,32 @@ __insert_quick(hb *b, uint64_t k, void *v)
 
 // Find key 'hk' in 'b'; return the value in 't'.
 // Return 1 if key is found, 0 otherwise.
-static int
+static inline int
 __findx(tuple *t, hb *b, uint64_t hk)
 {
     bag *g = 0;
 
-#define SRCH(x,y) do {                      \
-                    if (likely(*x == hk)) { \
-                        t->g = g;           \
-                        t->i = i;           \
-                        return 1;           \
-                    }                       \
-                    x++;                    \
-                    i++;                    \
+#define SRCH(i) do {                            \
+                    if (likely(x[i] == hk)) {   \
+                        t->g = g;               \
+                        t->i = i;               \
+                        return 1;               \
+                    }                           \
+                    i++;                        \
                 } while(0)
 
     SL_FOREACH(g, &b->head, link) {
         uint64_t *x = &g->hk[0];
         uint64_t  i = 0;
         switch (FASTHT_BAGSZ) {
-            case 8: SRCH(x, i);    // fallthrough
-            case 7: SRCH(x, i);    // fallthrough
-            case 6: SRCH(x, i);    // fallthrough
-            case 5: SRCH(x, i);    // fallthrough
-            case 4: SRCH(x, i);    // fallthrough
-            case 3: SRCH(x, i);    // fallthrough
-            case 2: SRCH(x, i);    // fallthrough
-            case 1: SRCH(x, i);    // fallthrough
+            case 8: SRCH(i);    // fallthrough
+            case 7: SRCH(i);    // fallthrough
+            case 6: SRCH(i);    // fallthrough
+            case 5: SRCH(i);    // fallthrough
+            case 4: SRCH(i);    // fallthrough
+            case 3: SRCH(i);    // fallthrough
+            case 2: SRCH(i);    // fallthrough
+            case 1: SRCH(i);    // fallthrough
             default:
                     break;
         }
@@ -278,8 +275,7 @@ resize(ht* h)
         bag *g, *tmp;
 
         SL_FOREACH_SAFE(g, &o->head, link, tmp) {
-            int i = 0;
-            for (i = 0; i < FASTHT_BAGSZ; i++) {
+            for (int i = 0; i < FASTHT_BAGSZ; i++) {
                 uint64_t p = g->hk[i];
 
                 if (p) {
