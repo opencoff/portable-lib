@@ -56,7 +56,7 @@ extern "C" {
 #endif /* __CACHELINE_ALIGNED */
 
 
-#define FASTHT_BAGSZ        4
+#define FASTHT_BAGSZ        7
 #define FILLPCT            85
 
 /*
@@ -65,12 +65,13 @@ extern "C" {
  */
 struct bag
 {
-    SL_ENTRY(bag) link;
+    // first cache line
     uint64_t  fp;
-    uint64_t  __pad0[2];
+    uint64_t   hk[FASTHT_BAGSZ];
 
-    uint64_t   hk[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
-    void*      hv[FASTHT_BAGSZ] __CACHELINE_ALIGNED;
+    // next cache line
+    SL_ENTRY(bag) link;
+    void*      hv[FASTHT_BAGSZ];
 };
 typedef struct bag __CACHELINE_ALIGNED bag;
 

@@ -31,7 +31,9 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <sys/random.h>
+#include <immintrin.h>  // For SIMD intrinsics
 
+#include "fast/simd.h"
 #include "utils/utils.h"
 #include "utils/fast-ht.h"
 #include "utils/nospec.h"
@@ -105,29 +107,133 @@ __alloc(size_t n)
                 })
 
 
-static inline int
-__find_empty_slot(uint64_t *x)
+
+#define __h2(fp)       ((fp) & ((_U64(1) << 56)-1))
+#define __control(fp)  ((fp) >> 56)
+#define __fp(h2, ctrl) (_U64(h2) | (_U64(ctrl) << 56))
+
+// Update the fingerprint to show slot as now occupied.
+static uint64_t
+__update_fp(uint64_t fp, uint64_t k, int slot)
 {
+    uint8_t ctrl = __control(fp) & ~(1 << slot);
+    uint64_t h2  = ((k & 0xff) << (8 * slot)) | __h2(fp);
 
-#define __FIND2(i) do {                 \
-            if (likely(x[i] == 0)) {    \
-                return i;               \
-            }                           \
-            i++;                        \
-        } while (0)
+    return h2 | (_U64(ctrl) << 56);
+}
 
-    int i = 0;
-    switch (FASTHT_BAGSZ) {
-        case 8: __FIND2(i);  // fallthrough
-        case 7: __FIND2(i);  // fallthrough
-        case 6: __FIND2(i);  // fallthrough
-        case 5: __FIND2(i);  // fallthrough
-        case 4: __FIND2(i);  // fallthrough
-        case 3: __FIND2(i);  // fallthrough
-        case 2: __FIND2(i);  // fallthrough
-        case 1: __FIND2(i);  // fallthrough
-        default:
-                break;
+
+// clear the fingerprint in 'slot'
+static uint64_t
+__clear_fp(uint64_t fp, int slot)
+{
+    uint8_t ctrl = __control(fp) | (1 << slot);
+    uint64_t h2  = __h2(fp) & ~(_U64(0xff) << (8 * slot));
+    return h2 | (_U64(ctrl) << 56);
+}
+
+#ifdef __NO_SIMD__
+
+// software fallback to find matches using bit tricks
+static inline uint8_t
+__find_matches(uint64_t fp_h2, uint8_t h2)
+{
+    uint64_t splat = 0x0101010101010101ULL * byte;
+    uint64_t m = ~(fp_h2 ^ splat);
+
+    /* Parallel bit extract: isolate bit 7 of each byte */
+    m &= 0x8080808080808080ULL;
+
+    /* Now use multiplication to gather bits */
+    return (m * 0x0002040810204081ULL) >> 56;
+}
+
+#else
+
+// Fast version using SIMD on arm64 and amd64
+static inline uint8_t
+__find_matches(uint64_t fp_h2, uint8_t h2)
+{
+    simd_vec128_t h2v = _mm_set_epi64x(0, fp_h2);
+    simd_vec128_t qv  = _mm_set1_epi8(h2);
+    return 0x7f & _mm_movemask_epi8(_mm_cmpeq_epi8(h2v, qv));
+}
+
+#endif  // __NO_SIMD__
+
+static inline int
+__find_key(bag *g, uint64_t k, void **p_val)
+{
+    uint64_t fp = g->fp;
+    uint8_t h2  = k & 0xff;
+    uint64_t fp_h2   = __h2(fp);
+    uint8_t  control = __control(fp);
+
+    uint16_t m  = __find_matches(fp_h2, h2);
+    uint16_t p  = m  & (~control & 0x7f);
+
+    while (p) {
+        int j = __builtin_ctz(p);
+        p &= ~(1 << _U16(j));
+        if (likely(g->hk[j] == k)) {
+            *p_val = g->hv[j];
+            return j;
+        }
+    }
+
+    return -1;
+}
+
+// Given a bucket, find an empty slot
+static inline int
+__find_empty_slot(bag *g)
+{
+    uint64_t fp = g->fp;
+    uint8_t  control = __control(fp);
+    uint8_t  empty_mask = control & 0x7f;
+    if (empty_mask) {
+        int j = __builtin_ctz(empty_mask);
+        return j;
+    }
+    return -1;
+}
+
+
+struct probe_result
+{
+    void *val;
+    int  free_slot;
+};
+typedef struct probe_result probe_result;
+
+
+static inline int
+__find_key_or_add(bag *g, uint64_t k, probe_result *r)
+{
+    uint64_t fp = g->fp;
+    uint8_t h2  = k & 0xff;
+    uint64_t fp_h2   = __h2(fp);
+    uint8_t  control = __control(fp);
+
+    uint16_t m  = __find_matches(fp_h2, h2);
+    uint16_t p  = m  & (~control & 0x7f);
+
+    r->val = 0;
+    r->free_slot = -1;
+
+    while (p) {
+        int j = __builtin_ctz(p);
+        p &= ~(1 << _U16(j));
+        if (likely(g->hk[j] == k)) {
+            r->val = g->hv[j];
+            return j;
+        }
+    }
+
+    // see if there is an empty slot for us to use
+    m = control & 0x7f;
+    if (m) {
+        r->free_slot = __builtin_ctz(m);
     }
     return -1;
 }
@@ -141,35 +247,20 @@ __insert(hb *b, uint64_t k, void *v)
     int slot = 0;
     bag *bg  = 0;
 
-#define FIND(i) do {                                \
-                    if (likely(x[i] == k)) {        \
-                        return y[i];                \
-                    }                               \
-                    if (!bg) {                      \
-                        if (unlikely(x[i] == 0)) {  \
-                            bg   = g;               \
-                            slot = i;               \
-                        }                           \
-                    }                               \
-                    i++;                            \
-                } while (0)
-
+    probe_result r;
     SL_FOREACH(g, &b->head, link) {
-        uint64_t *x = &g->hk[0];
-        void    **y = &g->hv[0];
-        int       i = 0;
+        int j = __find_key_or_add(g, k, &r);
+        if (unlikely(j >= 0)) {
+            return r.val;
+        }
 
-        switch (FASTHT_BAGSZ) {
-            case 8: FIND(i);        // fallthrough
-            case 7: FIND(i);        // fallthrough
-            case 6: FIND(i);        // fallthrough
-            case 5: FIND(i);        // fallthrough
-            case 4: FIND(i);        // fallthrough
-            case 3: FIND(i);        // fallthrough
-            case 2: FIND(i);        // fallthrough
-            case 1: FIND(i);        // fallthrough
-            default:
-                    break;
+        // Fill the next cacheline - because we know we'll walk the
+        // list.
+        _mm_prefetch(&SL_NEXT(g, link), _MM_HINT_T0);
+
+        if (likely(r.free_slot >= 0)) {
+            bg = g;
+            slot = r.free_slot;
         }
     }
 
@@ -180,6 +271,8 @@ __insert(hb *b, uint64_t k, void *v)
         SL_INSERT_HEAD(&b->head, bg, link);
     }
 
+    // Now we have to update the fp and control bits
+    bg->fp = __update_fp(bg->fp, k, slot);
     bg->hk[slot] = k;
     bg->hv[slot] = v;
     b->nodes++;
@@ -197,9 +290,10 @@ __insert_quick(hb *b, uint64_t k, void *v)
     bag *g  = SL_FIRST(&b->head);
 
     if (g) {
-        int j = __find_empty_slot(&g->hk[0]);
+        int j = __find_empty_slot(g);
         if (j >= 0) {
             assert(!g->hk[j]);
+            g->fp = __update_fp(g->fp, k, j);
             g->hk[j] = k;
             g->hv[j] = v;
             b->nodes++;
@@ -209,6 +303,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
 
     // Make a new bag and put our element there.
     g = __NEWZ(bag);
+    g->fp = __update_fp(g->fp, k, 0);
     g->hk[0] = k;
     g->hv[0] = v;
     b->bags++;
@@ -223,41 +318,26 @@ __findx(tuple *t, hb *b, uint64_t hk)
 {
     bag *g = 0;
 
-#define SRCH(i) do {                            \
-                    if (likely(x[i] == hk)) {   \
-                        t->g = g;               \
-                        t->i = i;               \
-                        return 1;               \
-                    }                           \
-                    i++;                        \
-                } while(0)
-
     SL_FOREACH(g, &b->head, link) {
-        uint64_t *x = &g->hk[0];
-        uint64_t  i = 0;
-        switch (FASTHT_BAGSZ) {
-            case 8: SRCH(i);    // fallthrough
-            case 7: SRCH(i);    // fallthrough
-            case 6: SRCH(i);    // fallthrough
-            case 5: SRCH(i);    // fallthrough
-            case 4: SRCH(i);    // fallthrough
-            case 3: SRCH(i);    // fallthrough
-            case 2: SRCH(i);    // fallthrough
-            case 1: SRCH(i);    // fallthrough
-            default:
-                    break;
+        void *val = 0;
+        int j = __find_key(g, hk, &val);
+        if (likely(j >= 0)) {
+            t->g = g;
+            t->i = j;
+            return 1;
         }
+        _mm_prefetch(&SL_NEXT(g, link), _MM_HINT_T0);
+
     }
 
     return 0;
 }
 
 
-
 /*
  * Double the hash buckets and redistribute all the nodes.
  */
-static hb*
+static ht*
 resize(ht* h)
 {
     uint64_t salt = rand64();
@@ -301,7 +381,7 @@ resize(ht* h)
     h->bagmax = maxbags;
     h->maxn   = maxn;
     h->fill   = fill;
-    return h->b;
+    return h;
 }
 
 
@@ -403,8 +483,8 @@ ht_probe(ht* h, uint64_t k, void* v)
             OPTIMIZER_HIDE_VAR(h);
 
             h->splits++;
-            b = resize(h);
-            b = &b[__hash(k, h->n, h->salt)];
+            h = resize(h);
+            b = &h->b[__hash(k, h->n, h->salt)];
         }
     }
 
@@ -475,6 +555,7 @@ ht_remove(ht* h, uint64_t k, void** p_ret)
 
         if (p_ret) *p_ret = g->hv[slot];
 
+        g->fp = __clear_fp(g->fp, slot);
         g->hk[slot] = 0;
         g->hv[slot] = 0;
         b->nodes--;
