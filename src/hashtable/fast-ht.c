@@ -15,7 +15,7 @@
  *
  * Notes
  * =====
- * o Each hash bucket points to a "bag"; and a bag contains 8 nodes
+ * o Each hash bucket points to a "bag"; and a bag contains 7 nodes
  *   in an array. Bags are linked in a list.
  * o the value ZERO for a hash-value is a marker to denote deleted
  *   nodes in the array.
@@ -31,7 +31,6 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <sys/random.h>
-#include <immintrin.h>  // For SIMD intrinsics
 
 #include "fast/simd.h"
 #include "utils/utils.h"
@@ -47,6 +46,59 @@ struct tuple
 typedef struct tuple tuple;
 
 #define _d(z)       ((double)(z))
+
+// alloc and zero an instance of type 'ty'
+#define __NEWZ(ty) ({                           \
+                ty *_x = __alloc(sizeof(ty));   \
+                _x;                             \
+                })
+
+// make an 'n' element array of type 'ty'
+#define __NEWZA(ty, n) ({                           \
+                ty *_x = __alloc((n) * sizeof(ty)); \
+                _x;                                 \
+                })
+
+
+// extract the individual fingerprints
+#define __h2(fp)       ((fp) & ((_U64(1) << 56)-1))
+
+// extract the control bits
+#define __control(fp)  ((fp) >> 56)
+
+// Create a new fingerprint from constituent bits
+#define __fp(h2, ctrl) (_U64(h2) | (_U64(ctrl) << 56))
+
+
+// fast/simd.h exports this symbol if we are not on arm64 or amd64
+#ifdef __NO_SIMD__
+
+// software fallback to find matches using bit tricks
+static inline uint8_t
+__find_matches(uint64_t fp_h2, uint8_t h2)
+{
+    uint64_t splat = 0x0101010101010101ULL * h2;
+    uint64_t m = ~(fp_h2 ^ splat);
+
+    /* Parallel bit extract: isolate bit 7 of each byte */
+    m &= 0x8080808080808080ULL;
+
+    /* Now use multiplication to gather bits */
+    return (m * 0x0002040810204081ULL) >> 56;
+}
+
+#else
+
+// Fast version using SIMD on arm64 and amd64
+static inline uint8_t
+__find_matches(uint64_t fp_h2, uint8_t h2)
+{
+    simd_vec128_t h2v = SIMD_SET_EPI64X(0, fp_h2);
+    simd_vec128_t qv  = SIMD_SET1_EPI8(h2);
+    return 0x7f & SIMD_MOVEMASK_EPI8(SIMD_CMPEQ_EPI8(h2v, qv));
+}
+
+#endif  // __NO_SIMD__
 
 
 // get me a random 64-bit number
@@ -96,24 +148,9 @@ __alloc(size_t n)
     return memset(ptr, 0, n);
 }
 
-#define __NEWZ(ty) ({                           \
-                ty *_x = __alloc(sizeof(ty));   \
-                _x;                             \
-                })
-
-#define __NEWZA(ty, n) ({                           \
-                ty *_x = __alloc((n) * sizeof(ty)); \
-                _x;                                 \
-                })
-
-
-
-#define __h2(fp)       ((fp) & ((_U64(1) << 56)-1))
-#define __control(fp)  ((fp) >> 56)
-#define __fp(h2, ctrl) (_U64(h2) | (_U64(ctrl) << 56))
 
 // Update the fingerprint to show slot as now occupied.
-static uint64_t
+static inline uint64_t
 __update_fp(uint64_t fp, uint64_t k, int slot)
 {
     uint8_t ctrl = __control(fp) & ~(1 << slot);
@@ -124,7 +161,7 @@ __update_fp(uint64_t fp, uint64_t k, int slot)
 
 
 // clear the fingerprint in 'slot'
-static uint64_t
+static inline uint64_t
 __clear_fp(uint64_t fp, int slot)
 {
     uint8_t ctrl = __control(fp) | (1 << slot);
@@ -132,34 +169,6 @@ __clear_fp(uint64_t fp, int slot)
     return h2 | (_U64(ctrl) << 56);
 }
 
-#ifdef __NO_SIMD__
-
-// software fallback to find matches using bit tricks
-static inline uint8_t
-__find_matches(uint64_t fp_h2, uint8_t h2)
-{
-    uint64_t splat = 0x0101010101010101ULL * byte;
-    uint64_t m = ~(fp_h2 ^ splat);
-
-    /* Parallel bit extract: isolate bit 7 of each byte */
-    m &= 0x8080808080808080ULL;
-
-    /* Now use multiplication to gather bits */
-    return (m * 0x0002040810204081ULL) >> 56;
-}
-
-#else
-
-// Fast version using SIMD on arm64 and amd64
-static inline uint8_t
-__find_matches(uint64_t fp_h2, uint8_t h2)
-{
-    simd_vec128_t h2v = _mm_set_epi64x(0, fp_h2);
-    simd_vec128_t qv  = _mm_set1_epi8(h2);
-    return 0x7f & _mm_movemask_epi8(_mm_cmpeq_epi8(h2v, qv));
-}
-
-#endif  // __NO_SIMD__
 
 static inline int
 __find_key(bag *g, uint64_t k, void **p_val)
@@ -256,7 +265,7 @@ __insert(hb *b, uint64_t k, void *v)
 
         // Fill the next cacheline - because we know we'll walk the
         // list.
-        _mm_prefetch(&SL_NEXT(g, link), _MM_HINT_T0);
+        SIMD_PREFETCH_T0(&SL_NEXT(g, link));
 
         if (likely(r.free_slot >= 0)) {
             bg = g;
@@ -326,7 +335,7 @@ __findx(tuple *t, hb *b, uint64_t hk)
             t->i = j;
             return 1;
         }
-        _mm_prefetch(&SL_NEXT(g, link), _MM_HINT_T0);
+        SIMD_PREFETCH_T0(&SL_NEXT(g, link));
 
     }
 

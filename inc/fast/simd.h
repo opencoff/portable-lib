@@ -1,6 +1,6 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * fast/simd.h - Portable SIMD for amd64 and arm64
+ * fast/simd.h - Fast, Swiss-Table inspired hash table
  *
  * Copyright (c) 2025 Sudhi Herle <sw at herle.net>
  *

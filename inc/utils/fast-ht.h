@@ -1,6 +1,6 @@
 /* vim: expandtab:tw=68:ts=4:sw=4:
  *
- * utils/ht.h - Linear, Open Addressed hash table
+ * utils/fast-ht.h - Fast, Swiss-Table inspired hash table
  *
  * Copyright (c) 2015 Sudhi Herle <sw at herle.net>
  *
@@ -55,9 +55,24 @@ extern "C" {
 #error "Can't define __CACHELINE_ALIGNED for your compiler/machine"
 #endif /* __CACHELINE_ALIGNED */
 
+/*
+ * Design Notes:
+ *
+ *   * The hash table uses "bag" of nodes to store key/value pairs
+ *   * Each bag is exactly 2 cache lines wide and holds 7 elements
+ *     (BAGSZ elements)
+ *   * The first 64-bit word is used as a "fingerprint":
+ *        - least-significant byte of the hash key
+ *        - 1 bit occupied/free status (1=free, 0 = occupied)
+ *   * We organize the fingerprint such that bytes 7 holds the
+ *     status for each of the 7 slots. The other bytes hold the
+ *     actual 8-bit fingerprint for each slot.
+ *   * The first word of second cache line holds the "next" pointer.
+ */
 
 #define FASTHT_BAGSZ        7
 #define FILLPCT            85
+
 
 /*
  * Hash Bucket: holds keys and values as separate arrays.
