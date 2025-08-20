@@ -15,11 +15,20 @@
  *
  * Notes
  * =====
- * o Each hash bucket points to a "bag"; and a bag contains 7 nodes
- *   in an array. Bags are linked in a list.
- * o the value ZERO for a hash-value is a marker to denote deleted
- *   nodes in the array.
+ * o Each hash bucket points to a "bag" - a bag is exactly two
+ *   cache ines wide:
+ *
+ *      - First cacheline: 7 keys
+ *      - Second cacheline: 7 vals
+ *
+ * o The first word of first cacheline is a "fingerprint": the
+ *   low-byte of each of the 7 keys are stored in the fingerprint.
+ *
+ * o The last byte of the fingerprint is a "control" byte: Each bit
+ *   indicates if a slot is occupied (0) or free (1).
+ *
  * o Bags once allocated are never freed.
+ *
  * o Callers must use a "good" hash function; the hash table relies
  *   on a 64-bit hash value as input.
  */
@@ -40,8 +49,9 @@
 // Return value from an internal function
 struct tuple
 {
-    bag *g;
-    int  i;
+    bag *bag;
+    int  slot;
+    void *val;
 };
 typedef struct tuple tuple;
 
@@ -61,13 +71,15 @@ typedef struct tuple tuple;
 
 
 // extract the individual fingerprints
-#define __h2(fp)       ((fp) & ((_U64(1) << 56)-1))
+#define __fp(fp)       ((fp) & ((_U64(1) << 56)-1))
+
+#define __h2(fp)        ((fp) & 0xff)
 
 // extract the control bits
-#define __control(fp)  ((fp) >> 56)
+#define __control(fp)  _U8(0x7f & (fp) >> 56)
 
 // Create a new fingerprint from constituent bits
-#define __fp(h2, ctrl) (_U64(h2) | (_U64(ctrl) << 56))
+#define __mkfp(h2, ctrl) (_U64(h2) | (_U64(ctrl) << 56))
 
 
 // fast/simd.h exports this symbol if we are not on arm64 or amd64
@@ -78,13 +90,11 @@ static inline uint8_t
 __find_matches(uint64_t fp_h2, uint8_t h2)
 {
     uint64_t splat = 0x0101010101010101ULL * h2;
-    uint64_t m = ~(fp_h2 ^ splat);
-
-    /* Parallel bit extract: isolate bit 7 of each byte */
-    m &= 0x8080808080808080ULL;
+    uint64_t m = (fp_h2 ^ splat);
+    uint64_t x = ((m - 0x0101010101010101ULL) & ~m) & 0x8080808080808080ULL;
 
     /* Now use multiplication to gather bits */
-    return (m * 0x0002040810204081ULL) >> 56;
+    return 0x7f & ((x * 0x0002040810204081ULL) >> 56);
 }
 
 #else
@@ -150,6 +160,7 @@ __alloc(size_t n)
 
 
 // Update the fingerprint to show slot as now occupied.
+// NB: 0 is occupied, 1 is free.
 static inline uint64_t
 __update_fp(uint64_t fp, uint64_t k, int slot)
 {
@@ -161,6 +172,7 @@ __update_fp(uint64_t fp, uint64_t k, int slot)
 
 
 // clear the fingerprint in 'slot'
+// NB: 0 is occupied, 1 is free.
 static inline uint64_t
 __clear_fp(uint64_t fp, int slot)
 {
@@ -170,15 +182,20 @@ __clear_fp(uint64_t fp, int slot)
 }
 
 
+// Find the key 'k' in bag 'g' and return the matching index.
+// Return -1 on ENOENT
 static inline int
 __find_key(bag *g, uint64_t k, void **p_val)
 {
     uint64_t fp = g->fp;
-    uint8_t h2  = k & 0xff;
-    uint64_t fp_h2   = __h2(fp);
+    uint8_t h2  = __h2(k);
+    uint64_t fp_h2   = __fp(fp);
     uint8_t  control = __control(fp);
 
+    // first find matches
     uint16_t m  = __find_matches(fp_h2, h2);
+
+    // only keep the occ buckets
     uint16_t p  = m  & (~control & 0x7f);
 
     while (p) {
@@ -190,6 +207,7 @@ __find_key(bag *g, uint64_t k, void **p_val)
         }
     }
 
+    SIMD_PREFETCH_T0(&SL_NEXT(g, link));
     return -1;
 }
 
@@ -198,51 +216,46 @@ static inline int
 __find_empty_slot(bag *g)
 {
     uint64_t fp = g->fp;
-    uint8_t  control = __control(fp);
-    uint8_t  empty_mask = control & 0x7f;
-    if (empty_mask) {
-        int j = __builtin_ctz(empty_mask);
-        return j;
+    uint8_t  p  = __control(fp);
+    if (p) {
+        return __builtin_ctz(p);
     }
     return -1;
 }
 
 
-struct probe_result
-{
-    void *val;
-    int  free_slot;
-};
-typedef struct probe_result probe_result;
-
-
+// Given this bag 'g' - find the key 'k' or an empty slot.
 static inline int
-__find_key_or_add(bag *g, uint64_t k, probe_result *r)
+__find_key_or_add(bag *g, uint64_t k, tuple *r)
 {
     uint64_t fp = g->fp;
-    uint8_t h2  = k & 0xff;
-    uint64_t fp_h2   = __h2(fp);
+    uint8_t h2  = __h2(k);
+    uint64_t fp_h2   = __fp(fp);
     uint8_t  control = __control(fp);
 
     uint16_t m  = __find_matches(fp_h2, h2);
     uint16_t p  = m  & (~control & 0x7f);
 
-    r->val = 0;
-    r->free_slot = -1;
+    r->val  = 0;
+    r->slot = -1;
 
     while (p) {
         int j = __builtin_ctz(p);
         p &= ~(1 << _U16(j));
         if (likely(g->hk[j] == k)) {
-            r->val = g->hv[j];
+            r->val  = g->hv[j];
+            r->slot = j;
             return j;
         }
     }
 
+    // At this point, we know we didn't find the key; so we have to
+    // walk the list. Hence prefetch the next ptr.
+    SIMD_PREFETCH_T0(&SL_NEXT(g, link));
+
     // see if there is an empty slot for us to use
-    m = control & 0x7f;
-    if (m) {
-        r->free_slot = __builtin_ctz(m);
+    if (control) {
+        r->slot = __builtin_ctz(control);
     }
     return -1;
 }
@@ -256,20 +269,16 @@ __insert(hb *b, uint64_t k, void *v)
     int slot = 0;
     bag *bg  = 0;
 
-    probe_result r;
+    tuple r;
     SL_FOREACH(g, &b->head, link) {
         int j = __find_key_or_add(g, k, &r);
         if (unlikely(j >= 0)) {
             return r.val;
         }
 
-        // Fill the next cacheline - because we know we'll walk the
-        // list.
-        SIMD_PREFETCH_T0(&SL_NEXT(g, link));
-
-        if (likely(r.free_slot >= 0)) {
+        if (!bg && r.slot >= 0) {
             bg = g;
-            slot = r.free_slot;
+            slot = r.slot;
         }
     }
 
@@ -331,12 +340,11 @@ __findx(tuple *t, hb *b, uint64_t hk)
         void *val = 0;
         int j = __find_key(g, hk, &val);
         if (likely(j >= 0)) {
-            t->g = g;
-            t->i = j;
+            t->bag  = g;
+            t->slot = j;
+            t->val  = val;
             return 1;
         }
-        SIMD_PREFETCH_T0(&SL_NEXT(g, link));
-
     }
 
     return 0;
@@ -364,9 +372,15 @@ resize(ht* h)
         bag *g, *tmp;
 
         SL_FOREACH_SAFE(g, &o->head, link, tmp) {
-            for (int i = 0; i < FASTHT_BAGSZ; i++) {
-                uint64_t p = g->hk[i];
+            uint8_t ctrl = __control(g->fp);
 
+            SIMD_PREFETCH_T0(&SL_NEXT(g, link));
+
+            for (int i = 0; i < FASTHT_BAGSZ; i++) {
+                // skip empty slots
+                if (ctrl & (1 << i)) continue;
+
+                uint64_t p = g->hk[i];
                 if (p) {
                     uint64_t j = __hash(p, n, salt);
                     hb *x      = b+j;
@@ -512,13 +526,11 @@ ht_probe(ht* h, uint64_t k, void* v)
 int
 ht_find(ht* h, uint64_t k, void** p_ret)
 {
-    tuple x;
+    tuple r;
     hb *b = &h->b[__hash(k, h->n, h->salt)];
 
-    if (__findx(&x, b, k)) {
-        bag *g = x.g;
-
-        if (p_ret) *p_ret = g->hv[x.i];
+    if (__findx(&r, b, k)) {
+        if (p_ret) *p_ret = r.val;
         return 1;
     }
 
@@ -534,13 +546,13 @@ ht_find(ht* h, uint64_t k, void** p_ret)
 int
 ht_replace(ht* h, uint64_t k, void* val)
 {
-    tuple x;
+    tuple r;
     hb *b = &h->b[__hash(k, h->n, h->salt)];
 
-    if (__findx(&x, b, k)) {
-        bag *g = x.g;
+    if (__findx(&r, b, k)) {
+        bag *g = r.bag;
 
-        g->hv[x.i] = val;
+        g->hv[r.slot] = val;
         return 1;
     }
 
@@ -555,14 +567,14 @@ ht_replace(ht* h, uint64_t k, void* val)
 int
 ht_remove(ht* h, uint64_t k, void** p_ret)
 {
-    tuple x;
+    tuple r;
     hb *b = &h->b[__hash(k, h->n, h->salt)];
 
-    if (__findx(&x, b, k)) {
-        bag *g   = x.g;
-        int slot = x.i;
+    if (__findx(&r, b, k)) {
+        bag *g   = r.bag;
+        int slot = r.slot;
 
-        if (p_ret) *p_ret = g->hv[slot];
+        if (p_ret) *p_ret = r.val;
 
         g->fp = __clear_fp(g->fp, slot);
         g->hk[slot] = 0;
