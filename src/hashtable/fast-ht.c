@@ -162,7 +162,7 @@ __alloc(size_t n)
 // Update the fingerprint to show slot as now occupied.
 // NB: 0 is occupied, 1 is free.
 static inline uint64_t
-__update_fp(uint64_t fp, uint64_t k, int slot)
+__mark_fp(uint64_t fp, uint64_t k, int slot)
 {
     uint8_t ctrl = __control(fp) & ~(1 << slot);
     uint64_t h2  = ((k & 0xff) << (8 * slot)) | __h2(fp);
@@ -217,10 +217,8 @@ __find_empty_slot(bag *g)
 {
     uint64_t fp = g->fp;
     uint8_t  p  = __control(fp);
-    if (p) {
-        return __builtin_ctz(p);
-    }
-    return -1;
+
+    return p ? __builtin_ctz(p) : -1;
 }
 
 
@@ -276,10 +274,11 @@ __insert(hb *b, uint64_t k, void *v)
             return r.val;
         }
 
-        if (!bg && r.slot >= 0) {
-            bg = g;
-            slot = r.slot;
-        }
+        if (bg)         continue;
+        if (r.slot < 0) continue;
+
+        bg = g;
+        slot = r.slot;
     }
 
     if (!bg) {
@@ -290,7 +289,7 @@ __insert(hb *b, uint64_t k, void *v)
     }
 
     // Now we have to update the fp and control bits
-    bg->fp = __update_fp(bg->fp, k, slot);
+    bg->fp = __mark_fp(bg->fp, k, slot);
     bg->hk[slot] = k;
     bg->hv[slot] = v;
     b->nodes++;
@@ -311,7 +310,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
         int j = __find_empty_slot(g);
         if (j >= 0) {
             assert(!g->hk[j]);
-            g->fp = __update_fp(g->fp, k, j);
+            g->fp = __mark_fp(g->fp, k, j);
             g->hk[j] = k;
             g->hv[j] = v;
             b->nodes++;
@@ -321,7 +320,7 @@ __insert_quick(hb *b, uint64_t k, void *v)
 
     // Make a new bag and put our element there.
     g = __NEWZ(bag);
-    g->fp = __update_fp(g->fp, k, 0);
+    g->fp = __mark_fp(g->fp, k, 0);
     g->hk[0] = k;
     g->hv[0] = v;
     b->bags++;

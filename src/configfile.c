@@ -105,7 +105,7 @@ newnode(node* parent, gstr* g, int col)
     n->master = ':' == gstr_chop_if(g, ":");
 
     if (n->master) {
-        gstr_init2(&n->name, g);
+        gstr_dup(&n->name, g);
         VECT_INIT(&n->values, 4);
         DL_INIT(&n->subtree);
 

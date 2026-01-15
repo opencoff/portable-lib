@@ -107,7 +107,7 @@ baseobjs = mempool.o dirname.o fts.o splitargs.o \
 			mkdirhier.o parse-ip.o strcopy.o \
 			gstring.o gstring_var.o freadline.o rotatefile.o \
 			strsplit.o strsplit_csv.o strtrim.o \
-			pack.o progbar.o \
+			pack.o progbar.o configfile.o \
 			$(hashfunc_objs) $(hashtab_objs) \
 			$($(os)_objs)
 

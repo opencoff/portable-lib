@@ -20,7 +20,7 @@ autotests = strmatch t_arena t_str2hex t_esc \
 		t_strsplit t_gvarexp t_dirname t_uuid \
 		t_list t_b64_c t_vect \
 		t_xorrand  t_strtosize t_hexdump \
-		t_bitvect t_fts \
+		t_bitvect t_fts t_config \
 		t_bits t_siphash24 t_progress \
 		t_frand t_ulid t_hashspeed \
 		t_xorfilter t_fixedsize t_mempool \
@@ -66,7 +66,6 @@ $(foreach p,$(target),$(eval $(call obj_def,$(p))))
 
 mt-dd-wipe_opt_objs = dd-wipe-opt.o
 mt-dd-wipe_objs := mt-dd-wipe.o disksize.o
-
 
 
 # Include
